@@ -36,7 +36,7 @@ dependencies {
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
-        create(providers.gradleProperty("platformType"), providers.gradleProperty("platformVersion"))
+        create(providers.gradleProperty("platformType").get(), providers.gradleProperty("platformVersion").get())
 
         // Plugin Dependencies. Uses `platformBundledPlugins` property from the gradle.properties file for bundled IntelliJ Platform plugins.
         bundledPlugins(providers.gradleProperty("platformBundledPlugins").map { it.split(',') })
@@ -104,7 +104,7 @@ intellijPlatform {
 
     pluginVerification {
         ides {
-            recommended()
+            ide("IC", "2025.1.1")
         }
     }
 }

@@ -1,6 +1,6 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
-# Amateur-Postman- Changelog
+# Amateur-Postman Changelog
 
 ## [Unreleased]
 ### Added

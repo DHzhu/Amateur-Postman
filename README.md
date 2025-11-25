@@ -1,6 +1,6 @@
-# Amateur-Postman-
+# Amateur-Postman
 
-![Build](https://github.com/DHzhu/Amateur-Postman-/workflows/Build/badge.svg)
+![Build](https://github.com/DHzhu/Amateur-Postman/workflows/Build/badge.svg)
 [![Version](https://img.shields.io/jetbrains/plugin/v/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
 
@@ -18,18 +18,14 @@
 - [ ] Configure the [CODECOV_TOKEN](https://docs.codecov.com/docs/quick-start) secret for automated test coverage reports on PRs
 
 <!-- Plugin description -->
-This Fancy IntelliJ Platform Plugin is going to be your implementation of the brilliant ideas that you have.
-
-This specific section is a source for the [plugin.xml](/src/main/resources/META-INF/plugin.xml) file which will be extracted by the [Gradle](/build.gradle.kts) during the build process.
-
-To keep everything working, do not remove `<!-- ... -->` sections. 
+Amateur-Postman is a lightweight IntelliJ IDEA plugin designed for quick and simple HTTP requests. Ideal for developers who need a fast, non-professional tool to test APIs, it offers an intuitive interface, supports headers and body customization, and displays formatted responses instantly.
 <!-- Plugin description end -->
 
 ## Installation
 
 - Using the IDE built-in plugin system:
   
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > <kbd>Search for "Amateur-Postman-"</kbd> >
+  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > <kbd>Search for "Amateur-Postman"</kbd> >
   <kbd>Install</kbd>
   
 - Using JetBrains Marketplace:
@@ -41,7 +37,7 @@ To keep everything working, do not remove `<!-- ... -->` sections.
 
 - Manually:
 
-  Download the [latest release](https://github.com/DHzhu/Amateur-Postman-/releases/latest) and install it manually using
+  Download the [latest release](https://github.com/DHzhu/Amateur-Postman/releases/latest) and install it manually using
   <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from disk...</kbd>
 
 
