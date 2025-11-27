@@ -1,39 +1,28 @@
 package com.github.dhzhu.amateurpostman
 
-import com.intellij.ide.highlighter.XmlFileType
+import com.github.dhzhu.amateurpostman.models.HttpMethod
+import com.github.dhzhu.amateurpostman.models.HttpRequest
+import com.github.dhzhu.amateurpostman.services.HttpRequestService
 import com.intellij.openapi.components.service
-import com.intellij.psi.xml.XmlFile
-import com.intellij.testFramework.TestDataPath
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import com.intellij.util.PsiErrorElementUtil
-import com.github.dhzhu.amateurpostman.services.MyProjectService
 
-@TestDataPath("\$CONTENT_ROOT/src/test/testData")
+/** Tests for Amateur-Postman plugin */
 class MyPluginTest : BasePlatformTestCase() {
 
-    fun testXMLFile() {
-        val psiFile = myFixture.configureByText(XmlFileType.INSTANCE, "<foo>bar</foo>")
-        val xmlFile = assertInstanceOf(psiFile, XmlFile::class.java)
-
-        assertFalse(PsiErrorElementUtil.hasErrors(project, xmlFile.virtualFile))
-
-        assertNotNull(xmlFile.rootTag)
-
-        xmlFile.rootTag?.let {
-            assertEquals("foo", it.name)
-            assertEquals("bar", it.value.text)
-        }
+    fun testHttpRequestService() {
+        val httpService = project.service<HttpRequestService>()
+        assertNotNull(httpService)
     }
 
-    fun testRename() {
-        myFixture.testRename("foo.xml", "foo_after.xml", "a2")
+    fun testHttpRequestCreation() {
+        val request =
+                HttpRequest(
+                        url = "https://jsonplaceholder.typicode.com/posts/1",
+                        method = HttpMethod.GET,
+                        headers = emptyMap()
+                )
+
+        assertEquals("https://jsonplaceholder.typicode.com/posts/1", request.url)
+        assertEquals(HttpMethod.GET, request.method)
     }
-
-    fun testProjectService() {
-        val projectService = project.service<MyProjectService>()
-
-        assertNotSame(projectService.getRandomNumber(), projectService.getRandomNumber())
-    }
-
-    override fun getTestDataPath() = "src/test/testData/rename"
 }
