@@ -34,6 +34,16 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.opentest4j)
 
+    // HTTP Client - OkHttp for making HTTP requests
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    
+    // Kotlin Coroutines for async request handling
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.7.3")
+    
+    // JSON Processing
+    implementation("com.google.code.gson:gson:2.10.1")
+
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
         create(providers.gradleProperty("platformType").get(), providers.gradleProperty("platformVersion").get())

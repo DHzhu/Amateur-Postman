@@ -9,7 +9,16 @@
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.dhzhu.amateurpostman.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
-        <postStartupActivity implementation="com.github.dhzhu.amateurpostman.startup.MyProjectActivity" />
+        <!-- Amateur-Postman Tool Window -->
+        <toolWindow 
+            factoryClass="com.github.dhzhu.amateurpostman.toolWindow.PostmanToolWindowFactory" 
+            id="Amateur-Postman"
+            anchor="right"
+            icon="AllIcons.Toolwindows.ToolWindowRun"/>
+        
+        <!-- HTTP Request Service -->
+        <projectService 
+            serviceInterface="com.github.dhzhu.amateurpostman.services.HttpRequestService"
+            serviceImplementation="com.github.dhzhu.amateurpostman.services.HttpRequestServiceImpl"/>
     </extensions>
 </idea-plugin>
