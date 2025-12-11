@@ -25,4 +25,25 @@ class MyPluginTest : BasePlatformTestCase() {
         assertEquals("https://jsonplaceholder.typicode.com/posts/1", request.url)
         assertEquals(HttpMethod.GET, request.method)
     }
+
+    fun testHttpRequestWithHeaders() {
+        val headers = mapOf("Content-Type" to "application/json")
+        val request =
+                HttpRequest(
+                        url = "https://api.example.com/data",
+                        method = HttpMethod.POST,
+                        headers = headers,
+                        body = """{"key": "value"}"""
+                )
+
+        assertEquals(headers, request.headers)
+        assertEquals("""{"key": "value"}""", request.body)
+    }
+
+    fun testHttpMethodValues() {
+        val methods = HttpMethod.values()
+        assertEquals(7, methods.size)
+        assertTrue(methods.contains(HttpMethod.GET))
+        assertTrue(methods.contains(HttpMethod.POST))
+    }
 }
