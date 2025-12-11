@@ -7,3 +7,5 @@
 .vscode
 build
 bin
+.github
+.run
