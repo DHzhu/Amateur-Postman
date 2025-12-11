@@ -38,25 +38,23 @@ class HttpRequestServiceImpl(private val project: Project) : HttpRequestService 
 
                 try {
                     val okHttpRequest = buildOkHttpRequest(request)
-                    val response = client.newCall(okHttpRequest).execute()
+                    client.newCall(okHttpRequest).execute().use { response ->
+                        val duration = System.currentTimeMillis() - startTime
+                        val responseBody = response.body?.string() ?: ""
 
-                    val duration = System.currentTimeMillis() - startTime
-                    val responseBody = response.body?.string() ?: ""
+                        val httpResponse =
+                                HttpResponse(
+                                        statusCode = response.code,
+                                        statusMessage = response.message,
+                                        headers = response.headers.toMultimap(),
+                                        body = responseBody,
+                                        duration = duration,
+                                        isSuccessful = response.isSuccessful
+                                )
 
-                    val httpResponse =
-                            HttpResponse(
-                                    statusCode = response.code,
-                                    statusMessage = response.message,
-                                    headers = response.headers.toMultimap(),
-                                    body = responseBody,
-                                    duration = duration,
-                                    isSuccessful = response.isSuccessful
-                            )
-
-                    response.close()
-
-                    logger.info("Request completed in ${duration}ms with status ${response.code}")
-                    httpResponse
+                        logger.info("Request completed in ${duration}ms with status ${response.code}")
+                        httpResponse
+                    }
                 } catch (e: Exception) {
                     val duration = System.currentTimeMillis() - startTime
                     logger.warn("Request failed after ${duration}ms", e)

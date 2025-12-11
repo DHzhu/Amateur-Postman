@@ -157,7 +157,7 @@ class HttpModelsTest {
 
         @Test
         fun testHttpMethodEnumCount() {
-                val methods = HttpMethod.values()
+                val methods = HttpMethod.entries
                 assertEquals(7, methods.size)
         }
 

@@ -4,6 +4,7 @@ import com.github.dhzhu.amateurpostman.models.HttpMethod
 import com.github.dhzhu.amateurpostman.models.HttpRequest
 import com.github.dhzhu.amateurpostman.models.HttpResponse
 import com.github.dhzhu.amateurpostman.services.HttpRequestService
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
@@ -18,20 +19,23 @@ import java.awt.FlowLayout
 import java.awt.Font
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
+import java.nio.charset.StandardCharsets
 import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.table.DefaultTableModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.swing.Swing
 
 /** Main panel for the Amateur-Postman tool window */
-class PostmanToolWindowPanel(private val project: Project) {
+class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
     private val httpService = project.service<HttpRequestService>()
-    private val scope = CoroutineScope(Dispatchers.Swing)
+    private val scope = CoroutineScope(Dispatchers.Swing + SupervisorJob())
 
     // UI State
     private var selectedMethod = HttpMethod.GET
@@ -70,7 +74,7 @@ class PostmanToolWindowPanel(private val project: Project) {
         val topPanel = JPanel(BorderLayout(5, 0))
         topPanel.border = JBUI.Borders.empty(5)
 
-        methodComboBox = ComboBox(HttpMethod.values())
+        methodComboBox = ComboBox(HttpMethod.entries.toTypedArray())
         methodComboBox.selectedItem = selectedMethod
         methodComboBox.addActionListener {
             selectedMethod = methodComboBox.selectedItem as HttpMethod
@@ -301,7 +305,10 @@ class PostmanToolWindowPanel(private val project: Project) {
                     val key = paramsTableModel.getValueAt(i, 0)?.toString()?.trim()
                     val value = paramsTableModel.getValueAt(i, 1)?.toString()?.trim()
                     if (!key.isNullOrEmpty()) {
-                        params.add("$key=${java.net.URLEncoder.encode(value ?: "", "UTF-8")}")
+                        val encodedKey = java.net.URLEncoder.encode(key, StandardCharsets.UTF_8)
+                        val encodedValue =
+                                java.net.URLEncoder.encode(value ?: "", StandardCharsets.UTF_8)
+                        params.add("$encodedKey=$encodedValue")
                     }
                 }
 
@@ -378,5 +385,9 @@ class PostmanToolWindowPanel(private val project: Project) {
         } catch (e: Exception) {
             json
         }
+    }
+
+    override fun dispose() {
+        scope.cancel()
     }
 }
