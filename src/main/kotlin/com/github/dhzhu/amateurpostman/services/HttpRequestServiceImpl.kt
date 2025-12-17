@@ -3,11 +3,14 @@ package com.github.dhzhu.amateurpostman.services
 import com.github.dhzhu.amateurpostman.models.HttpMethod
 import com.github.dhzhu.amateurpostman.models.HttpRequest
 import com.github.dhzhu.amateurpostman.models.HttpResponse
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
@@ -16,7 +19,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 
 /** Implementation of HttpRequestService using OkHttp */
 @Service(Service.Level.PROJECT)
-class HttpRequestServiceImpl(private val project: Project) : HttpRequestService {
+class HttpRequestServiceImpl(private val project: Project) : HttpRequestService, Disposable {
 
     private val logger = thisLogger()
 
@@ -30,8 +33,17 @@ class HttpRequestServiceImpl(private val project: Project) : HttpRequestService 
                 .build()
     }
 
+    override fun dispose() {
+        logger.info("Disposing HttpRequestServiceImpl, closing OkHttpClient resources")
+        client.dispatcher.executorService.shutdown()
+        client.connectionPool.evictAll()
+        client.cache?.close()
+    }
+
     override suspend fun executeRequest(request: HttpRequest): HttpResponse =
             withContext(Dispatchers.IO) {
+                // Check for cancellation before starting
+                coroutineContext.ensureActive()
                 logger.info("Executing ${request.method} request to ${request.url}")
 
                 val startTime = System.currentTimeMillis()
@@ -39,6 +51,9 @@ class HttpRequestServiceImpl(private val project: Project) : HttpRequestService 
                 try {
                     val okHttpRequest = buildOkHttpRequest(request)
                     client.newCall(okHttpRequest).execute().use { response ->
+                        // Check for cancellation after receiving response
+                        coroutineContext.ensureActive()
+
                         val duration = System.currentTimeMillis() - startTime
                         val responseBody = response.body?.string() ?: ""
 
@@ -52,7 +67,9 @@ class HttpRequestServiceImpl(private val project: Project) : HttpRequestService 
                                         isSuccessful = response.isSuccessful
                                 )
 
-                        logger.info("Request completed in ${duration}ms with status ${response.code}")
+                        logger.info(
+                                "Request completed in ${duration}ms with status ${response.code}"
+                        )
                         httpResponse
                     }
                 } catch (e: Exception) {
