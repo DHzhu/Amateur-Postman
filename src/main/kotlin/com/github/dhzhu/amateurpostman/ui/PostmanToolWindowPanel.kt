@@ -26,13 +26,18 @@ import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
+import java.awt.event.ActionEvent
+import java.awt.event.InputEvent
+import java.awt.event.KeyEvent
 import java.net.URI
 import java.nio.charset.StandardCharsets
+import javax.swing.AbstractAction
 import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JPasswordField
 import javax.swing.JTextPane
+import javax.swing.KeyStroke
 import javax.swing.table.DefaultTableModel
 import javax.swing.text.SimpleAttributeSet
 import javax.swing.text.StyleConstants
@@ -48,6 +53,8 @@ import kotlinx.coroutines.swing.Swing
 class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
     private val httpService = project.service<HttpRequestService>()
+    private val historyService =
+            project.service<com.github.dhzhu.amateurpostman.services.RequestHistoryService>()
     private val scope = CoroutineScope(Dispatchers.Swing + SupervisorJob())
 
     // Request cancellation tracking
@@ -77,10 +84,16 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
     private lateinit var basicAuthPassField: JPasswordField
     private lateinit var bearerTokenField: JBTextField
 
-    // Response
     // Response with syntax highlighting
     private lateinit var responseTextPane: JTextPane
+    private lateinit var responseTabbedPane: JBTabbedPane
+    private lateinit var responseHeadersArea: JBTextArea
+    private lateinit var responseRawArea: JBTextArea
     private lateinit var statusLabel: JLabel
+    private lateinit var responseSizeLabel: JLabel
+
+    // History
+    private lateinit var historyPanel: HistoryPanel
 
     private val headersTableModel = DefaultTableModel(arrayOf("Key", "Value"), 0)
     private val paramsTableModel = DefaultTableModel(arrayOf("Key", "Value", "Description"), 0)
@@ -121,7 +134,17 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
         mainPanel.add(topContainer, BorderLayout.NORTH)
 
-        // 2. Center: Request Tabs and Response Split Pane
+        // 2. Center: Main content with left sidebar for history
+        val mainContentPanel = JPanel(BorderLayout())
+
+        // Left sidebar: History Panel
+        historyPanel = HistoryPanel(project) { entry -> loadFromHistory(entry) }
+        historyPanel.preferredSize = java.awt.Dimension(250, 0)
+
+        // Request/Response area
+        val requestResponsePanel = JPanel(BorderLayout())
+
+        // Request Tabs
         tabbedPane = JBTabbedPane()
 
         // Tab: Params
@@ -141,23 +164,65 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         val headersPanel = createTablePanel(headersTable, headersTableModel)
         tabbedPane.addTab("Headers", headersPanel)
 
-        // Tab: Body
+        // Tab: Body with format button
+        val bodyPanel = JPanel(BorderLayout())
         requestBodyArea = createTextArea()
-        tabbedPane.addTab("Body", JBScrollPane(requestBodyArea))
 
-        // Response Area with syntax highlighting support
+        val bodyToolbar = JPanel(FlowLayout(FlowLayout.LEFT, 5, 2))
+        val formatJsonButton = JButton("Format JSON")
+        formatJsonButton.addActionListener { formatRequestBody() }
+        bodyToolbar.add(formatJsonButton)
+
+        bodyPanel.add(bodyToolbar, BorderLayout.NORTH)
+        bodyPanel.add(JBScrollPane(requestBodyArea), BorderLayout.CENTER)
+        tabbedPane.addTab("Body", bodyPanel)
+
+        // Response Area with tabs for Headers/Body/Raw
         val responsePanel = JPanel(BorderLayout())
+
+        val statusPanel = JPanel(BorderLayout())
         statusLabel = JLabel(statusText)
         statusLabel.border = JBUI.Borders.empty(5)
+        responseSizeLabel = JLabel("")
+        responseSizeLabel.border = JBUI.Borders.empty(5)
 
+        val copyResponseButton = JButton("Copy")
+        copyResponseButton.addActionListener { copyResponse() }
+
+        val clearResponseButton = JButton("Clear")
+        clearResponseButton.addActionListener { clearResponse() }
+
+        val responseButtonPanel = JPanel(FlowLayout(FlowLayout.RIGHT, 5, 0))
+        responseButtonPanel.add(responseSizeLabel)
+        responseButtonPanel.add(copyResponseButton)
+        responseButtonPanel.add(clearResponseButton)
+
+        statusPanel.add(statusLabel, BorderLayout.WEST)
+        statusPanel.add(responseButtonPanel, BorderLayout.EAST)
+
+        // Response tabs
+        responseTabbedPane = JBTabbedPane()
+
+        // Body tab with syntax highlighting
         responseTextPane = JTextPane()
         responseTextPane.isEditable = false
         responseTextPane.font = Font("Monospaced", Font.PLAIN, 12)
-        responseTextPane.background = Color(43, 43, 43) // Dark background
-        responseTextPane.foreground = Color(212, 212, 212) // Light text
+        responseTextPane.background = Color(43, 43, 43)
+        responseTextPane.foreground = Color(212, 212, 212)
+        responseTabbedPane.addTab("Body", JBScrollPane(responseTextPane))
 
-        responsePanel.add(statusLabel, BorderLayout.NORTH)
-        responsePanel.add(JBScrollPane(responseTextPane), BorderLayout.CENTER)
+        // Headers tab
+        responseHeadersArea = createTextArea()
+        responseHeadersArea.isEditable = false
+        responseTabbedPane.addTab("Headers", JBScrollPane(responseHeadersArea))
+
+        // Raw tab
+        responseRawArea = createTextArea()
+        responseRawArea.isEditable = false
+        responseTabbedPane.addTab("Raw", JBScrollPane(responseRawArea))
+
+        responsePanel.add(statusPanel, BorderLayout.NORTH)
+        responsePanel.add(responseTabbedPane, BorderLayout.CENTER)
 
         // Split Pane (Request Tabs vs Response)
         val splitPane = com.intellij.ui.JBSplitter(true, 0.5f)
@@ -167,9 +232,115 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         splitPane.firstComponent = tabbedPane
         splitPane.secondComponent = responsePanel
 
-        mainPanel.add(splitPane, BorderLayout.CENTER)
+        requestResponsePanel.add(splitPane, BorderLayout.CENTER)
+
+        // Horizontal splitter for history and request/response
+        val horizontalSplitter = com.intellij.ui.JBSplitter(false, 0.25f)
+        horizontalSplitter.firstComponent = historyPanel
+        horizontalSplitter.secondComponent = requestResponsePanel
+
+        mainContentPanel.add(horizontalSplitter, BorderLayout.CENTER)
+        mainPanel.add(mainContentPanel, BorderLayout.CENTER)
+
+        // Setup keyboard shortcuts
+        setupKeyboardShortcuts(mainPanel)
 
         return mainPanel
+    }
+
+    private fun setupKeyboardShortcuts(panel: JPanel) {
+        val inputMap = panel.getInputMap(JPanel.WHEN_IN_FOCUSED_WINDOW)
+        val actionMap = panel.actionMap
+
+        // Ctrl+Enter: Send request
+        inputMap.put(
+                KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.CTRL_DOWN_MASK),
+                "sendRequest"
+        )
+        actionMap.put(
+                "sendRequest",
+                object : AbstractAction() {
+                    override fun actionPerformed(e: ActionEvent) {
+                        sendRequest()
+                    }
+                }
+        )
+
+        // Ctrl+L: Clear response
+        inputMap.put(
+                KeyStroke.getKeyStroke(KeyEvent.VK_L, InputEvent.CTRL_DOWN_MASK),
+                "clearResponse"
+        )
+        actionMap.put(
+                "clearResponse",
+                object : AbstractAction() {
+                    override fun actionPerformed(e: ActionEvent) {
+                        clearResponse()
+                    }
+                }
+        )
+
+        // Escape: Cancel request
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "cancelRequest")
+        actionMap.put(
+                "cancelRequest",
+                object : AbstractAction() {
+                    override fun actionPerformed(e: ActionEvent) {
+                        if (isRequestInProgress) {
+                            currentRequestJob?.cancel()
+                            isRequestInProgress = false
+                            sendButton.text = "Send"
+                            statusLabel.text = "Request cancelled"
+                        }
+                    }
+                }
+        )
+    }
+
+    private fun formatRequestBody() {
+        try {
+            val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
+            val jsonElement = com.google.gson.JsonParser.parseString(requestBodyArea.text)
+            requestBodyArea.text = gson.toJson(jsonElement)
+        } catch (e: Exception) {
+            Messages.showWarningDialog(project, "Invalid JSON: ${e.message}", "Format Error")
+        }
+    }
+
+    private fun copyResponse() {
+        val text = responseTextPane.text
+        if (text.isNotEmpty()) {
+            val clipboard = Toolkit.getDefaultToolkit().systemClipboard
+            clipboard.setContents(StringSelection(text), null)
+            statusLabel.text = "Response copied to clipboard"
+        }
+    }
+
+    private fun clearResponse() {
+        responseTextPane.text = ""
+        responseHeadersArea.text = ""
+        responseRawArea.text = ""
+        responseSizeLabel.text = ""
+        statusLabel.text = "Ready"
+    }
+
+    private fun loadFromHistory(entry: com.github.dhzhu.amateurpostman.models.RequestHistoryEntry) {
+        urlField.text = entry.request.url
+        methodComboBox.selectedItem = entry.request.method
+        selectedMethod = entry.request.method
+
+        // Clear and set headers
+        while (headersTableModel.rowCount > 0) {
+            headersTableModel.removeRow(0)
+        }
+        entry.request.headers.forEach { (key, value) ->
+            headersTableModel.addRow(arrayOf(key, value))
+        }
+
+        // Set body
+        requestBodyArea.text = entry.request.body ?: ""
+
+        statusLabel.text = "Loaded from history: ${entry.getDisplayName()}"
     }
 
     private fun createTablePanel(table: JBTable, model: DefaultTableModel): JPanel {
@@ -495,6 +666,9 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
                         // Display
                         displayResponse(response)
+
+                        // Save to history
+                        historyService.addEntry(request, response)
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         // Request was cancelled, already handled
                     } catch (e: Exception) {
@@ -512,28 +686,33 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         statusLabel.text =
                 "Status: ${response.statusCode} ${response.statusMessage} | Time: ${response.duration}ms"
 
+        // Show response size
+        val bodySize = response.body.toByteArray().size
+        responseSizeLabel.text = formatSize(bodySize)
+
+        // Populate Headers tab
+        val headersText = buildString {
+            response.headers.forEach { (key, values) ->
+                values.forEach { value -> appendLine("$key: $value") }
+            }
+        }
+        responseHeadersArea.text = headersText
+
+        // Populate Raw tab
+        val rawResponse = buildString {
+            appendLine("HTTP ${response.statusCode} ${response.statusMessage}")
+            response.headers.forEach { (key, values) ->
+                values.forEach { value -> appendLine("$key: $value") }
+            }
+            appendLine()
+            append(response.body)
+        }
+        responseRawArea.text = rawResponse
+
+        // Populate Body tab with syntax highlighting
         val doc = responseTextPane.styledDocument
         doc.remove(0, doc.length)
 
-        // Add header information
-        val headerStyle = SimpleAttributeSet()
-        StyleConstants.setForeground(headerStyle, Color(156, 220, 254))
-        doc.insertString(
-                doc.length,
-                "HTTP ${response.statusCode} ${response.statusMessage}\n",
-                headerStyle
-        )
-        doc.insertString(doc.length, "Duration: ${response.duration}ms\n\n", headerStyle)
-        doc.insertString(doc.length, "=== Headers ===\n", headerStyle)
-
-        val normalStyle = SimpleAttributeSet()
-        StyleConstants.setForeground(normalStyle, Color(212, 212, 212))
-        response.headers.forEach { (key, values) ->
-            values.forEach { value -> doc.insertString(doc.length, "$key: $value\n", normalStyle) }
-        }
-        doc.insertString(doc.length, "\n=== Body ===\n", headerStyle)
-
-        // Format and highlight body
         val body = formatResponseBody(response.body, response.headers)
         val contentType = response.headers["Content-Type"]?.firstOrNull() ?: ""
 
@@ -555,7 +734,17 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                 doc.insertString(doc.length, token.text, style)
             }
         } else {
+            val normalStyle = SimpleAttributeSet()
+            StyleConstants.setForeground(normalStyle, Color(212, 212, 212))
             doc.insertString(doc.length, body, normalStyle)
+        }
+    }
+
+    private fun formatSize(bytes: Int): String {
+        return when {
+            bytes < 1024 -> "$bytes B"
+            bytes < 1024 * 1024 -> "${bytes / 1024} KB"
+            else -> "${bytes / (1024 * 1024)} MB"
         }
     }
 
