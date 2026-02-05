@@ -48,6 +48,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.swing.Swing
+import javax.swing.SwingUtilities
 
 /** Main panel for the Amateur-Postman tool window */
 class PostmanToolWindowPanel(private val project: Project) : Disposable {
@@ -95,6 +96,12 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
     // History
     private lateinit var historyPanel: HistoryPanel
 
+    // Environments
+    private lateinit var environmentPanel: EnvironmentPanel
+
+    // Collections
+    private lateinit var collectionsPanel: CollectionsPanel
+
     private val headersTableModel = DefaultTableModel(arrayOf("Key", "Value"), 0)
     private val paramsTableModel = DefaultTableModel(arrayOf("Key", "Value", "Description"), 0)
 
@@ -125,8 +132,11 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         importCurlButton.addActionListener { importCurl() }
         val exportCurlButton = JButton("Export cURL")
         exportCurlButton.addActionListener { exportCurl() }
+        val saveButton = JButton("Save")
+        saveButton.addActionListener { saveRequest() }
         curlButtonPanel.add(importCurlButton)
         curlButtonPanel.add(exportCurlButton)
+        curlButtonPanel.add(saveButton)
 
         val topContainer = JPanel(BorderLayout())
         topContainer.add(topPanel, BorderLayout.NORTH)
@@ -176,6 +186,17 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         bodyPanel.add(bodyToolbar, BorderLayout.NORTH)
         bodyPanel.add(JBScrollPane(requestBodyArea), BorderLayout.CENTER)
         tabbedPane.addTab("Body", bodyPanel)
+
+        // Tab: Environments
+        environmentPanel = EnvironmentPanel(project)
+        tabbedPane.addTab("Environments", environmentPanel)
+
+        // Tab: Collections
+        collectionsPanel = CollectionsPanel(project) { requestItem ->
+            // Load request from collection
+            loadRequest(requestItem.request)
+        }
+        tabbedPane.addTab("Collections", collectionsPanel)
 
         // Response Area with tabs for Headers/Body/Raw
         val responsePanel = JPanel(BorderLayout())
@@ -341,6 +362,134 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         requestBodyArea.text = entry.request.body ?: ""
 
         statusLabel.text = "Loaded from history: ${entry.getDisplayName()}"
+    }
+
+    /**
+     * Loads a request into the form fields.
+     * Used when loading from collections.
+     */
+    private fun loadRequest(request: HttpRequest) {
+        urlField.text = request.url
+        methodComboBox.selectedItem = request.method
+        selectedMethod = request.method
+
+        // Clear and set headers
+        while (headersTableModel.rowCount > 0) {
+            headersTableModel.removeRow(0)
+        }
+        request.headers.forEach { (key, value) ->
+            headersTableModel.addRow(arrayOf(key, value))
+        }
+
+        // Set body
+        requestBodyArea.text = request.body ?: ""
+
+        statusLabel.text = "Loaded request"
+    }
+
+    /**
+     * Opens the Save Request dialog to save the current request.
+     */
+    private fun saveRequest() {
+        val request = buildRequest()
+        if (request == null) {
+            statusLabel.text = "Error: Unable to build request"
+            return
+        }
+
+        SaveRequestDialog.show(project, request) { collectionId, folderId, name, description ->
+            val collectionService = project.service<com.github.dhzhu.amateurpostman.services.CollectionService>()
+
+            // Check if updating or creating new
+            // For now, always create new (would need to track current editing item)
+            collectionService.addRequest(collectionId, request, name, description, folderId)
+
+            SwingUtilities.invokeLater {
+                statusLabel.text = "Saved request: $name"
+            }
+        }
+    }
+
+    /**
+     * Builds an HttpRequest from the current form fields.
+     * Returns null if the request cannot be built.
+     */
+    private fun buildRequest(): HttpRequest? {
+        // Validate URL is not empty
+        val urlText = urlField.text.trim()
+        if (urlText.isEmpty()) {
+            return null
+        }
+
+        // Collect headers
+        val headers = mutableMapOf<String, String>()
+        for (i in 0 until headersTableModel.rowCount) {
+            val key = headersTableModel.getValueAt(i, 0)?.toString()?.trim()
+            val value = headersTableModel.getValueAt(i, 1)?.toString()?.trim()
+            if (!key.isNullOrEmpty() && !value.isNullOrEmpty()) {
+                headers[key] = value
+            }
+        }
+
+        // Handle Auth
+        val authType = authTypeComboBox.selectedItem as String
+        when (authType) {
+            "Basic Auth" -> {
+                val username = basicAuthUserField.text.trim()
+                val password = String(basicAuthPassField.password)
+                if (username.isNotEmpty() || password.isNotEmpty()) {
+                    val credentials = "$username:$password"
+                    val encoded =
+                            java.util.Base64.getEncoder()
+                                    .encodeToString(credentials.toByteArray())
+                    headers["Authorization"] = "Basic $encoded"
+                }
+            }
+            "Bearer Token" -> {
+                val token = bearerTokenField.text.trim()
+                if (token.isNotEmpty()) {
+                    headers["Authorization"] = "Bearer $token"
+                }
+            }
+        }
+
+        // Handle Params (Append to URL)
+        var url = urlText
+        val params = mutableListOf<String>()
+        for (i in 0 until paramsTableModel.rowCount) {
+            val key = paramsTableModel.getValueAt(i, 0)?.toString()?.trim()
+            val value = paramsTableModel.getValueAt(i, 1)?.toString()?.trim()
+            if (!key.isNullOrEmpty()) {
+                val encodedKey =
+                        java.net.URLEncoder.encode(key, StandardCharsets.UTF_8)
+                val encodedValue =
+                        java.net.URLEncoder.encode(
+                                value ?: "",
+                                StandardCharsets.UTF_8
+                        )
+                params.add("$encodedKey=$encodedValue")
+            }
+        }
+
+        if (params.isNotEmpty()) {
+            val separator = if (url.contains("?")) "&" else "?"
+            url += separator + params.joinToString("&")
+        }
+
+        // Content Type
+        val contentType = headers["Content-Type"] ?: "application/json"
+
+        // Build request
+        return HttpRequest(
+            url = url,
+            method = selectedMethod,
+            headers = headers,
+            body =
+                    if (requestBodyArea.text.isNotBlank())
+                            requestBodyArea.text
+                    else null,
+            contentType = contentType
+        )
     }
 
     private fun createTablePanel(table: JBTable, model: DefaultTableModel): JPanel {

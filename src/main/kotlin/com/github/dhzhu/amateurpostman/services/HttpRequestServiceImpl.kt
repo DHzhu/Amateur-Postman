@@ -3,8 +3,10 @@ package com.github.dhzhu.amateurpostman.services
 import com.github.dhzhu.amateurpostman.models.HttpMethod
 import com.github.dhzhu.amateurpostman.models.HttpRequest
 import com.github.dhzhu.amateurpostman.models.HttpResponse
+import com.github.dhzhu.amateurpostman.utils.VariableResolver
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import java.util.concurrent.TimeUnit
@@ -44,12 +46,24 @@ class HttpRequestServiceImpl(private val project: Project) : HttpRequestService,
             withContext(Dispatchers.IO) {
                 // Check for cancellation before starting
                 coroutineContext.ensureActive()
-                logger.info("Executing ${request.method} request to ${request.url}")
+
+                // Substitute variables from environment service
+                val environmentService = project.service<EnvironmentService>()
+                val variables = environmentService.getAllVariables()
+                val processedRequest = if (variables.isNotEmpty()) {
+                    logger.debug("Substituting ${variables.size} variables in request")
+                    VariableResolver.substitute(request, variables)
+                } else {
+                    logger.debug("No variables defined, using request as-is")
+                    request
+                }
+
+                logger.info("Executing ${processedRequest.method} request to ${processedRequest.url}")
 
                 val startTime = System.currentTimeMillis()
 
                 try {
-                    val okHttpRequest = buildOkHttpRequest(request)
+                    val okHttpRequest = buildOkHttpRequest(processedRequest)
                     client.newCall(okHttpRequest).execute().use { response ->
                         // Check for cancellation after receiving response
                         coroutineContext.ensureActive()

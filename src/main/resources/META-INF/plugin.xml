@@ -17,5 +17,11 @@
 
         <!-- Request History Service -->
         <projectService serviceImplementation="com.github.dhzhu.amateurpostman.services.RequestHistoryService"/>
+
+        <!-- Environment Service -->
+        <projectService serviceImplementation="com.github.dhzhu.amateurpostman.services.EnvironmentService"/>
+
+        <!-- Collection Service -->
+        <projectService serviceImplementation="com.github.dhzhu.amateurpostman.services.CollectionService"/>
     </extensions>
 </idea-plugin>
