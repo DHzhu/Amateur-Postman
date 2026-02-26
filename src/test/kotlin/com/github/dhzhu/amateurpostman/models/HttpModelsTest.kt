@@ -18,7 +18,7 @@ class HttpModelsTest {
                 url = "https://api.example.com/users",
                 method = HttpMethod.POST,
                 headers = headers,
-                body = HttpBody("""{"name": "John Doe"}""", BodyType.JSON)
+                body = HttpBody.of("""{"name": "John Doe"}""", BodyType.JSON)
             )
 
         assertEquals("https://api.example.com/users", request.url)
@@ -284,13 +284,13 @@ class HttpModelsTest {
 
     @Test
     fun testHttpBodyIsEmpty() {
-        val emptyBody = HttpBody("", BodyType.JSON)
+        val emptyBody = HttpBody.of("", BodyType.JSON)
         assertTrue(emptyBody.isEmpty)
 
-        val blankBody = HttpBody("   ", BodyType.JSON)
+        val blankBody = HttpBody.of("   ", BodyType.JSON)
         assertTrue(blankBody.isEmpty)
 
-        val nonEmptyBody = HttpBody("""{"key": "value"}""", BodyType.JSON)
+        val nonEmptyBody = HttpBody.of("""{"key": "value"}""", BodyType.JSON)
         assertFalse(nonEmptyBody.isEmpty)
     }
 }

@@ -5,6 +5,7 @@ import com.github.dhzhu.amateurpostman.models.HttpBody
 import com.github.dhzhu.amateurpostman.models.HttpMethod
 import com.github.dhzhu.amateurpostman.models.HttpRequest
 import com.github.dhzhu.amateurpostman.models.HttpResponse
+import com.github.dhzhu.amateurpostman.models.MultipartPart
 import com.github.dhzhu.amateurpostman.services.HttpRequestService
 import com.github.dhzhu.amateurpostman.utils.CurlExporter
 import com.github.dhzhu.amateurpostman.utils.CurlParser
@@ -21,7 +22,9 @@ import com.intellij.ui.components.JBTextField
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
+import java.awt.CardLayout
 import java.awt.Color
+import java.awt.Component
 import java.awt.FlowLayout
 import java.awt.Font
 import java.awt.GridBagConstraints
@@ -35,9 +38,12 @@ import java.net.URI
 import java.nio.charset.StandardCharsets
 import javax.swing.AbstractAction
 import javax.swing.JButton
+import javax.swing.JComboBox
+import javax.swing.JFileChooser
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JPasswordField
+import javax.swing.JTextField
 import javax.swing.JTextPane
 import javax.swing.KeyStroke
 import javax.swing.table.DefaultTableModel
@@ -74,6 +80,14 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
     private lateinit var methodComboBox: ComboBox<HttpMethod>
     private lateinit var sendButton: JButton
     private lateinit var bodyTypeComboBox: ComboBox<BodyType>
+
+    // Multipart components
+    private lateinit var multipartTable: JBTable
+    private val multipartTableModel = DefaultTableModel(
+        arrayOf("Key", "Type", "Value", "Content-Type", "Description"),
+        0
+    )
+    private val multipartParts = mutableListOf<MultipartPart>()
 
     // Tabs
     private lateinit var tabbedPane: JBTabbedPane
@@ -180,7 +194,6 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
         // Tab: Body with Content-Type selector and format button
         val bodyPanel = JPanel(BorderLayout())
-        requestBodyArea = createTextArea()
 
         val bodyToolbar = JPanel(FlowLayout(FlowLayout.LEFT, 5, 2))
 
@@ -190,6 +203,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         bodyTypeComboBox.selectedItem = selectedBodyType
         bodyTypeComboBox.addActionListener {
             selectedBodyType = bodyTypeComboBox.selectedItem as BodyType
+            updateBodyEditorVisibility()
             updateContentTypeHeader()
             formatRequestBody() // Auto-format when changing type
         }
@@ -201,8 +215,24 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         bodyToolbar.add(formatButton)
 
         bodyPanel.add(bodyToolbar, BorderLayout.NORTH)
-        bodyPanel.add(JBScrollPane(requestBodyArea), BorderLayout.CENTER)
+
+        // Card layout for switching between Raw and Multipart editors
+        val bodyCardPanel = JPanel(CardLayout())
+        requestBodyArea = createTextArea()
+
+        // Raw editor panel
+        val rawEditorPanel = JBScrollPane(requestBodyArea)
+        bodyCardPanel.add(rawEditorPanel, "RAW")
+
+        // Multipart editor panel
+        val multipartEditorPanel = createMultipartPanel()
+        bodyCardPanel.add(multipartEditorPanel, "MULTIPART")
+
+        bodyPanel.add(bodyCardPanel, BorderLayout.CENTER)
         tabbedPane.addTab("Body", bodyPanel)
+
+        // Initialize visibility
+        updateBodyEditorVisibility()
 
         // Tab: Environments
         environmentPanel = EnvironmentPanel(project)
@@ -350,7 +380,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                     // Basic XML formatting (pretty print)
                     requestBodyArea.text = formatXml(content)
                 }
-                BodyType.HTML, BodyType.JAVASCRIPT, BodyType.TEXT -> {
+                BodyType.HTML, BodyType.JAVASCRIPT, BodyType.TEXT, BodyType.MULTIPART -> {
                     // No formatting needed for these types
                 }
             }
@@ -417,9 +447,115 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         }
 
         // If no Content-Type header exists, add one
-        if (!contentTypeUpdated && selectedBodyType != BodyType.TEXT) {
+        if (!contentTypeUpdated && selectedBodyType != BodyType.TEXT && selectedBodyType != BodyType.MULTIPART) {
             headersTableModel.addRow(arrayOf("Content-Type", selectedBodyType.mimeType))
         }
+
+        // For Multipart, remove Content-Type header (OkHttp will set it automatically)
+        if (selectedBodyType == BodyType.MULTIPART) {
+            for (i in headersTableModel.rowCount - 1 downTo 0) {
+                val key = headersTableModel.getValueAt(i, 0)?.toString()?.trim()
+                if (key?.equals("Content-Type", ignoreCase = true) == true) {
+                    headersTableModel.removeRow(i)
+                    break
+                }
+            }
+        }
+    }
+
+    private fun updateBodyEditorVisibility() {
+        val bodyCardPanel = findBodyCardPanel()
+        if (bodyCardPanel != null) {
+            val layout = bodyCardPanel.layout as CardLayout
+            when (selectedBodyType) {
+                BodyType.MULTIPART -> layout.show(bodyCardPanel, "MULTIPART")
+                else -> layout.show(bodyCardPanel, "RAW")
+            }
+        }
+    }
+
+    private fun findBodyCardPanel(): JPanel? {
+        // Helper to find the body card panel
+        var current: Component? = tabbedPane.getSelectedComponent()
+        if (current is JPanel) {
+            for (comp in current.components) {
+                if (comp is JPanel && comp.layout is CardLayout) {
+                    return comp
+                }
+            }
+        }
+        return null
+    }
+
+    private fun createMultipartPanel(): JPanel {
+        val panel = JPanel(BorderLayout())
+
+        multipartTable = JBTable(multipartTableModel)
+        multipartTable.setShowGrid(true)
+
+        // Set column widths
+        multipartTable.columnModel.getColumn(0).preferredWidth = 150 // Key
+        multipartTable.columnModel.getColumn(1).preferredWidth = 100 // Type
+        multipartTable.columnModel.getColumn(2).preferredWidth = 250 // Value
+        multipartTable.columnModel.getColumn(3).preferredWidth = 150 // Content-Type
+        multipartTable.columnModel.getColumn(4).preferredWidth = 150 // Description
+
+        // Custom editor for Type column (Text/File)
+        val typeColumn = multipartTable.columnModel.getColumn(1)
+        val typeComboBox = JComboBox(arrayOf("Text", "File"))
+        typeColumn.cellEditor = javax.swing.DefaultCellEditor(typeComboBox)
+
+        // Custom renderer for Value column to show file path with browse button
+        multipartTable.columnModel.getColumn(2).cellEditor = MultipartCellEditor(this)
+
+        panel.add(JBScrollPane(multipartTable), BorderLayout.CENTER)
+
+        val buttonPanel = JPanel(FlowLayout(FlowLayout.LEFT))
+        val addTextButton = JButton("Add Text")
+        addTextButton.addActionListener {
+            multipartTableModel.addRow(arrayOf("", "Text", "", "", ""))
+            val newRow = multipartTableModel.rowCount - 1
+            multipartTable.setRowSelectionInterval(newRow, newRow)
+            multipartTable.scrollRectToVisible(multipartTable.getCellRect(newRow, 0, true))
+        }
+
+        val addFileButton = JButton("Add File")
+        addFileButton.addActionListener {
+            multipartTableModel.addRow(arrayOf("", "File", "", "", ""))
+            val newRow = multipartTableModel.rowCount - 1
+            multipartTable.setRowSelectionInterval(newRow, newRow)
+            multipartTable.scrollRectToVisible(multipartTable.getCellRect(newRow, 0, true))
+        }
+
+        val removeButton = JButton("Remove")
+        removeButton.addActionListener {
+            val selectedRow = multipartTable.selectedRow
+            if (selectedRow >= 0) {
+                multipartTableModel.removeRow(selectedRow)
+                if (multipartTableModel.rowCount > 0) {
+                    val newSelection = if (selectedRow > 0) selectedRow - 1 else 0
+                    multipartTable.setRowSelectionInterval(newSelection, newSelection)
+                }
+            }
+        }
+
+        buttonPanel.add(addTextButton)
+        buttonPanel.add(addFileButton)
+        buttonPanel.add(removeButton)
+
+        panel.add(buttonPanel, BorderLayout.SOUTH)
+
+        return panel
+    }
+
+    fun browseForFile(): String? {
+        val fileChooser = JFileChooser()
+        fileChooser.fileSelectionMode = JFileChooser.FILES_ONLY
+        val result = fileChooser.showOpenDialog(null)
+        if (result == JFileChooser.APPROVE_OPTION) {
+            return fileChooser.selectedFile.absolutePath
+        }
+        return null
     }
 
     private fun copyResponse() {
@@ -583,12 +719,26 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         }
 
         // Build request body
-        val requestBody = if (requestBodyArea.text.isNotBlank()) {
-            HttpBody(
-                content = requestBodyArea.text,
-                type = selectedBodyType
-            )
-        } else null
+        val requestBody = when (selectedBodyType) {
+            BodyType.MULTIPART -> {
+                val parts = buildMultipartParts()
+                if (parts.isNotEmpty()) {
+                    HttpBody(
+                        content = "",
+                        type = BodyType.MULTIPART,
+                        multipartData = parts
+                    )
+                } else null
+            }
+            else -> {
+                if (requestBodyArea.text.isNotBlank()) {
+                    HttpBody(
+                        content = requestBodyArea.text,
+                        type = selectedBodyType
+                    )
+                } else null
+            }
+        }
 
         // Build request
         return HttpRequest(
@@ -597,6 +747,45 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             headers = headers,
             body = requestBody
         )
+    }
+
+    private fun buildMultipartParts(): List<MultipartPart> {
+        val parts = mutableListOf<MultipartPart>()
+
+        for (i in 0 until multipartTableModel.rowCount) {
+            val key = multipartTableModel.getValueAt(i, 0)?.toString()?.trim() ?: continue
+            val type = multipartTableModel.getValueAt(i, 1)?.toString()?.trim() ?: continue
+            val value = multipartTableModel.getValueAt(i, 2)?.toString()?.trim() ?: ""
+            val contentType = multipartTableModel.getValueAt(i, 3)?.toString()?.trim()
+            val description = multipartTableModel.getValueAt(i, 4)?.toString()?.trim() ?: ""
+
+            if (key.isEmpty()) continue
+
+            when (type) {
+                "Text" -> {
+                    parts.add(MultipartPart.TextField(
+                        key = key,
+                        value = value,
+                        contentType = contentType,
+                        description = description
+                    ))
+                }
+                "File" -> {
+                    if (value.isNotEmpty()) {
+                        val fileName = value.substringAfterLast("/")
+                        parts.add(MultipartPart.FileField(
+                            key = key,
+                            filePath = value,
+                            fileName = fileName,
+                            contentType = contentType,
+                            description = description
+                        ))
+                    }
+                }
+            }
+        }
+
+        return parts
     }
 
     private fun createTablePanel(table: JBTable, model: DefaultTableModel): JPanel {
@@ -910,17 +1099,33 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                         }
 
                         // Build request
+                        val requestBody = when (selectedBodyType) {
+                            BodyType.MULTIPART -> {
+                                val parts = buildMultipartParts()
+                                if (parts.isNotEmpty()) {
+                                    HttpBody(
+                                        content = "",
+                                        type = BodyType.MULTIPART,
+                                        multipartData = parts
+                                    )
+                                } else null
+                            }
+                            else -> {
+                                if (requestBodyArea.text.isNotBlank()) {
+                                    HttpBody(
+                                        content = requestBodyArea.text,
+                                        type = selectedBodyType
+                                    )
+                                } else null
+                            }
+                        }
+
                         val request =
                                 HttpRequest(
                                         url = url,
                                         method = selectedMethod,
                                         headers = headers,
-                                        body = if (requestBodyArea.text.isNotBlank()) {
-                                            HttpBody(
-                                                content = requestBodyArea.text,
-                                                type = selectedBodyType
-                                            )
-                                        } else null
+                                        body = requestBody
                                 )
 
                         // Execute

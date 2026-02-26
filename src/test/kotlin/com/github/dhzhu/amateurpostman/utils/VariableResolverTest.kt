@@ -73,7 +73,7 @@ class VariableResolverTest {
             method = HttpMethod.POST,
             url = "https://api.example.com/users",
             headers = mapOf("Content-Type" to "application/json"),
-            body = HttpBody("""{"name": "{{name}}", "email": "{{email}}"}""", BodyType.JSON)
+            body = HttpBody.of("""{"name": "{{name}}", "email": "{{email}}"}""", BodyType.JSON)
         )
         val variables = mapOf(
             "name" to "John Doe",

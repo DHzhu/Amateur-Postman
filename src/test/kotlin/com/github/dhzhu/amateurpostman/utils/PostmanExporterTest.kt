@@ -74,7 +74,7 @@ class PostmanExporterTest {
                             request = HttpRequest(
                                 method = HttpMethod.POST,
                                 url = "https://api.example.com/users",
-                                body = HttpBody("{\"name\":\"John\"}", BodyType.JSON)
+                                body = HttpBody.of("{\"name\":\"John\"}", BodyType.JSON)
                             )
                         )
                     )
@@ -178,7 +178,7 @@ class PostmanExporterTest {
                     request = HttpRequest(
                         method = HttpMethod.POST,
                         url = "https://api.example.com/users",
-                        body = HttpBody("{\"name\":\"John\",\"email\":\"john@example.com\"}", BodyType.JSON)
+                        body = HttpBody.of("{\"name\":\"John\",\"email\":\"john@example.com\"}", BodyType.JSON)
                     )
                 )
             )
@@ -209,7 +209,7 @@ class PostmanExporterTest {
                     request = HttpRequest(
                         method = HttpMethod.POST,
                         url = "https://api.example.com/submit",
-                        body = HttpBody("username=john&password=secret", BodyType.TEXT)
+                        body = HttpBody.of("username=john&password=secret", BodyType.TEXT)
                     )
                 )
             )
