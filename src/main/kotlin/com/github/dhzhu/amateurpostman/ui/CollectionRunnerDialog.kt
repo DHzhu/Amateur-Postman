@@ -197,11 +197,11 @@ class CollectionRunnerDialog(
     /**
      * Gets all requests from a collection in order (recursive).
      */
-    private fun getAllRequests(items: List<CollectionItem>): List<Pair<String, CollectionItem.Request>> {
-        val result = mutableListOf<Pair<String, CollectionItem.Request>>()
+    private fun getAllRequests(items: List<CollectionItem>): List<CollectionItem.Request> {
+        val result = mutableListOf<CollectionItem.Request>()
         items.forEach { item ->
             when (item) {
-                is CollectionItem.Request -> result.add(item.name to item)
+                is CollectionItem.Request -> result.add(item)
                 is CollectionItem.Folder -> result.addAll(getAllRequests(item.children))
             }
         }
@@ -240,10 +240,10 @@ class CollectionRunnerDialog(
                 var failed = 0
                 var totalDuration = 0L
 
-                allRequests.forEachIndexed { index, (name, item) ->
+                allRequests.forEachIndexed { index, item ->
                     if (!isRunning) return@launch
 
-                    val result = runRequest(name, item.request)
+                    val result = runRequest(item)
                     results.add(result)
                     resultsListModel.addElement(result)
 
@@ -273,13 +273,18 @@ class CollectionRunnerDialog(
     /**
      * Runs a single request.
      */
-    private suspend fun runRequest(name: String, request: com.github.dhzhu.amateurpostman.models.HttpRequest): CollectionRunResult {
+    private suspend fun runRequest(requestItem: com.github.dhzhu.amateurpostman.models.CollectionItem.Request): CollectionRunResult {
         val startTime = System.currentTimeMillis()
 
         return try {
+            // Execute pre-request script if defined
+            if (requestItem.preRequestScript.isNotBlank()) {
+                scriptExecutionService.executePreRequestScript(requestItem.preRequestScript)
+            }
+
             // Resolve variables
             val variables = environmentService.getAllVariables()
-            val resolvedRequest = VariableResolver.substitute(request, variables)
+            val resolvedRequest = VariableResolver.substitute(requestItem.request, variables)
 
             // Execute request
             val response = project.service<com.github.dhzhu.amateurpostman.services.HttpRequestService>()
@@ -287,12 +292,17 @@ class CollectionRunnerDialog(
 
             val duration = System.currentTimeMillis() - startTime
 
-            // Run tests if defined (for now, no tests are stored in RequestCollection yet)
-            val testResult: com.github.dhzhu.amateurpostman.services.TestResult? = null
+            // Run tests if defined
+            val testResult = if (requestItem.testScript.isNotBlank()) {
+                scriptExecutionService.executeTestScript(requestItem.testScript, response)
+            } else {
+                null
+            }
+
             val passed = response.statusCode in 200..299 && (testResult == null || testResult.passed)
 
             CollectionRunResult(
-                itemName = name,
+                itemName = requestItem.name,
                 passed = passed,
                 statusCode = response.statusCode,
                 duration = duration,
@@ -301,7 +311,7 @@ class CollectionRunnerDialog(
         } catch (e: Exception) {
             val duration = System.currentTimeMillis() - startTime
             CollectionRunResult(
-                itemName = name,
+                itemName = requestItem.name,
                 passed = false,
                 statusCode = -1,
                 duration = duration,

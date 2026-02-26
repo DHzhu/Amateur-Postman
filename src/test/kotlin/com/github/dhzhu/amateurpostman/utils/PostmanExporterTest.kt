@@ -23,6 +23,8 @@ class PostmanExporterTest {
                     id = "req-1",
                     name = "Get Users",
                     description = "Fetch all users",
+                    preRequestScript = "",
+                    testScript = "",
                     request = HttpRequest(
                         method = HttpMethod.GET,
                         url = "https://api.example.com/users",
@@ -63,6 +65,8 @@ class PostmanExporterTest {
                         CollectionItem.Request(
                             id = "req-1",
                             name = "Get Users",
+                            preRequestScript = "",
+                            testScript = "",
                             request = HttpRequest(
                                 method = HttpMethod.GET,
                                 url = "https://api.example.com/users"
@@ -71,6 +75,8 @@ class PostmanExporterTest {
                         CollectionItem.Request(
                             id = "req-2",
                             name = "Create User",
+                            preRequestScript = "",
+                            testScript = "",
                             request = HttpRequest(
                                 method = HttpMethod.POST,
                                 url = "https://api.example.com/users",
@@ -107,6 +113,8 @@ class PostmanExporterTest {
                 CollectionItem.Request(
                     id = "req-1",
                     name = "Request with Headers",
+                    preRequestScript = "",
+                    testScript = "",
                     request = HttpRequest(
                         method = HttpMethod.GET,
                         url = "https://api.example.com/data",
@@ -144,6 +152,8 @@ class PostmanExporterTest {
                 CollectionItem.Request(
                     id = "req-1",
                     name = "Search",
+                    preRequestScript = "",
+                    testScript = "",
                     request = HttpRequest(
                         method = HttpMethod.GET,
                         url = "https://api.example.com/search?q=test&page=1"
@@ -175,6 +185,8 @@ class PostmanExporterTest {
                 CollectionItem.Request(
                     id = "req-1",
                     name = "Create User",
+                    preRequestScript = "",
+                    testScript = "",
                     request = HttpRequest(
                         method = HttpMethod.POST,
                         url = "https://api.example.com/users",
@@ -206,6 +218,8 @@ class PostmanExporterTest {
                 CollectionItem.Request(
                     id = "req-1",
                     name = "Submit Form",
+                    preRequestScript = "",
+                    testScript = "",
                     request = HttpRequest(
                         method = HttpMethod.POST,
                         url = "https://api.example.com/submit",
@@ -285,6 +299,8 @@ class PostmanExporterTest {
             CollectionItem.Request(
                 id = "req-$index",
                 name = "${method.name} Request",
+                preRequestScript = "",
+                testScript = "",
                 request = HttpRequest(
                     method = method,
                     url = "https://api.example.com/test"
@@ -321,6 +337,8 @@ class PostmanExporterTest {
                 CollectionItem.Request(
                     id = "req-1",
                     name = "Test Request",
+                    preRequestScript = "",
+                    testScript = "",
                     request = HttpRequest(
                         method = HttpMethod.GET,
                         url = "https://api.example.com/test"
@@ -355,6 +373,8 @@ class PostmanExporterTest {
                     id = "req-1",
                     name = "Described Request",
                     description = "This is a detailed description",
+                    preRequestScript = "",
+                    testScript = "",
                     request = HttpRequest(
                         method = HttpMethod.GET,
                         url = "https://api.example.com/test"
@@ -390,6 +410,8 @@ class PostmanExporterTest {
                                 CollectionItem.Request(
                                     id = "req-1",
                                     name = "Get Users",
+                                    preRequestScript = "",
+                                    testScript = "",
                                     request = HttpRequest(
                                         method = HttpMethod.GET,
                                         url = "https://api.example.com/v1/users"
@@ -424,6 +446,8 @@ class PostmanExporterTest {
                 CollectionItem.Request(
                     id = "req-1",
                     name = "No Protocol",
+                    preRequestScript = "",
+                    testScript = "",
                     request = HttpRequest(
                         method = HttpMethod.GET,
                         url = "api.example.com/test"

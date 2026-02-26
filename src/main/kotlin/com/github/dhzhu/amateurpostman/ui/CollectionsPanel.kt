@@ -287,7 +287,7 @@ class CollectionsPanel(
             body = null
         )
 
-        collectionService.addRequest(collectionId, request, name, "", folderId)
+        collectionService.addRequest(collectionId, request, name, "", "", "", folderId)
     }
 
     private fun renameCollection(collection: RequestCollection) {
@@ -408,6 +408,8 @@ class CollectionsPanel(
             request.request,
             newName,
             request.description,
+            request.preRequestScript,
+            request.testScript,
             request.parentId
         )
     }
@@ -483,6 +485,8 @@ class CollectionsPanel(
                         item.request,
                         item.name,
                         item.description,
+                        item.preRequestScript,
+                        item.testScript,
                         parentId
                     )
                 }

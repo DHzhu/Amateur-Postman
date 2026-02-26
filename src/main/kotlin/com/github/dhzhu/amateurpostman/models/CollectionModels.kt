@@ -121,6 +121,8 @@ sealed class CollectionItem {
      * @property name Display name of the request
      * @property description Optional description of what this request does
      * @property request The actual HTTP request to send
+     * @property preRequestScript Optional script to execute before sending the request
+     * @property testScript Optional script to execute after receiving the response
      * @property parentId ID of parent folder (null for top-level)
      */
     data class Request(
@@ -128,6 +130,8 @@ sealed class CollectionItem {
         override val name: String,
         val description: String = "",
         val request: HttpRequest,
+        val preRequestScript: String = "",
+        val testScript: String = "",
         override val parentId: String? = null
     ) : CollectionItem() {
         companion object {
@@ -152,6 +156,13 @@ sealed class CollectionItem {
             val method = request.method.name
             val url = request.url.take(50)
             return "$name [$method] $url"
+        }
+
+        /**
+         * Checks if this request has any scripts defined.
+         */
+        fun hasScripts(): Boolean {
+            return preRequestScript.isNotBlank() || testScript.isNotBlank()
         }
     }
 }
@@ -226,6 +237,8 @@ data class SerializableCollection(
  * @property name Display name
  * @property description Optional description (requests only)
  * @property request The HTTP request (requests only)
+ * @property preRequestScript Script to execute before the request (requests only)
+ * @property testScript Script to execute after the response (requests only)
  * @property children Child items (folders only)
  * @property parentId ID of parent folder
  */
@@ -235,6 +248,8 @@ data class SerializableCollectionItem(
     val name: String,
     val description: String = "",
     val request: SerializableHttpRequest? = null,
+    val preRequestScript: String = "",
+    val testScript: String = "",
     val children: List<SerializableCollectionItem> = emptyList(),
     val parentId: String? = null
 ) {
@@ -259,6 +274,8 @@ data class SerializableCollectionItem(
                     headers = emptyMap(),
                     body = null
                 ),
+                preRequestScript = preRequestScript,
+                testScript = testScript,
                 parentId = parentId
             )
             else -> throw IllegalArgumentException("Unknown collection item type: $type")
@@ -284,6 +301,8 @@ data class SerializableCollectionItem(
                     name = item.name,
                     description = item.description,
                     request = SerializableHttpRequest.from(item.request),
+                    preRequestScript = item.preRequestScript,
+                    testScript = item.testScript,
                     parentId = item.parentId
                 )
             }
