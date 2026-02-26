@@ -6,7 +6,8 @@ enum class BodyType(val displayName: String, val mimeType: String, val fileExten
     JSON("JSON", "application/json", "json"),
     XML("XML", "application/xml", "xml"),
     HTML("HTML", "text/html", "html"),
-    JAVASCRIPT("JavaScript", "application/javascript", "js");
+    JAVASCRIPT("JavaScript", "application/javascript", "js"),
+    MULTIPART("Multipart", "multipart/form-data", "txt");
 
     companion object {
         fun fromMimeType(mimeType: String?): BodyType {
@@ -15,15 +16,49 @@ enum class BodyType(val displayName: String, val mimeType: String, val fileExten
     }
 }
 
+/** Represents a single part in a multipart/form-data request */
+sealed class MultipartPart {
+    data class TextField(
+        val key: String,
+        val value: String,
+        val contentType: String? = null,
+        val description: String = ""
+    ) : MultipartPart()
+
+    data class FileField(
+        val key: String,
+        val filePath: String,
+        val fileName: String,
+        val contentType: String? = null,
+        val description: String = ""
+    ) : MultipartPart() {
+        val isEmpty: Boolean get() = filePath.isBlank()
+    }
+}
+
 /** Represents the HTTP request body with type information */
 data class HttpBody(
     val content: String,
-    val type: BodyType = BodyType.JSON
+    val type: BodyType = BodyType.JSON,
+    val multipartData: List<MultipartPart>? = null
 ) {
-    val isEmpty: Boolean get() = content.isBlank()
+    val isEmpty: Boolean get() = content.isBlank() && (multipartData?.isEmpty() != false)
 
     companion object {
         val Empty = HttpBody("", BodyType.JSON)
+
+        /**
+         * Factory method for creating HttpBody with content and type.
+         * Provides binary compatibility for code expecting the old 2-argument constructor.
+         */
+        @JvmStatic
+        fun of(content: String, type: BodyType): HttpBody = HttpBody(content, type, null)
+
+        /**
+         * Factory method for creating HttpBody with content only (defaults to JSON type).
+         */
+        @JvmStatic
+        fun of(content: String): HttpBody = HttpBody(content, BodyType.JSON, null)
     }
 }
 

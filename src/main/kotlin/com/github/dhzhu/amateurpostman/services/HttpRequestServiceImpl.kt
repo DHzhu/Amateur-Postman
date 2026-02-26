@@ -1,22 +1,28 @@
 package com.github.dhzhu.amateurpostman.services
 
+import com.github.dhzhu.amateurpostman.models.BodyType
 import com.github.dhzhu.amateurpostman.models.HttpMethod
 import com.github.dhzhu.amateurpostman.models.HttpRequest
 import com.github.dhzhu.amateurpostman.models.HttpResponse
+import com.github.dhzhu.amateurpostman.models.MultipartPart
 import com.github.dhzhu.amateurpostman.utils.VariableResolver
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
+import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 
 /** Implementation of HttpRequestService using OkHttp */
@@ -140,10 +146,59 @@ class HttpRequestServiceImpl(private val project: Project) : HttpRequestService,
 
     private fun createRequestBody(request: HttpRequest): okhttp3.RequestBody {
         val httpBody = request.body
+
+        // Handle Multipart body type
+        if (httpBody?.type == BodyType.MULTIPART && httpBody.multipartData != null) {
+            return createMultipartRequestBody(httpBody.multipartData)
+        }
+
+        // Handle standard body types
         val bodyContent = httpBody?.content ?: ""
         val mediaType =
                 httpBody?.type?.mimeType?.toMediaTypeOrNull()
                         ?: "text/plain; charset=utf-8".toMediaTypeOrNull()
         return bodyContent.toRequestBody(mediaType)
+    }
+
+    private fun createMultipartRequestBody(parts: List<MultipartPart>): RequestBody {
+        val builder = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+
+        parts.forEach { part ->
+            when (part) {
+                is MultipartPart.TextField -> {
+                    val requestBody = part.value.toRequestBody(
+                        part.contentType?.toMediaTypeOrNull() ?: null
+                    )
+                    builder.addFormDataPart(part.key, part.value)
+                }
+                is MultipartPart.FileField -> {
+                    val file = File(part.filePath)
+                    if (file.exists()) {
+                        val mediaType = part.contentType?.toMediaTypeOrNull()
+                            ?: file.extension.toContentTypeOrNull()
+                        val requestBody = file.asRequestBody(mediaType)
+                        builder.addFormDataPart(part.key, part.fileName, requestBody)
+                    } else {
+                        logger.warn("File not found: ${part.filePath}, adding as text field")
+                        builder.addFormDataPart(part.key, "")
+                    }
+                }
+            }
+        }
+
+        return builder.build()
+    }
+
+    private fun String.toContentTypeOrNull() = when (lowercase()) {
+        "json" -> "application/json".toMediaTypeOrNull()
+        "xml" -> "application/xml".toMediaTypeOrNull()
+        "jpg", "jpeg" -> "image/jpeg".toMediaTypeOrNull()
+        "png" -> "image/png".toMediaTypeOrNull()
+        "gif" -> "image/gif".toMediaTypeOrNull()
+        "pdf" -> "application/pdf".toMediaTypeOrNull()
+        "txt" -> "text/plain".toMediaTypeOrNull()
+        "html" -> "text/html".toMediaTypeOrNull()
+        else -> "application/octet-stream".toMediaTypeOrNull()
     }
 }

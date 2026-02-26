@@ -55,7 +55,7 @@ class CurlExporterTest {
                 HttpRequest(
                         url = "https://api.example.com/users",
                         method = HttpMethod.POST,
-                        body = HttpBody("""{"name":"John"}""", BodyType.JSON)
+                        body = HttpBody.of("""{"name":"John"}""", BodyType.JSON)
                 )
 
         val curl = CurlExporter.export(request)
@@ -70,7 +70,7 @@ class CurlExporterTest {
                         url = "https://api.example.com/users",
                         method = HttpMethod.POST,
                         headers = mapOf("Content-Type" to "application/json"),
-                        body = HttpBody("""{"name":"John"}""", BodyType.JSON)
+                        body = HttpBody.of("""{"name":"John"}""", BodyType.JSON)
                 )
 
         val curl = CurlExporter.export(request, multiLine = true)
@@ -101,7 +101,7 @@ class CurlExporterTest {
                 HttpRequest(
                         url = "https://api.example.com/users",
                         method = HttpMethod.POST,
-                        body = HttpBody("""{"message":"It's a test"}""", BodyType.JSON)
+                        body = HttpBody.of("""{"message":"It's a test"}""", BodyType.JSON)
                 )
 
         val curl = CurlExporter.export(request)
@@ -116,7 +116,7 @@ class CurlExporterTest {
                 HttpRequest(
                         url = "https://api.example.com/users/1",
                         method = HttpMethod.PUT,
-                        body = HttpBody("""{"id":1}""", BodyType.JSON)
+                        body = HttpBody.of("""{"id":1}""", BodyType.JSON)
                 )
 
         val curl = CurlExporter.export(request)
@@ -140,7 +140,7 @@ class CurlExporterTest {
                 HttpRequest(
                         url = "https://api.example.com/users/1",
                         method = HttpMethod.PATCH,
-                        body = HttpBody("""{"name":"Jane"}""", BodyType.JSON)
+                        body = HttpBody.of("""{"name":"Jane"}""", BodyType.JSON)
                 )
 
         val curl = CurlExporter.export(request)
@@ -178,7 +178,7 @@ class CurlExporterTest {
                         url = "https://api.example.com/users",
                         method = HttpMethod.POST,
                         headers = emptyMap(),
-                        body = HttpBody("""{"name":"John"}""", BodyType.JSON)
+                        body = HttpBody.of("""{"name":"John"}""", BodyType.JSON)
                 )
 
         val curl = CurlExporter.exportWithOptions(request)
