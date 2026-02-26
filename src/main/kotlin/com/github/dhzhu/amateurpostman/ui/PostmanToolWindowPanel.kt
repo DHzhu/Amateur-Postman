@@ -89,6 +89,9 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
     )
     private val multipartParts = mutableListOf<MultipartPart>()
 
+    // GraphQL components
+    private lateinit var graphqlPanel: GraphQLPanel
+
     // Tabs
     private lateinit var tabbedPane: JBTabbedPane
     private lateinit var paramsTable: JBTable
@@ -216,7 +219,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
         bodyPanel.add(bodyToolbar, BorderLayout.NORTH)
 
-        // Card layout for switching between Raw and Multipart editors
+        // Card layout for switching between Raw, Multipart, and GraphQL editors
         val bodyCardPanel = JPanel(CardLayout())
         requestBodyArea = createTextArea()
 
@@ -227,6 +230,11 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         // Multipart editor panel
         val multipartEditorPanel = createMultipartPanel()
         bodyCardPanel.add(multipartEditorPanel, "MULTIPART")
+
+        // GraphQL editor panel
+        graphqlPanel = GraphQLPanel()
+        val graphqlEditorPanel = graphqlPanel.createPanel()
+        bodyCardPanel.add(graphqlEditorPanel, "GRAPHQL")
 
         bodyPanel.add(bodyCardPanel, BorderLayout.CENTER)
         tabbedPane.addTab("Body", bodyPanel)
@@ -366,22 +374,38 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
     }
 
     private fun formatRequestBody() {
-        val content = requestBodyArea.text
-        if (content.isBlank()) return
-
         try {
             when (selectedBodyType) {
-                BodyType.JSON -> {
-                    val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
-                    val jsonElement = com.google.gson.JsonParser.parseString(content)
-                    requestBodyArea.text = gson.toJson(jsonElement)
+                BodyType.GRAPHQL -> {
+                    graphqlPanel.prettifyQuery()
+                    val variables = graphqlPanel.getVariables()
+                    if (variables.isNotBlank()) {
+                        try {
+                            val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
+                            val jsonElement = com.google.gson.JsonParser.parseString(variables)
+                            graphqlPanel.setVariables(gson.toJson(jsonElement))
+                        } catch (e: Exception) {
+                            // Variables may not be valid JSON yet, skip formatting
+                        }
+                    }
                 }
-                BodyType.XML -> {
-                    // Basic XML formatting (pretty print)
-                    requestBodyArea.text = formatXml(content)
-                }
-                BodyType.HTML, BodyType.JAVASCRIPT, BodyType.TEXT, BodyType.MULTIPART -> {
-                    // No formatting needed for these types
+                else -> {
+                    val content = requestBodyArea.text
+                    if (content.isBlank()) return
+
+                    when (selectedBodyType) {
+                        BodyType.JSON -> {
+                            val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
+                            val jsonElement = com.google.gson.JsonParser.parseString(content)
+                            requestBodyArea.text = gson.toJson(jsonElement)
+                        }
+                        BodyType.XML -> {
+                            requestBodyArea.text = formatXml(content)
+                        }
+                        BodyType.GRAPHQL, BodyType.HTML, BodyType.JAVASCRIPT, BodyType.TEXT, BodyType.MULTIPART -> {
+                            // No formatting needed for these types (GraphQL handled above)
+                        }
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -469,6 +493,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             val layout = bodyCardPanel.layout as CardLayout
             when (selectedBodyType) {
                 BodyType.MULTIPART -> layout.show(bodyCardPanel, "MULTIPART")
+                BodyType.GRAPHQL -> layout.show(bodyCardPanel, "GRAPHQL")
                 else -> layout.show(bodyCardPanel, "RAW")
             }
         }
@@ -590,9 +615,24 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
         // Set body and body type
         entry.request.body?.let { body ->
-            requestBodyArea.text = body.content
             selectedBodyType = body.type
             bodyTypeComboBox.selectedItem = body.type
+
+            when (body.type) {
+                BodyType.GRAPHQL -> {
+                    // Try to parse JSON and load into GraphQL panel
+                    val graphQLRequest = com.github.dhzhu.amateurpostman.models.GraphQLRequest.fromJson(body.content)
+                    if (graphQLRequest != null) {
+                        graphqlPanel.loadGraphQLRequest(graphQLRequest)
+                    } else {
+                        // If parsing fails, set the content as query
+                        graphqlPanel.setQuery(body.content)
+                    }
+                }
+                else -> {
+                    requestBodyArea.text = body.content
+                }
+            }
         } ?: run {
             requestBodyArea.text = ""
         }
@@ -619,9 +659,24 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
         // Set body and body type
         request.body?.let { body ->
-            requestBodyArea.text = body.content
             selectedBodyType = body.type
             bodyTypeComboBox.selectedItem = body.type
+
+            when (body.type) {
+                BodyType.GRAPHQL -> {
+                    // Try to parse JSON and load into GraphQL panel
+                    val graphQLRequest = com.github.dhzhu.amateurpostman.models.GraphQLRequest.fromJson(body.content)
+                    if (graphQLRequest != null) {
+                        graphqlPanel.loadGraphQLRequest(graphQLRequest)
+                    } else {
+                        // If parsing fails, set the content as query
+                        graphqlPanel.setQuery(body.content)
+                    }
+                }
+                else -> {
+                    requestBodyArea.text = body.content
+                }
+            }
         } ?: run {
             requestBodyArea.text = ""
         }
@@ -727,6 +782,14 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                         content = "",
                         type = BodyType.MULTIPART,
                         multipartData = parts
+                    )
+                } else null
+            }
+            BodyType.GRAPHQL -> {
+                if (!graphqlPanel.isEmpty()) {
+                    HttpBody(
+                        content = graphqlPanel.toJson(),
+                        type = BodyType.GRAPHQL
                     )
                 } else null
             }
