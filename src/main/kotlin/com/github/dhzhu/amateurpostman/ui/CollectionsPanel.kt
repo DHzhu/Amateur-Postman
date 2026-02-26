@@ -189,6 +189,8 @@ class CollectionsPanel(
 
         when (node) {
             is CollectionNode -> {
+                menu.add(MenuItem("Run Collection") { runCollection(node.collection) })
+                menu.addSeparator()
                 menu.add(MenuItem("New Folder") { createNewFolder(node.collection.id, null) })
                 menu.add(MenuItem("New Request") { createNewRequest(node.collection.id, null) })
                 menu.addSeparator()
@@ -224,6 +226,11 @@ class CollectionsPanel(
     }
 
     // ========== Operations ==========
+
+    private fun runCollection(collection: RequestCollection) {
+        val dialog = CollectionRunnerDialog(project, collection)
+        dialog.show()
+    }
 
     private fun createNewCollection() {
         val name = Messages.showInputDialog(
