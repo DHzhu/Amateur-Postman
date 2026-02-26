@@ -76,6 +76,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
     private var selectedMethod = HttpMethod.GET
     private var selectedBodyType = BodyType.JSON
     private var statusText = "Ready"
+    private var currentEditingRequestItem: com.github.dhzhu.amateurpostman.models.CollectionItem.Request? = null
 
     // UI Components
     private lateinit var urlField: JBTextField
@@ -255,8 +256,8 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
         // Tab: Collections
         collectionsPanel = CollectionsPanel(project) { requestItem ->
-            // Load request from collection
-            loadRequest(requestItem.request)
+            // Load request from collection (including scripts)
+            loadRequest(requestItem)
         }
         tabbedPane.addTab("Collections", collectionsPanel)
 
@@ -690,6 +691,56 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
      * Loads a request into the form fields.
      * Used when loading from collections.
      */
+    private fun loadRequest(requestItem: com.github.dhzhu.amateurpostman.models.CollectionItem.Request) {
+        currentEditingRequestItem = requestItem
+
+        urlField.text = requestItem.request.url
+        methodComboBox.selectedItem = requestItem.request.method
+        selectedMethod = requestItem.request.method
+
+        // Clear and set headers
+        while (headersTableModel.rowCount > 0) {
+            headersTableModel.removeRow(0)
+        }
+        requestItem.request.headers.forEach { (key, value) ->
+            headersTableModel.addRow(arrayOf(key, value))
+        }
+
+        // Set body and body type
+        requestItem.request.body?.let { body ->
+            selectedBodyType = body.type
+            bodyTypeComboBox.selectedItem = body.type
+
+            when (body.type) {
+                BodyType.GRAPHQL -> {
+                    // Try to parse JSON and load into GraphQL panel
+                    val graphQLRequest = GraphQLRequest.fromJson(body.content)
+                    if (graphQLRequest != null) {
+                        graphqlPanel.loadGraphQLRequest(graphQLRequest)
+                    } else {
+                        // If parsing fails, set the content as query
+                        graphqlPanel.setQuery(body.content)
+                    }
+                }
+                else -> {
+                    requestBodyArea.text = body.content
+                }
+            }
+        } ?: run {
+            requestBodyArea.text = ""
+        }
+
+        // Load scripts
+        preRequestScriptArea.text = requestItem.preRequestScript
+        testsScriptArea.text = requestItem.testScript
+
+        statusLabel.text = "Loaded request: ${requestItem.name}"
+    }
+
+    /**
+     * Loads a request into the form fields (without scripts).
+     * Used when loading from history or other sources.
+     */
     private fun loadRequest(request: HttpRequest) {
         urlField.text = request.url
         methodComboBox.selectedItem = request.method
@@ -740,12 +791,44 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             return
         }
 
+        // If editing an existing request from collection, update it
+        if (currentEditingRequestItem != null) {
+            // Find which collection this request belongs to
+            val collectionService = project.service<com.github.dhzhu.amateurpostman.services.CollectionService>()
+            for (collection in collectionService.getCollections()) {
+                if (collection.findItemById(currentEditingRequestItem!!.id) != null) {
+                    // Update the existing request
+                    val preRequestScript = preRequestScriptArea.text
+                    val testScript = testsScriptArea.text
+                    collectionService.updateRequest(
+                        collection.id,
+                        currentEditingRequestItem!!.id,
+                        request,
+                        preRequestScript,
+                        testScript
+                    )
+                    statusLabel.text = "Updated request: ${currentEditingRequestItem!!.name}"
+                    return
+                }
+            }
+        }
+
+        // Otherwise, save as new request
         SaveRequestDialog.show(project, request) { collectionId, folderId, name, description ->
             val collectionService = project.service<com.github.dhzhu.amateurpostman.services.CollectionService>()
 
-            // Check if updating or creating new
-            // For now, always create new (would need to track current editing item)
-            collectionService.addRequest(collectionId, request, name, description, folderId)
+            // Include scripts when saving
+            val preRequestScript = preRequestScriptArea.text
+            val testScript = testsScriptArea.text
+            collectionService.addRequest(
+                collectionId,
+                request,
+                name,
+                description,
+                preRequestScript,
+                testScript,
+                folderId
+            )
 
             SwingUtilities.invokeLater {
                 statusLabel.text = "Saved request: $name"

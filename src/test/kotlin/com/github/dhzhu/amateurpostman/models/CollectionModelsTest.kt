@@ -32,6 +32,8 @@ class CollectionModelsTest {
                             name = "Get Users",
                             description = "Get all users",
                             request = testRequest,
+                            preRequestScript = "",
+                            testScript = "",
                             parentId = "folder-1"
                         )
                     ),
@@ -42,6 +44,8 @@ class CollectionModelsTest {
                     name = "Health Check",
                     description = "API health check",
                     request = testRequest,
+                    preRequestScript = "",
+                    testScript = "",
                     parentId = null
                 )
             ),

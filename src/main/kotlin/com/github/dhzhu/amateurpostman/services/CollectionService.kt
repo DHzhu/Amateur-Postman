@@ -198,6 +198,8 @@ class CollectionService(private val project: Project) :
      * @param request The HTTP request to save
      * @param name The name for this request
      * @param description Optional description
+     * @param preRequestScript Optional pre-request script
+     * @param testScript Optional test script
      * @param folderId The parent folder ID (null for top-level)
      * @return The created request item, or null if collection not found
      */
@@ -206,10 +208,20 @@ class CollectionService(private val project: Project) :
         request: HttpRequest,
         name: String,
         description: String = "",
+        preRequestScript: String = "",
+        testScript: String = "",
         folderId: String? = null
     ): CollectionItem.Request? {
         val collection = getCollection(collectionId) ?: return null
-        val requestItem = CollectionItem.Request.create(name, request, description)
+        val requestItem = CollectionItem.Request(
+            id = java.util.UUID.randomUUID().toString(),
+            name = name,
+            description = description,
+            request = request,
+            preRequestScript = preRequestScript,
+            testScript = testScript,
+            parentId = folderId
+        )
 
         // Add request to appropriate location
         val updatedItems = if (folderId == null) {
@@ -230,12 +242,20 @@ class CollectionService(private val project: Project) :
      * @param collectionId The collection ID
      * @param itemId The request item ID
      * @param request The updated HTTP request
+     * @param preRequestScript Optional pre-request script
+     * @param testScript Optional test script
      * @return true if updated, false if not found
      */
-    fun updateRequest(collectionId: String, itemId: String, request: HttpRequest): Boolean {
+    fun updateRequest(
+        collectionId: String,
+        itemId: String,
+        request: HttpRequest,
+        preRequestScript: String = "",
+        testScript: String = ""
+    ): Boolean {
         val collection = getCollection(collectionId) ?: return false
 
-        val updatedItems = updateItemRequest(collection.items, itemId, request)
+        val updatedItems = updateItemRequest(collection.items, itemId, request, preRequestScript, testScript)
         if (updatedItems != null) {
             val updatedCollection = collection.copy(items = updatedItems).withUpdatedTimestamp()
             updateCollection(updatedCollection)
@@ -362,15 +382,21 @@ class CollectionService(private val project: Project) :
     private fun updateItemRequest(
         items: List<CollectionItem>,
         itemId: String,
-        newRequest: HttpRequest
+        newRequest: HttpRequest,
+        preRequestScript: String = "",
+        testScript: String = ""
     ): List<CollectionItem>? {
         var found = false
         val result = items.map { item ->
             if (item.id == itemId && item is CollectionItem.Request) {
                 found = true
-                item.copy(request = newRequest)
+                item.copy(
+                    request = newRequest,
+                    preRequestScript = preRequestScript,
+                    testScript = testScript
+                )
             } else if (item is CollectionItem.Folder) {
-                val updatedChildren = updateItemRequest(item.children, itemId, newRequest)
+                val updatedChildren = updateItemRequest(item.children, itemId, newRequest, preRequestScript, testScript)
                 if (updatedChildren != null && updatedChildren != item.children) {
                     item.copy(children = updatedChildren)
                 } else {
