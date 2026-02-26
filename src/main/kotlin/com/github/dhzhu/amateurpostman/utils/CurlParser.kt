@@ -1,5 +1,7 @@
 package com.github.dhzhu.amateurpostman.utils
 
+import com.github.dhzhu.amateurpostman.models.BodyType
+import com.github.dhzhu.amateurpostman.models.HttpBody
 import com.github.dhzhu.amateurpostman.models.HttpMethod
 import com.github.dhzhu.amateurpostman.models.HttpRequest
 
@@ -117,12 +119,15 @@ object CurlParser {
 
         require(url.isNotEmpty()) { "No URL found in cURL command" }
 
+        // Determine body type from content type
+        val bodyType = BodyType.fromMimeType(contentType ?: headers["Content-Type"])
+        val requestBody = body?.let { HttpBody(it, bodyType) }
+
         return HttpRequest(
                 url = url,
                 method = method,
                 headers = headers,
-                body = body,
-                contentType = contentType ?: headers["Content-Type"]
+                body = requestBody
         )
     }
 

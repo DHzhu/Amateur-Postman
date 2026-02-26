@@ -200,8 +200,11 @@ class CollectionModelsTest {
 
     @Test
     fun testRequestGetDisplayNameLongURL() {
-        val longUrlRequest = testRequest.copy(
-            url = "https://api.example.com/very/long/path/that/exceeds/fifty/characters"
+        val longUrlRequest = HttpRequest(
+            method = testRequest.method,
+            url = "https://api.example.com/very/long/path/that/exceeds/fifty/characters",
+            headers = testRequest.headers,
+            body = testRequest.body
         )
 
         val request = CollectionItem.Request(

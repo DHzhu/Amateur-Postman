@@ -154,7 +154,7 @@ object PostmanExporter {
         }
 
         // Convert body
-        val body = convertBody(request.body, request.contentType, warnings)
+        val body = convertBody(request.body, warnings)
 
         return PostmanRequest(
             method = request.method.name,
@@ -245,15 +245,17 @@ object PostmanExporter {
      * Converts request body to PostmanBody format.
      */
     private fun convertBody(
-        body: String?,
-        contentType: String?,
+        httpBody: HttpBody?,
         warnings: MutableList<String>
     ): PostmanBody? {
-        if (body.isNullOrBlank()) return null
+        if (httpBody == null || httpBody.isEmpty) return null
+
+        val body = httpBody.content
+        val contentType = httpBody.type.mimeType
 
         return when {
             // Check for form data (simple detection)
-            contentType?.contains("multipart/form-data") == true ||
+            contentType.contains("multipart/form-data") ||
             body.contains("=") && !body.startsWith("{") && !body.startsWith("[") -> {
                 // Try to parse as form-urlencoded
                 try {

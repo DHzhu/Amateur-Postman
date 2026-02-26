@@ -1,6 +1,8 @@
 package com.github.dhzhu.amateurpostman.utils
 
 import com.github.dhzhu.amateurpostman.models.HttpMethod
+import com.github.dhzhu.amateurpostman.models.HttpBody
+import com.github.dhzhu.amateurpostman.models.BodyType
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -61,7 +63,8 @@ class CurlParserTest {
         val request = CurlParser.parse(curl)
 
         assertEquals(HttpMethod.POST, request.method)
-        assertEquals("""{"name":"John"}""", request.body)
+        assertEquals("""{"name":"John"}""", request.body?.content)
+        assertEquals(BodyType.JSON, request.body?.type)
     }
 
     @Test
@@ -71,7 +74,8 @@ class CurlParserTest {
 
         // -d should imply POST method
         assertEquals(HttpMethod.POST, request.method)
-        assertEquals("""{"name":"John"}""", request.body)
+        assertEquals("""{"name":"John"}""", request.body?.content)
+        assertEquals(BodyType.JSON, request.body?.type)
     }
 
     @Test
@@ -100,7 +104,8 @@ class CurlParserTest {
         val request = CurlParser.parse(curl)
 
         assertEquals(HttpMethod.PUT, request.method)
-        assertEquals("{\"id\":1}", request.body)
+        assertEquals("{\"id\":1}", request.body?.content)
+        assertEquals(BodyType.JSON, request.body?.type)
     }
 
     @Test
@@ -133,7 +138,8 @@ class CurlParserTest {
 
         assertEquals(HttpMethod.POST, request.method)
         assertEquals("application/json", request.headers["Content-Type"])
-        assertEquals("""{"name":"John"}""", request.body)
+        assertEquals("""{"name":"John"}""", request.body?.content)
+        assertEquals(BodyType.JSON, request.body?.type)
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -169,6 +175,6 @@ class CurlParserTest {
         val curl = "curl -H 'Content-Type: text/xml' https://api.example.com/soap"
         val request = CurlParser.parse(curl)
 
-        assertEquals("text/xml", request.contentType)
+        assertEquals("text/xml", request.headers["Content-Type"])
     }
 }

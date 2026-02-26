@@ -1,6 +1,8 @@
 package com.github.dhzhu.amateurpostman.utils
 
 import com.github.dhzhu.amateurpostman.models.*
+import com.github.dhzhu.amateurpostman.models.HttpBody
+import com.github.dhzhu.amateurpostman.models.BodyType
 import com.google.gson.Gson
 import org.junit.Assert.*
 import org.junit.Test
@@ -72,7 +74,7 @@ class PostmanExporterTest {
                             request = HttpRequest(
                                 method = HttpMethod.POST,
                                 url = "https://api.example.com/users",
-                                body = "{\"name\":\"John\"}"
+                                body = HttpBody("{\"name\":\"John\"}", BodyType.JSON)
                             )
                         )
                     )
@@ -176,8 +178,7 @@ class PostmanExporterTest {
                     request = HttpRequest(
                         method = HttpMethod.POST,
                         url = "https://api.example.com/users",
-                        body = "{\"name\":\"John\",\"email\":\"john@example.com\"}",
-                        contentType = "application/json"
+                        body = HttpBody("{\"name\":\"John\",\"email\":\"john@example.com\"}", BodyType.JSON)
                     )
                 )
             )
@@ -208,7 +209,7 @@ class PostmanExporterTest {
                     request = HttpRequest(
                         method = HttpMethod.POST,
                         url = "https://api.example.com/submit",
-                        body = "username=john&password=secret"
+                        body = HttpBody("username=john&password=secret", BodyType.TEXT)
                     )
                 )
             )

@@ -1,5 +1,6 @@
 package com.github.dhzhu.amateurpostman.utils
 
+import com.github.dhzhu.amateurpostman.models.HttpBody
 import com.github.dhzhu.amateurpostman.models.HttpMethod
 import com.github.dhzhu.amateurpostman.models.HttpRequest
 import com.github.dhzhu.amateurpostman.models.Variable
@@ -42,7 +43,7 @@ object VariableResolver {
             substituteVariables(value, variables)
         }
         val substitutedBody = request.body?.let { body ->
-            substituteVariables(body, variables)
+            body.copy(content = substituteVariables(body.content, variables))
         }
 
         return request.copy(
@@ -240,7 +241,7 @@ object VariableResolver {
             append(request.url)
             append("\n")
             request.headers.values.forEach { append(it).append("\n") }
-            request.body?.let { append(it) }
+            request.body?.let { append(it.content) }
         }
 
         val variableNames = extractVariableNames(allText)

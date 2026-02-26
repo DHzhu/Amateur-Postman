@@ -75,21 +75,24 @@ data class SerializableHistoryEntry(
     var method: String = "GET",
     var headers: Map<String, String> = emptyMap(),
     var body: String? = null,
-    var contentType: String? = null,
+    var bodyType: String? = null,  // "JSON", "XML", "TEXT", "HTML", "JAVASCRIPT"
     var responseStatusCode: Int? = null,
     var responseStatusMessage: String? = null,
     var responseDuration: Long? = null,
     var name: String? = null
 ) {
     fun toHistoryEntry(): RequestHistoryEntry {
+        val type = bodyType?.let { typeName ->
+            BodyType.entries.find { it.name == typeName } ?: BodyType.JSON
+        } ?: BodyType.JSON
+
         val request = HttpRequest(
             url = url,
             method = HttpMethod.valueOf(method),
             headers = headers,
-            body = body,
-            contentType = contentType
+            body = body?.let { HttpBody(it, type) }
         )
-        
+
         val response = if (responseStatusCode != null) {
             HttpResponse(
                 statusCode = responseStatusCode!!,
@@ -100,7 +103,7 @@ data class SerializableHistoryEntry(
                 isSuccessful = responseStatusCode!! in 200..299
             )
         } else null
-        
+
         return RequestHistoryEntry(
             id = id,
             timestamp = timestamp,
@@ -118,8 +121,8 @@ data class SerializableHistoryEntry(
                 url = entry.request.url,
                 method = entry.request.method.name,
                 headers = entry.request.headers,
-                body = entry.request.body,
-                contentType = entry.request.contentType,
+                body = entry.request.body?.content,
+                bodyType = entry.request.body?.type?.name,
                 responseStatusCode = entry.response?.statusCode,
                 responseStatusMessage = entry.response?.statusMessage,
                 responseDuration = entry.response?.duration,

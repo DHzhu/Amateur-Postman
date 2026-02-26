@@ -301,15 +301,18 @@ data class SerializableHttpRequest(
     val url: String,
     val headers: Map<String, String>,
     val body: String?,
-    val contentType: String?
+    val bodyType: String? = null  // "JSON", "XML", "TEXT", "HTML", "JAVASCRIPT"
 ) {
     fun toHttpRequest(): HttpRequest {
+        val type = bodyType?.let { typeName ->
+            BodyType.entries.find { it.name == typeName } ?: BodyType.JSON
+        } ?: BodyType.JSON
+
         return HttpRequest(
             method = HttpMethod.valueOf(method),
             url = url,
             headers = headers,
-            body = body,
-            contentType = contentType
+            body = body?.let { HttpBody(it, type) }
         )
     }
 
@@ -319,8 +322,8 @@ data class SerializableHttpRequest(
                 method = request.method.name,
                 url = request.url,
                 headers = request.headers,
-                body = request.body,
-                contentType = request.contentType
+                body = request.body?.content,
+                bodyType = request.body?.type?.name
             )
         }
     }
