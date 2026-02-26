@@ -5,8 +5,11 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
+import com.oracle.truffle.js.scriptengine.GraalJSScriptEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.graalvm.polyglot.Context
+import org.graalvm.polyglot.HostAccess
 
 /**
  * Result of executing a test script.
@@ -167,15 +170,76 @@ class TestContext(private val response: HttpResponse) {
     fun getResults(): List<AssertionResult> = assertions.toList()
 }
 
+// ── Binding classes exposed to JS scripts ────────────────────────────────────
+// GraalVM JS resolves `obj.method(args)` via invokeMember on the Java object.
+// Using real Kotlin classes with named methods (instead of Map<String, Any>)
+// ensures GraalVM can find and call them correctly.
+
+class AmEnvironmentBinding(private val context: PreRequestContext) {
+    fun set(key: String, value: String) = context.set(key, value)
+    fun get(key: String): String? = context.get(key)
+}
+
+class AmBinding(private val context: PreRequestContext) {
+    // @JvmField makes this a public Java field so GraalVM JS can read it via readMember().
+    // Without it, Kotlin compiles val to a private field + public getter, which GraalVM
+    // in polyglot mode cannot map to JS property access automatically.
+    @JvmField val environment = AmEnvironmentBinding(context)
+    fun timestamp(): Long = context.timestamp()
+    fun uuid(): String = context.uuid()
+    fun randomInt(min: Int, max: Int): Int = context.randomInt(min, max)
+}
+
+class PmExpectBodyBinding(private val context: TestContext) {
+    fun toContain(text: String) = context.assertBodyContains(text)
+}
+
+class PmExpectBinding(private val context: TestContext) {
+    @JvmField val body = PmExpectBodyBinding(context)
+    fun statusCode(code: Int) = context.assertStatusCode(code)
+    fun header(name: String, value: String) = context.assertHeader(name, value)
+}
+
+class PmResponseBinding(response: HttpResponse) {
+    @JvmField val code: Int = response.statusCode
+    @JvmField val body: String = response.body
+    @JvmField val headers: Map<String, List<String>> = response.headers
+    @JvmField val responseTime: Long = response.duration
+}
+
+class PmBinding(httpResponse: HttpResponse, context: TestContext) {
+    @JvmField val expect = PmExpectBinding(context)
+    @JvmField val response = PmResponseBinding(httpResponse)
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Service for executing Pre-request and Test scripts.
  *
- * Uses JavaScript (Nashorn) for script execution with sandboxed contexts.
+ * Uses GraalVM JS for script execution with sandboxed contexts.
  */
 @Service(Service.Level.PROJECT)
-class ScriptExecutionService(private val project: Project) {
+class ScriptExecutionService(
+    private val project: Project,
+    private val environmentService: EnvironmentService
+) {
+    // Called by IntelliJ service framework (single-arg Project constructor)
+    constructor(project: Project) : this(project, project.service())
 
-    private val engine = javax.script.ScriptEngineManager().getEngineByName("nashorn")!!
+    private val engine = try {
+        // GraalVM 24.x defaults to a restrictive host access policy that prevents
+        // JS from calling Java/Kotlin host objects. We must explicitly enable
+        // HostAccess.ALL so that scripts can invoke Kotlin lambdas exposed via bindings.
+        GraalJSScriptEngine.create(
+            null,
+            Context.newBuilder("js")
+                .allowHostAccess(HostAccess.ALL)
+                .allowHostClassLookup { true }
+        )
+    } catch (e: Exception) {
+        thisLogger().error("Failed to initialize GraalVM JS engine", e)
+        null
+    }
 
     /**
      * Executes a Pre-request script.
@@ -184,29 +248,18 @@ class ScriptExecutionService(private val project: Project) {
      * @return Map of temporary variables set during script execution
      */
     suspend fun executePreRequestScript(script: String): Map<String, String> = withContext(Dispatchers.IO) {
-        if (script.isBlank()) {
+        if (script.isBlank() || engine == null) {
+            if (engine == null && script.isNotBlank()) {
+                thisLogger().warn("Skipping pre-request script: JS engine not available")
+            }
             return@withContext emptyMap()
         }
 
         try {
-            val environmentService = project.service<EnvironmentService>()
             val context = PreRequestContext(environmentService)
             val bindings = engine.createBindings()
 
-            // Expose context functions to script
-            val envMap = mutableMapOf<String, Any>()
-            val setFunc = { key: String, value: String -> context.set(key, value) }
-            val getFunc = { key: String -> context.get(key) }
-            envMap["set"] = setFunc
-            envMap["get"] = getFunc
-
-            val amMap = mutableMapOf<String, Any>()
-            amMap["environment"] = envMap
-            amMap["timestamp"] = { context.timestamp() }
-            amMap["uuid"] = { context.uuid() }
-            amMap["randomInt"] = { min: Int, max: Int -> context.randomInt(min, max) }
-
-            bindings["am"] = amMap
+            bindings["am"] = AmBinding(context)
 
             engine.eval(script, bindings)
             context.getVariables()
@@ -228,7 +281,13 @@ class ScriptExecutionService(private val project: Project) {
         script: String,
         response: HttpResponse
     ): TestResult = withContext(Dispatchers.IO) {
-        if (script.isBlank()) {
+        if (script.isBlank() || engine == null) {
+            if (engine == null && script.isNotBlank()) {
+                thisLogger().warn("Skipping test script: JS engine not available")
+                return@withContext TestResult.create(listOf(
+                    AssertionResult("Script execution", false, "Error: JS engine not available")
+                ))
+            }
             return@withContext TestResult.create(emptyList())
         }
 
@@ -236,25 +295,7 @@ class ScriptExecutionService(private val project: Project) {
             val context = TestContext(response)
             val bindings = engine.createBindings()
 
-            // Expose context functions to script
-            val pmMap = mutableMapOf<String, Any>()
-            pmMap["test"] = { name: String, fn: () -> Unit -> context.test(name) { fn(); true } }
-
-            val expectMap = mutableMapOf<String, Any>()
-            expectMap["statusCode"] = { code: Int -> context.assertStatusCode(code) }
-            val bodyMap = mutableMapOf<String, Any>()
-            bodyMap["toContain"] = { text: String -> context.assertBodyContains(text) }
-            expectMap["body"] = bodyMap
-            pmMap["expect"] = expectMap
-
-            val respMap = mutableMapOf<String, Any>()
-            respMap["code"] = response.statusCode
-            respMap["body"] = response.body
-            respMap["headers"] = response.headers
-            respMap["responseTime"] = response.duration
-            pmMap["response"] = respMap
-
-            bindings["pm"] = pmMap
+            bindings["pm"] = PmBinding(response, context)
 
             engine.eval(script, bindings)
             TestResult.create(context.getResults())
