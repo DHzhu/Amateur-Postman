@@ -44,8 +44,14 @@ dependencies {
     // JSON Processing
     implementation("com.google.code.gson:gson:2.11.0")
     
+    // JS Scripting Engine (GraalVM JS)
+    implementation(libs.graaljs)
+    implementation(libs.graaljs.scriptengine)
+    
     // Test dependencies
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.mockito.kotlin)
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
