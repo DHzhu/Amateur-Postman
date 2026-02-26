@@ -65,6 +65,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
     private val httpService = project.service<HttpRequestService>()
     private val historyService =
             project.service<com.github.dhzhu.amateurpostman.services.RequestHistoryService>()
+    private val scriptExecutionService = project.service<com.github.dhzhu.amateurpostman.services.ScriptExecutionService>()
     private val scope = CoroutineScope(Dispatchers.Swing + SupervisorJob())
 
     // Request cancellation tracking
@@ -112,6 +113,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
     private lateinit var responseTabbedPane: JBTabbedPane
     private lateinit var responseHeadersArea: JBTextArea
     private lateinit var responseRawArea: JBTextArea
+    private lateinit var responseTestResultsArea: JBTextArea
     private lateinit var statusLabel: JLabel
     private lateinit var responseSizeLabel: JLabel
 
@@ -123,6 +125,10 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
     // Collections
     private lateinit var collectionsPanel: CollectionsPanel
+
+    // Script panels
+    private lateinit var preRequestScriptArea: JBTextArea
+    private lateinit var testsScriptArea: JBTextArea
 
     private val headersTableModel = DefaultTableModel(arrayOf("Key", "Value"), 0)
     private val paramsTableModel = DefaultTableModel(arrayOf("Key", "Value", "Description"), 0)
@@ -254,6 +260,26 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         }
         tabbedPane.addTab("Collections", collectionsPanel)
 
+        // Tab: Pre-request Script
+        val preRequestPanel = JPanel(BorderLayout())
+        preRequestScriptArea = createTextArea()
+        preRequestScriptArea.font = Font("Monospaced", Font.PLAIN, 13)
+        val preRequestInfoLabel = JLabel("// 在发送请求前执行的脚本。可使用 am.environment.set(key, value) 设置环境变量")
+        preRequestInfoLabel.border = JBUI.Borders.empty(5)
+        preRequestPanel.add(preRequestInfoLabel, BorderLayout.NORTH)
+        preRequestPanel.add(JBScrollPane(preRequestScriptArea), BorderLayout.CENTER)
+        tabbedPane.addTab("Pre-request", preRequestPanel)
+
+        // Tab: Tests
+        val testsPanel = JPanel(BorderLayout())
+        testsScriptArea = createTextArea()
+        testsScriptArea.font = Font("Monospaced", Font.PLAIN, 13)
+        val testsInfoLabel = JLabel("// 请求完成后执行的测试脚本。可使用 pm.test(name, fn) 添加断言")
+        testsInfoLabel.border = JBUI.Borders.empty(5)
+        testsPanel.add(testsInfoLabel, BorderLayout.NORTH)
+        testsPanel.add(JBScrollPane(testsScriptArea), BorderLayout.CENTER)
+        tabbedPane.addTab("Tests", testsPanel)
+
         // Response Area with tabs for Headers/Body/Raw
         val responsePanel = JPanel(BorderLayout())
 
@@ -297,6 +323,12 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         responseRawArea = createTextArea()
         responseRawArea.isEditable = false
         responseTabbedPane.addTab("Raw", JBScrollPane(responseRawArea))
+
+        // Test Results tab
+        responseTestResultsArea = createTextArea()
+        responseTestResultsArea.isEditable = false
+        responseTestResultsArea.font = Font("Monospaced", Font.PLAIN, 12)
+        responseTabbedPane.addTab("Test Results", JBScrollPane(responseTestResultsArea))
 
         responsePanel.add(statusPanel, BorderLayout.NORTH)
         responsePanel.add(responseTabbedPane, BorderLayout.CENTER)
@@ -1205,8 +1237,20 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                                         body = requestBody
                                 )
 
-                        // Execute
-                        val response = httpService.executeRequest(request)
+                        // Execute Pre-request script and send request
+                        val response = if (preRequestScriptArea.text.isNotBlank()) {
+                            val scriptVars = scriptExecutionService.executePreRequestScript(preRequestScriptArea.text)
+                            // Re-resolve variables in request with new values
+                            val environmentService = project.service<com.github.dhzhu.amateurpostman.services.EnvironmentService>()
+                            val allVars = environmentService.getCurrentEnvironmentVariables() + scriptVars
+                            val resolvedRequest = com.github.dhzhu.amateurpostman.utils.VariableResolver.substitute(
+                                request,
+                                allVars
+                            )
+                            httpService.executeRequest(resolvedRequest)
+                        } else {
+                            httpService.executeRequest(request)
+                        }
 
                         // Display
                         displayResponse(response)
@@ -1282,6 +1326,40 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             StyleConstants.setForeground(normalStyle, Color(212, 212, 212))
             doc.insertString(doc.length, body, normalStyle)
         }
+
+        // Execute Tests script
+        scope.launch {
+            val testScript = testsScriptArea.text
+            if (testScript.isNotBlank()) {
+                val testResult = scriptExecutionService.executeTestScript(testScript, response)
+                displayTestResults(testResult)
+            } else {
+                responseTestResultsArea.text = "No tests defined."
+            }
+        }
+    }
+
+    /**
+     * Displays test results in the Test Results tab.
+     */
+    private fun displayTestResults(result: com.github.dhzhu.amateurpostman.services.TestResult) {
+        val resultsText = buildString {
+            appendLine("=".repeat(60))
+            appendLine("Test Results: ${if (result.passed) "PASSED" else "FAILED"}")
+            appendLine("=".repeat(60))
+            appendLine(result.getSummary())
+            appendLine()
+            result.results.forEach { assertion ->
+                val status = if (assertion.passed) "✓ PASS" else "✗ FAIL"
+                val color = if (assertion.passed) "GREEN" else "RED"
+                appendLine("$status: ${assertion.name}")
+                if (assertion.message.isNotEmpty()) {
+                    appendLine("    ${assertion.message}")
+                }
+                appendLine()
+            }
+        }
+        responseTestResultsArea.text = resultsText
     }
 
     private fun formatSize(bytes: Int): String {

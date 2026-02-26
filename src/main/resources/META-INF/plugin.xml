@@ -23,5 +23,8 @@
 
         <!-- Collection Service -->
         <projectService serviceImplementation="com.github.dhzhu.amateurpostman.services.CollectionService"/>
+
+        <!-- Script Execution Service -->
+        <projectService serviceImplementation="com.github.dhzhu.amateurpostman.services.ScriptExecutionService"/>
     </extensions>
 </idea-plugin>

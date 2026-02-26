@@ -280,6 +280,44 @@ class EnvironmentService(private val project: Project) :
     // ========== Variable Resolution ==========
 
     /**
+     * Gets the current environment's variables only (excluding globals).
+     *
+     * @return Map of current environment variables (normalized keys to values)
+     */
+    fun getCurrentEnvironmentVariables(): Map<String, String> {
+        return getCurrentEnvironment()?.getVariablesMap() ?: emptyMap()
+    }
+
+    /**
+     * Sets a variable in the current environment.
+     * If no environment is selected, sets it as a global variable.
+     *
+     * @param key The variable key
+     * @param value The variable value
+     */
+    fun setVariableInCurrent(key: String, value: String) {
+        val currentEnv = getCurrentEnvironment()
+        if (currentEnv != null) {
+            val variable = Variable(key = key, value = value)
+            updateEnvironment(currentEnv.setVariable(variable))
+        } else {
+            // Set as global variable if no environment is selected
+            setGlobalVariable(Variable(key = key, value = value))
+        }
+    }
+
+    /**
+     * Gets a variable value from the current environment or globals.
+     *
+     * @param key The variable key (case-insensitive)
+     * @return The variable value, or null if not found
+     */
+    fun getVariableFromCurrent(key: String): String? {
+        return getCurrentEnvironment()?.getVariableValue(key)
+            ?: getGlobalEnvironment().getVariableValue(key)
+    }
+
+    /**
      * Gets all variables that should be used for substitution.
      * Merges global variables with current environment variables.
      * Environment variables take precedence over global variables.
