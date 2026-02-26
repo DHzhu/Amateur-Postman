@@ -254,15 +254,17 @@ object PostmanImporter {
             header.key to (header.value ?: "")
         } ?: emptyMap()
 
-        // Convert body
-        val body = convertBody(postmanRequest.body, warnings)
+        // Convert body with type detection
+        val contentType = headers["Content-Type"]
+        val bodyType = BodyType.fromMimeType(contentType)
+        val bodyContent = convertBody(postmanRequest.body, warnings)
+        val body = bodyContent?.let { HttpBody(it, bodyType) }
 
         return HttpRequest(
             method = method,
             url = url,
             headers = headers,
-            body = body,
-            contentType = headers["Content-Type"]
+            body = body
         )
     }
 

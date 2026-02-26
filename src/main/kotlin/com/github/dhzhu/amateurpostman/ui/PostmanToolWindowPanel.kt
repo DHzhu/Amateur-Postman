@@ -1,5 +1,7 @@
 package com.github.dhzhu.amateurpostman.ui
 
+import com.github.dhzhu.amateurpostman.models.BodyType
+import com.github.dhzhu.amateurpostman.models.HttpBody
 import com.github.dhzhu.amateurpostman.models.HttpMethod
 import com.github.dhzhu.amateurpostman.models.HttpRequest
 import com.github.dhzhu.amateurpostman.models.HttpResponse
@@ -64,12 +66,14 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
     // UI State
     private var selectedMethod = HttpMethod.GET
+    private var selectedBodyType = BodyType.JSON
     private var statusText = "Ready"
 
     // UI Components
     private lateinit var urlField: JBTextField
     private lateinit var methodComboBox: ComboBox<HttpMethod>
     private lateinit var sendButton: JButton
+    private lateinit var bodyTypeComboBox: ComboBox<BodyType>
 
     // Tabs
     private lateinit var tabbedPane: JBTabbedPane
@@ -174,14 +178,27 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         val headersPanel = createTablePanel(headersTable, headersTableModel)
         tabbedPane.addTab("Headers", headersPanel)
 
-        // Tab: Body with format button
+        // Tab: Body with Content-Type selector and format button
         val bodyPanel = JPanel(BorderLayout())
         requestBodyArea = createTextArea()
 
         val bodyToolbar = JPanel(FlowLayout(FlowLayout.LEFT, 5, 2))
-        val formatJsonButton = JButton("Format JSON")
-        formatJsonButton.addActionListener { formatRequestBody() }
-        bodyToolbar.add(formatJsonButton)
+
+        // Content-Type selector
+        bodyToolbar.add(JLabel("Content-Type:"))
+        bodyTypeComboBox = ComboBox(BodyType.entries.toTypedArray())
+        bodyTypeComboBox.selectedItem = selectedBodyType
+        bodyTypeComboBox.addActionListener {
+            selectedBodyType = bodyTypeComboBox.selectedItem as BodyType
+            updateContentTypeHeader()
+            formatRequestBody() // Auto-format when changing type
+        }
+        bodyToolbar.add(bodyTypeComboBox)
+
+        // Format button
+        val formatButton = JButton("Format")
+        formatButton.addActionListener { formatRequestBody() }
+        bodyToolbar.add(formatButton)
 
         bodyPanel.add(bodyToolbar, BorderLayout.NORTH)
         bodyPanel.add(JBScrollPane(requestBodyArea), BorderLayout.CENTER)
@@ -319,12 +336,89 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
     }
 
     private fun formatRequestBody() {
+        val content = requestBodyArea.text
+        if (content.isBlank()) return
+
         try {
-            val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
-            val jsonElement = com.google.gson.JsonParser.parseString(requestBodyArea.text)
-            requestBodyArea.text = gson.toJson(jsonElement)
+            when (selectedBodyType) {
+                BodyType.JSON -> {
+                    val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
+                    val jsonElement = com.google.gson.JsonParser.parseString(content)
+                    requestBodyArea.text = gson.toJson(jsonElement)
+                }
+                BodyType.XML -> {
+                    // Basic XML formatting (pretty print)
+                    requestBodyArea.text = formatXml(content)
+                }
+                BodyType.HTML, BodyType.JAVASCRIPT, BodyType.TEXT -> {
+                    // No formatting needed for these types
+                }
+            }
         } catch (e: Exception) {
-            Messages.showWarningDialog(project, "Invalid JSON: ${e.message}", "Format Error")
+            // Silently fail - user may be typing
+        }
+    }
+
+    private fun formatXml(xml: String): String {
+        // Basic XML pretty-printing
+        val indent = "    "
+        val formatted = StringBuilder()
+        var indentationLevel = 0
+        var inTag = false
+
+        for (i in xml.indices) {
+            val c = xml[i]
+            when {
+                c == '<' -> {
+                    if (xml[i + 1] == '/') {
+                        // Closing tag
+                        indentationLevel--
+                        formatted.append('\n').append(indent.repeat(indentationLevel))
+                    } else if (xml.length > i + 1 && xml[i + 1] == '?' || xml[i + 1] == '!') {
+                        // Processing instruction or comment
+                        formatted.append('\n').append(indent.repeat(indentationLevel))
+                    } else {
+                        // Opening tag
+                        formatted.append('\n').append(indent.repeat(indentationLevel))
+                        indentationLevel++
+                    }
+                    inTag = true
+                    formatted.append(c)
+                }
+                c == '>' -> {
+                    formatted.append(c)
+                    inTag = false
+                }
+                c == '\n' || c == '\r' -> {
+                    // Skip existing newlines
+                }
+                !inTag && !c.isWhitespace() -> {
+                    formatted.append(c)
+                }
+                inTag -> {
+                    formatted.append(c)
+                }
+            }
+        }
+
+        return formatted.toString().trim()
+    }
+
+    private fun updateContentTypeHeader() {
+        // Update or add Content-Type header based on selected body type
+        var contentTypeUpdated = false
+        for (i in 0 until headersTableModel.rowCount) {
+            val key = headersTableModel.getValueAt(i, 0)?.toString()?.trim()
+            if (key?.equals("Content-Type", ignoreCase = true) == true) {
+                headersTableModel.setValueAt(selectedBodyType.mimeType, i, 1)
+                contentTypeUpdated = true
+                break
+            }
+        }
+
+        // If no Content-Type header exists, add one
+        if (!contentTypeUpdated && selectedBodyType != BodyType.TEXT) {
+            headersTableModel.addRow(arrayOf("Content-Type", selectedBodyType.mimeType))
         }
     }
 
@@ -358,8 +452,14 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             headersTableModel.addRow(arrayOf(key, value))
         }
 
-        // Set body
-        requestBodyArea.text = entry.request.body ?: ""
+        // Set body and body type
+        entry.request.body?.let { body ->
+            requestBodyArea.text = body.content
+            selectedBodyType = body.type
+            bodyTypeComboBox.selectedItem = body.type
+        } ?: run {
+            requestBodyArea.text = ""
+        }
 
         statusLabel.text = "Loaded from history: ${entry.getDisplayName()}"
     }
@@ -381,8 +481,14 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             headersTableModel.addRow(arrayOf(key, value))
         }
 
-        // Set body
-        requestBodyArea.text = request.body ?: ""
+        // Set body and body type
+        request.body?.let { body ->
+            requestBodyArea.text = body.content
+            selectedBodyType = body.type
+            bodyTypeComboBox.selectedItem = body.type
+        } ?: run {
+            requestBodyArea.text = ""
+        }
 
         statusLabel.text = "Loaded request"
     }
@@ -476,19 +582,20 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             url += separator + params.joinToString("&")
         }
 
-        // Content Type
-        val contentType = headers["Content-Type"] ?: "application/json"
+        // Build request body
+        val requestBody = if (requestBodyArea.text.isNotBlank()) {
+            HttpBody(
+                content = requestBodyArea.text,
+                type = selectedBodyType
+            )
+        } else null
 
         // Build request
         return HttpRequest(
             url = url,
             method = selectedMethod,
             headers = headers,
-            body =
-                    if (requestBodyArea.text.isNotBlank())
-                            requestBodyArea.text
-                    else null,
-            contentType = contentType
+            body = requestBody
         )
     }
 
@@ -636,8 +743,14 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                 headersTableModel.addRow(arrayOf(key, value))
             }
 
-            // Set body
-            requestBodyArea.text = request.body ?: ""
+            // Set body and body type
+            request.body?.let { body ->
+                requestBodyArea.text = body.content
+                selectedBodyType = body.type
+                bodyTypeComboBox.selectedItem = body.type
+            } ?: run {
+                requestBodyArea.text = ""
+            }
 
             statusLabel.text = "cURL imported successfully"
         } catch (e: Exception) {
@@ -686,10 +799,12 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                         url = urlField.text.trim(),
                         method = selectedMethod,
                         headers = headers,
-                        body =
-                                if (requestBodyArea.text.isNotBlank()) requestBodyArea.text
-                                else null,
-                        contentType = headers["Content-Type"]
+                        body = if (requestBodyArea.text.isNotBlank()) {
+                            HttpBody(
+                                content = requestBodyArea.text,
+                                type = selectedBodyType
+                            )
+                        } else null
                 )
 
         val curlCommand = CurlExporter.exportWithOptions(request, multiLine = true)
@@ -794,20 +909,18 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                             url += separator + params.joinToString("&")
                         }
 
-                        // Content Type
-                        val contentType = headers["Content-Type"] ?: "application/json"
-
                         // Build request
                         val request =
                                 HttpRequest(
                                         url = url,
                                         method = selectedMethod,
                                         headers = headers,
-                                        body =
-                                                if (requestBodyArea.text.isNotBlank())
-                                                        requestBodyArea.text
-                                                else null,
-                                        contentType = contentType
+                                        body = if (requestBodyArea.text.isNotBlank()) {
+                                            HttpBody(
+                                                content = requestBodyArea.text,
+                                                type = selectedBodyType
+                                            )
+                                        } else null
                                 )
 
                         // Execute

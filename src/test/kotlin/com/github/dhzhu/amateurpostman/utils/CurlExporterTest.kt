@@ -2,6 +2,8 @@ package com.github.dhzhu.amateurpostman.utils
 
 import com.github.dhzhu.amateurpostman.models.HttpMethod
 import com.github.dhzhu.amateurpostman.models.HttpRequest
+import com.github.dhzhu.amateurpostman.models.HttpBody
+import com.github.dhzhu.amateurpostman.models.BodyType
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -53,7 +55,7 @@ class CurlExporterTest {
                 HttpRequest(
                         url = "https://api.example.com/users",
                         method = HttpMethod.POST,
-                        body = """{"name":"John"}"""
+                        body = HttpBody("""{"name":"John"}""", BodyType.JSON)
                 )
 
         val curl = CurlExporter.export(request)
@@ -68,7 +70,7 @@ class CurlExporterTest {
                         url = "https://api.example.com/users",
                         method = HttpMethod.POST,
                         headers = mapOf("Content-Type" to "application/json"),
-                        body = """{"name":"John"}"""
+                        body = HttpBody("""{"name":"John"}""", BodyType.JSON)
                 )
 
         val curl = CurlExporter.export(request, multiLine = true)
@@ -99,7 +101,7 @@ class CurlExporterTest {
                 HttpRequest(
                         url = "https://api.example.com/users",
                         method = HttpMethod.POST,
-                        body = """{"message":"It's a test"}"""
+                        body = HttpBody("""{"message":"It's a test"}""", BodyType.JSON)
                 )
 
         val curl = CurlExporter.export(request)
@@ -114,7 +116,7 @@ class CurlExporterTest {
                 HttpRequest(
                         url = "https://api.example.com/users/1",
                         method = HttpMethod.PUT,
-                        body = """{"id":1}"""
+                        body = HttpBody("""{"id":1}""", BodyType.JSON)
                 )
 
         val curl = CurlExporter.export(request)
@@ -138,7 +140,7 @@ class CurlExporterTest {
                 HttpRequest(
                         url = "https://api.example.com/users/1",
                         method = HttpMethod.PATCH,
-                        body = """{"name":"Jane"}"""
+                        body = HttpBody("""{"name":"Jane"}""", BodyType.JSON)
                 )
 
         val curl = CurlExporter.export(request)
@@ -157,7 +159,7 @@ class CurlExporterTest {
                                         "Content-Type" to "application/json",
                                         "X-Custom-Header" to "CustomValue"
                                 ),
-                        body = """{"name":"John","age":30}"""
+                        body = HttpBody("""{"name":"John","age":30}""", BodyType.JSON)
                 )
 
         val curlCommand = CurlExporter.export(originalRequest)
@@ -176,8 +178,7 @@ class CurlExporterTest {
                         url = "https://api.example.com/users",
                         method = HttpMethod.POST,
                         headers = emptyMap(),
-                        body = """{"name":"John"}""",
-                        contentType = "application/json"
+                        body = HttpBody("""{"name":"John"}""", BodyType.JSON)
                 )
 
         val curl = CurlExporter.exportWithOptions(request)

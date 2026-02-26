@@ -30,8 +30,8 @@ object CurlExporter {
         }
 
         // Add body
-        if (!request.body.isNullOrEmpty()) {
-            val escapedBody = escapeForShell(request.body)
+        if (!request.body?.content.isNullOrEmpty()) {
+            val escapedBody = escapeForShell(request.body?.content ?: "")
             parts.add("-d '$escapedBody'")
         }
 
@@ -84,13 +84,13 @@ object CurlExporter {
         }
 
         // Add content type if specified and not already in headers
-        if (request.contentType != null && !request.headers.containsKey("Content-Type")) {
-            parts.add("-H 'Content-Type: ${escapeForShell(request.contentType)}'")
+        if (request.body?.type?.mimeType != null && !request.headers.containsKey("Content-Type")) {
+            parts.add("-H 'Content-Type: ${escapeForShell(request.body?.type?.mimeType ?: "")}'")
         }
 
         // Add body
-        if (!request.body.isNullOrEmpty()) {
-            val escapedBody = escapeForShell(request.body)
+        if (!request.body?.content.isNullOrEmpty()) {
+            val escapedBody = escapeForShell(request.body?.content ?: "")
             parts.add("-d '$escapedBody'")
         }
 

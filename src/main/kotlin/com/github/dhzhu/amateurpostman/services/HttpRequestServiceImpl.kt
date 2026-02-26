@@ -139,9 +139,10 @@ class HttpRequestServiceImpl(private val project: Project) : HttpRequestService,
     }
 
     private fun createRequestBody(request: HttpRequest): okhttp3.RequestBody {
-        val bodyContent = request.body ?: ""
+        val httpBody = request.body
+        val bodyContent = httpBody?.content ?: ""
         val mediaType =
-                request.contentType?.toMediaTypeOrNull()
+                httpBody?.type?.mimeType?.toMediaTypeOrNull()
                         ?: "text/plain; charset=utf-8".toMediaTypeOrNull()
         return bodyContent.toRequestBody(mediaType)
     }

@@ -2,6 +2,8 @@ package com.github.dhzhu.amateurpostman.utils
 
 import com.github.dhzhu.amateurpostman.models.CollectionItem
 import com.github.dhzhu.amateurpostman.models.HttpMethod
+import com.github.dhzhu.amateurpostman.models.HttpBody
+import com.github.dhzhu.amateurpostman.models.BodyType
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
@@ -104,7 +106,7 @@ class PostmanImporterTest {
         val secondRequest = folder?.children?.get(1) as? CollectionItem.Request
         assertEquals("Create User", secondRequest?.name)
         assertEquals(HttpMethod.POST, secondRequest?.request?.method)
-        assertEquals("{\"name\":\"John\"}", secondRequest?.request?.body)
+        assertEquals("{\"name\":\"John\"}", secondRequest?.request?.body?.content)
     }
 
     @Test
@@ -209,8 +211,8 @@ class PostmanImporterTest {
         assertTrue(result.isSuccess)
         val request = result.collection?.items?.first() as? CollectionItem.Request
         assertNotNull(request?.request?.body)
-        assertTrue(request?.request?.body?.contains("username=john") ?: false)
-        assertTrue(request?.request?.body?.contains("password=secret") ?: false)
+        assertTrue(request?.request?.body?.content?.contains("username=john") ?: false)
+        assertTrue(request?.request?.body?.content?.contains("password=secret") ?: false)
     }
 
     @Test

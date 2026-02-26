@@ -2,6 +2,8 @@ package com.github.dhzhu.amateurpostman.utils
 
 import com.github.dhzhu.amateurpostman.models.HttpMethod
 import com.github.dhzhu.amateurpostman.models.HttpRequest
+import com.github.dhzhu.amateurpostman.models.HttpBody
+import com.github.dhzhu.amateurpostman.models.BodyType
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -71,7 +73,7 @@ class VariableResolverTest {
             method = HttpMethod.POST,
             url = "https://api.example.com/users",
             headers = mapOf("Content-Type" to "application/json"),
-            body = """{"name": "{{name}}", "email": "{{email}}"}"""
+            body = HttpBody("""{"name": "{{name}}", "email": "{{email}}"}""", BodyType.JSON)
         )
         val variables = mapOf(
             "name" to "John Doe",
@@ -80,7 +82,7 @@ class VariableResolverTest {
 
         val result = VariableResolver.substitute(request, variables)
 
-        assertEquals("""{"name": "John Doe", "email": "john@example.com"}""", result.body)
+        assertEquals("""{"name": "John Doe", "email": "john@example.com"}""", result.body?.content)
     }
 
     @Test
