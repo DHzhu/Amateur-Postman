@@ -1,6 +1,7 @@
 package com.github.dhzhu.amateurpostman.ui
 
 import com.github.dhzhu.amateurpostman.models.BodyType
+import com.github.dhzhu.amateurpostman.models.GraphQLRequest
 import com.github.dhzhu.amateurpostman.models.HttpBody
 import com.github.dhzhu.amateurpostman.models.HttpMethod
 import com.github.dhzhu.amateurpostman.models.HttpRequest
@@ -413,6 +414,19 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         }
     }
 
+    /**
+     * 格式化 XML 字符串为易读的缩进格式。
+     *
+     * **已知局限性**：
+     * - 不支持自闭合标签 (`<tag/>`) - 可能导致缩进错误
+     * - 不支持 CDATA 区块 (`<![CDATA[...]]>`) - 内容会被错误解析
+     * - DOCTYPE 声明处理不完善
+     * - 注释 (`<!-- ... -->`) 处理不可靠
+     * - 可能存在边界越界问题（非常规 XML 结构）
+     *
+     * 对于复杂 XML 文档，建议使用专业库如 `org.dom4j` 或 `javax.xml.parsers`。
+     * 当前实现适用于简单 XML 响应的快速美化展示。
+     */
     private fun formatXml(xml: String): String {
         // Basic XML pretty-printing
         val indent = "    "
@@ -621,7 +635,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             when (body.type) {
                 BodyType.GRAPHQL -> {
                     // Try to parse JSON and load into GraphQL panel
-                    val graphQLRequest = com.github.dhzhu.amateurpostman.models.GraphQLRequest.fromJson(body.content)
+                    val graphQLRequest = GraphQLRequest.fromJson(body.content)
                     if (graphQLRequest != null) {
                         graphqlPanel.loadGraphQLRequest(graphQLRequest)
                     } else {
@@ -665,7 +679,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             when (body.type) {
                 BodyType.GRAPHQL -> {
                     // Try to parse JSON and load into GraphQL panel
-                    val graphQLRequest = com.github.dhzhu.amateurpostman.models.GraphQLRequest.fromJson(body.content)
+                    val graphQLRequest = GraphQLRequest.fromJson(body.content)
                     if (graphQLRequest != null) {
                         graphqlPanel.loadGraphQLRequest(graphQLRequest)
                     } else {
