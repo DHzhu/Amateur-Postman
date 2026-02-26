@@ -7,7 +7,8 @@ enum class BodyType(val displayName: String, val mimeType: String, val fileExten
     XML("XML", "application/xml", "xml"),
     HTML("HTML", "text/html", "html"),
     JAVASCRIPT("JavaScript", "application/javascript", "js"),
-    MULTIPART("Multipart", "multipart/form-data", "txt");
+    MULTIPART("Multipart", "multipart/form-data", "txt"),
+    GRAPHQL("GraphQL", "application/json", "graphql");
 
     companion object {
         fun fromMimeType(mimeType: String?): BodyType {
@@ -33,6 +34,57 @@ sealed class MultipartPart {
         val description: String = ""
     ) : MultipartPart() {
         val isEmpty: Boolean get() = filePath.isBlank()
+    }
+}
+
+/** Represents a GraphQL request with query and optional variables */
+data class GraphQLRequest(
+    val query: String,
+    val operationName: String? = null,
+    val variables: String? = null
+) {
+    /**
+     * Converts GraphQL request to standard JSON format for HTTP body.
+     * Returns a JSON string like: {"query":"...","variables":{...}}
+     */
+    fun toJson(): String {
+        val gson = com.google.gson.Gson()
+        val map = mutableMapOf<String, Any?>("query" to query)
+        if (operationName != null) {
+            map["operationName"] = operationName
+        }
+        if (variables != null && variables.isNotBlank()) {
+            try {
+                // Parse variables as JSON to validate it
+                val varsJson = com.google.gson.JsonParser.parseString(variables)
+                map["variables"] = varsJson
+            } catch (e: Exception) {
+                // If variables is not valid JSON, include as string
+                map["variables"] = variables
+            }
+        }
+        return gson.toJson(map)
+    }
+
+    companion object {
+        /**
+         * Parses a JSON body into GraphQLRequest components.
+         * Expected JSON format: {"query":"...","variables":{...},"operationName":"..."}
+         */
+        fun fromJson(jsonBody: String): GraphQLRequest? {
+            return try {
+                val element = com.google.gson.JsonParser.parseString(jsonBody)
+                if (element.isJsonObject) {
+                    val obj = element.asJsonObject
+                    val query = obj.get("query")?.asString ?: return null
+                    val operationName = obj.get("operationName")?.asString
+                    val variables = obj.get("variables")?.toString()
+                    GraphQLRequest(query, operationName, variables)
+                } else null
+            } catch (e: Exception) {
+                null
+            }
+        }
     }
 }
 
