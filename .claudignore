@@ -1,0 +1,45 @@
+# --- Gradle 核心目录 ---
+.gradle/
+build/
+*/build/
+bin/
+
+# --- Kotlin & Java 编译产物 ---
+*.class
+*.pyc
+*.kts.compiled
+.kotlin/
+
+# --- IDE 配置文件 (IntelliJ IDEA) ---
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+
+# --- 静态资源与大文件 ---
+src/main/resources/static/  # 如果包含大量前端打包产物
+*.jar
+*.war
+*.zip
+
+# --- 关键：防止递归与版本控制冗余 ---
+.claude/
+.git/
+
+# --- IDE 与平台特定缓存 ---
+.intellijPlatform/
+.run/
+.vscode/
+.kotlin/
+.qodana/
+
+# --- 其他潜在的大型二进制文件 ---
+*.hprof
+*.pyc
+*.log
+
+
+
+
