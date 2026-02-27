@@ -256,25 +256,14 @@ class PmExpectBinding(private val context: TestContext) {
 }
 
 class PmResponseHeadersBinding(private val headers: Map<String, List<String>>) {
+    private val lowerCaseHeaders = headers.mapKeys { it.key.lowercase() }
+
     fun get(name: String): String? {
-        // Case-insensitive header lookup
-        val lowerKey = name.lowercase()
-        for ((key, values) in headers) {
-            if (key.lowercase() == lowerKey) {
-                return values.firstOrNull()
-            }
-        }
-        return null
+        return lowerCaseHeaders[name.lowercase()]?.firstOrNull()
     }
 
     fun getAll(name: String): List<String>? {
-        val lowerKey = name.lowercase()
-        for ((key, values) in headers) {
-            if (key.lowercase() == lowerKey) {
-                return values
-            }
-        }
-        return null
+        return lowerCaseHeaders[name.lowercase()]
     }
 }
 
