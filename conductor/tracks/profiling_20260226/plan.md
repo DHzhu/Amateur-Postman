@@ -13,8 +13,8 @@
 - [x] Task: 创建基础的 `ProfilingPanel` 类，实现数据从 `HttpResponse.profilingData` 到 UI 的传递
 - [x] Task: Conductor - User Manual Verification 'Profiling UI Panel' (Protocol in workflow.md)
 
-## Phase 3: Visual Timeline (Waterfall) & Refinement ✅ IN_PROGRESS
+## Phase 3: Visual Timeline (Waterfall) & Refinement ✅ COMPLETED
 - [x] Task: 开发自定义的瀑布流/甘特图组件，使用彩色条形图直观展示各阶段耗时比例
 - [x] Task: 处理连接复用场景的 UI 展示（明确标识 DNS/TCP 耗时为 0 是因为 Connection Reused）
 - [x] Task: 编写集成测试，验证整个工具窗口在发送请求后能正确渲染出性能图表
-- [ ] Task: Conductor - User Manual Verification 'Visual Timeline & Refinement' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Visual Timeline & Refinement' (Protocol in workflow.md)
