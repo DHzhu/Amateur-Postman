@@ -146,9 +146,9 @@ class AmEventListener : EventListener() {
 
     /**
      * Convert nanoseconds to milliseconds.
-     * Returns 0 if the input is negative (shouldn't happen in normal cases).
+     * Ensures that any non-zero duration is at least 1ms for display.
      */
     private fun nanosToMillis(nanos: Long): Long {
-        return if (nanos > 0) nanos / 1_000_000 else 0L
+        return if (nanos > 0) Math.max(1L, nanos / 1_000_000) else 0L
     }
 }
