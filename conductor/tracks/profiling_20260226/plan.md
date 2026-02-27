@@ -18,3 +18,6 @@
 - [x] Task: 处理连接复用场景的 UI 展示（明确标识 DNS/TCP 耗时为 0 是因为 Connection Reused）
 - [x] Task: 编写集成测试，验证整个工具窗口在发送请求后能正确渲染出性能图表
 - [x] Task: Conductor - User Manual Verification 'Visual Timeline & Refinement' (Protocol in workflow.md)
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions 84d4ad3
