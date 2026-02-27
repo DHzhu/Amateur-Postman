@@ -12,6 +12,7 @@ package com.github.dhzhu.amateurpostman.models
  * @property items List of top-level items (folders or requests)
  * @property createdAt Timestamp when the collection was created
  * @property modifiedAt Timestamp when the collection was last modified
+ * @property variables List of collection-level variables
  */
 data class RequestCollection(
     val id: String,
@@ -19,7 +20,8 @@ data class RequestCollection(
     val description: String = "",
     val items: List<CollectionItem> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
-    val modifiedAt: Long = System.currentTimeMillis()
+    val modifiedAt: Long = System.currentTimeMillis(),
+    val variables: List<Variable> = emptyList()
 ) {
     companion object {
         /**
@@ -189,6 +191,7 @@ data class CollectionState(
  * @property items List of serializable items
  * @property createdAt Creation timestamp
  * @property modifiedAt Last modification timestamp
+ * @property variables List of collection-level variables
  */
 data class SerializableCollection(
     val id: String,
@@ -196,7 +199,8 @@ data class SerializableCollection(
     val description: String = "",
     val items: List<SerializableCollectionItem> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
-    val modifiedAt: Long = System.currentTimeMillis()
+    val modifiedAt: Long = System.currentTimeMillis(),
+    val variables: List<SerializableVariable> = emptyList()
 ) {
     /**
      * Converts this serializable collection to a domain RequestCollection.
@@ -208,7 +212,8 @@ data class SerializableCollection(
             description = description,
             items = items.map { it.toCollectionItem() },
             createdAt = createdAt,
-            modifiedAt = modifiedAt
+            modifiedAt = modifiedAt,
+            variables = variables.map { it.toVariable() }
         )
     }
 
@@ -223,7 +228,8 @@ data class SerializableCollection(
                 description = collection.description,
                 items = collection.items.map { SerializableCollectionItem.from(it) },
                 createdAt = collection.createdAt,
-                modifiedAt = collection.modifiedAt
+                modifiedAt = collection.modifiedAt,
+                variables = collection.variables.map { SerializableVariable.from(it) }
             )
         }
     }

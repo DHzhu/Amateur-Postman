@@ -143,6 +143,152 @@ data class Environment(
 }
 
 /**
+ * Represents collection-level variables.
+ *
+ * Similar to Environment but for collection-scoped variables.
+ * Collection variables override global variables but are overridden by environment variables.
+ *
+ * @property id Unique identifier for this collection variable scope
+ * @property collectionId ID of the collection this scope belongs to
+ * @property variables List of variables in this collection scope
+ */
+data class CollectionVariables(
+    val id: String,
+    val collectionId: String,
+    val variables: List<Variable> = emptyList()
+) {
+    companion object {
+        /**
+         * Creates a new collection variable scope with a generated UUID.
+         */
+        fun create(collectionId: String): CollectionVariables {
+            return CollectionVariables(
+                id = java.util.UUID.randomUUID().toString(),
+                collectionId = collectionId,
+                variables = emptyList()
+            )
+        }
+    }
+
+    /**
+     * Gets the value of a variable by key (case-insensitive lookup).
+     * Only returns values for enabled variables.
+     *
+     * @param key The variable key to look up
+     * @return The variable value, or null if not found or disabled
+     */
+    fun getVariableValue(key: String): String? {
+        val normalizedKey = Variable.normalizeKey(key)
+        return variables
+            .firstOrNull { it.normalizedKey() == normalizedKey && it.enabled }
+            ?.value
+    }
+
+    /**
+     * Checks if a variable exists (case-insensitive).
+     *
+     * @param key The variable key to check
+     * @return true if the variable exists, false otherwise
+     */
+    fun hasVariable(key: String): Boolean {
+        val normalizedKey = Variable.normalizeKey(key)
+        return variables.any { it.normalizedKey() == normalizedKey }
+    }
+
+    /**
+     * Sets or updates a variable in this collection scope.
+     * If the variable key already exists (case-insensitive), it will be replaced.
+     *
+     * @param variable The variable to set
+     * @return A new CollectionVariables instance with the updated variable list
+     */
+    fun setVariable(variable: Variable): CollectionVariables {
+        val normalizedKey = variable.normalizedKey()
+        val existingIndex = variables.indexOfFirst { it.normalizedKey() == normalizedKey }
+
+        return if (existingIndex >= 0) {
+            // Replace existing variable
+            copy(variables = variables.toMutableList().apply {
+                set(existingIndex, variable)
+            })
+        } else {
+            // Add new variable
+            copy(variables = variables + variable)
+        }
+    }
+
+    /**
+     * Removes a variable from this collection scope by key (case-insensitive).
+     *
+     * @param key The variable key to remove
+     * @return A new CollectionVariables instance with the variable removed
+     */
+    fun removeVariable(key: String): CollectionVariables {
+        val normalizedKey = Variable.normalizeKey(key)
+        return copy(
+            variables = variables.filterNot { it.normalizedKey() == normalizedKey }
+        )
+    }
+
+    /**
+     * Gets all enabled variables as a map for quick lookup.
+     *
+     * @return Map of normalized keys to values (only enabled variables)
+     */
+    fun getVariablesMap(): Map<String, String> {
+        return variables
+            .filter { it.enabled }
+            .associate { it.normalizedKey() to it.value }
+    }
+
+    /**
+     * Gets all variables (both enabled and disabled) as a map.
+     *
+     * @return Map of normalized keys to values
+     */
+    fun getAllVariablesMap(): Map<String, String> {
+        return variables.associate { it.normalizedKey() to it.value }
+    }
+}
+
+/**
+ * Serializable version of CollectionVariables for XML persistence.
+ *
+ * @property id Unique identifier
+ * @property collectionId ID of the collection this belongs to
+ * @property variables List of serializable variables
+ */
+data class SerializableCollectionVariables(
+    val id: String,
+    val collectionId: String,
+    val variables: List<SerializableVariable> = emptyList()
+) {
+    /**
+     * Converts this serializable collection variables to a domain CollectionVariables.
+     */
+    fun toCollectionVariables(): CollectionVariables {
+        return CollectionVariables(
+            id = id,
+            collectionId = collectionId,
+            variables = variables.map { it.toVariable() }
+        )
+    }
+
+    companion object {
+        /**
+         * Creates a SerializableCollectionVariables from a domain CollectionVariables.
+         */
+        fun from(collectionVars: CollectionVariables): SerializableCollectionVariables {
+            return SerializableCollectionVariables(
+                id = collectionVars.id,
+                collectionId = collectionVars.collectionId,
+                variables = collectionVars.variables.map { SerializableVariable.from(it) }
+            )
+        }
+    }
+}
+
+/**
  * Persistent state for the environment system.
  *
  * This class is serialized to XML and stored in the project.
@@ -151,12 +297,14 @@ data class Environment(
  * @property environments List of all environments
  * @property currentEnvironmentId ID of the currently selected environment
  * @property globalVariables List of global variables (stored as Environment with isGlobal=true)
+ * @property collectionVariables List of collection-level variables
  */
 data class EnvironmentState(
     val version: Int = 1,
     val environments: List<SerializableEnvironment> = emptyList(),
     val currentEnvironmentId: String? = null,
-    val globalVariables: SerializableEnvironment? = null
+    val globalVariables: SerializableEnvironment? = null,
+    val collectionVariables: List<SerializableCollectionVariables> = emptyList()
 )
 
 /**
