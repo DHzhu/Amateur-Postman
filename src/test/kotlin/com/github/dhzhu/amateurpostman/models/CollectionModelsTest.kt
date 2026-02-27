@@ -47,10 +47,15 @@ class CollectionModelsTest {
                     preRequestScript = "",
                     testScript = "",
                     parentId = null
+                ),
+                CollectionItem.Folder(
+                    id = "folder-2",
+                    name = "Empty Folder",
+                    children = emptyList(),
+                    parentId = null
                 )
             ),
-            createdAt = 1000L,
-            modifiedAt = 2000L
+            variables = emptyList()
         )
     }
 
@@ -372,7 +377,8 @@ class CollectionModelsTest {
         val collection = RequestCollection(
             id = "test",
             name = "Test",
-            items = listOf(topFolder)
+            items = listOf(topFolder),
+            variables = emptyList()
         )
 
         val found = collection.findItemById("deep-request")

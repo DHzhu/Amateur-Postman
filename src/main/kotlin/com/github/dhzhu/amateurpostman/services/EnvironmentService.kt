@@ -317,25 +317,108 @@ class EnvironmentService(private val project: Project) :
             ?: getGlobalEnvironment().getVariableValue(key)
     }
 
-    /**
-     * Gets all variables that should be used for substitution.
-     * Merges global variables with current environment variables.
-     * Environment variables take precedence over global variables.
-     *
-     * @return Map of all variables (normalized keys to values)
-     */
-    fun getAllVariables(): Map<String, String> {
-        val globals = getGlobalVariablesMap().toMutableMap()
-        val current = getCurrentEnvironment()
+    // ========== Collection Variables Management ==========
 
-        current?.let { env ->
-            // Environment variables override global variables
-            val envVars = env.getVariablesMap()
-            globals.putAll(envVars)
+    /**
+     * Gets collection variables for a specific collection.
+     * Creates empty collection variables if none exist.
+     *
+     * @param collectionId The collection ID
+     * @return CollectionVariables for the collection
+     */
+    fun getCollectionVariables(collectionId: String): CollectionVariables {
+        return state.collectionVariables
+            .firstOrNull { it.collectionId == collectionId }
+            ?.toCollectionVariables()
+            ?: CollectionVariables.create(collectionId)
+    }
+
+    /**
+     * Gets all collection variables for a collection as a map.
+     *
+     * @param collectionId The collection ID
+     * @return Map of variable keys to values
+     */
+    fun getCollectionVariablesMap(collectionId: String): Map<String, String> {
+        return getCollectionVariables(collectionId).getVariablesMap()
+    }
+
+    /**
+     * Sets or updates a collection variable.
+     *
+     * @param collectionId The collection ID
+     * @param variable The variable to set
+     */
+    fun setCollectionVariable(collectionId: String, variable: Variable) {
+        val collVars = getCollectionVariables(collectionId)
+        val updated = collVars.setVariable(variable)
+        val serializable = SerializableCollectionVariables.from(updated)
+
+        // Update or add in state
+        val existingIndex = state.collectionVariables.indexOfFirst { it.collectionId == collectionId }
+        val updatedList = if (existingIndex >= 0) {
+            state.collectionVariables.toMutableList().apply {
+                set(existingIndex, serializable)
+            }
+        } else {
+            state.collectionVariables + serializable
         }
 
-        logger.debug("Resolved ${globals.size} variables (${globals.size - getGlobalVariablesMap().size} from environment, ${getGlobalVariablesMap().size} from globals)")
-        return globals
+        state = state.copy(collectionVariables = updatedList)
+        logger.info("Set collection variable ${variable.key} in collection $collectionId")
+        notifyListeners()
+    }
+
+    /**
+     * Removes a collection variable by key.
+     *
+     * @param collectionId The collection ID
+     * @param key The variable key to remove
+     */
+    fun removeCollectionVariable(collectionId: String, key: String) {
+        val collVars = getCollectionVariables(collectionId)
+        val updated = collVars.removeVariable(key)
+        val serializable = SerializableCollectionVariables.from(updated)
+
+        // Update in state
+        val existingIndex = state.collectionVariables.indexOfFirst { it.collectionId == collectionId }
+        if (existingIndex >= 0) {
+            val updatedList = state.collectionVariables.toMutableList().apply {
+                set(existingIndex, serializable)
+            }
+            state = state.copy(collectionVariables = updatedList)
+            logger.info("Removed collection variable $key from collection $collectionId")
+            notifyListeners()
+        }
+    }
+
+    /**
+     * Gets all variables that should be used for substitution.
+     * Merges variables from multiple scopes with priority:
+     * Global -> Collection -> Environment (highest priority)
+     *
+     * @param collectionId Optional collection ID to include collection variables
+     * @return Map of all variables (normalized keys to values)
+     */
+    fun getAllVariables(collectionId: String? = null): Map<String, String> {
+        val allVars = getGlobalVariablesMap().toMutableMap()
+
+        // Add collection variables (override globals)
+        collectionId?.let { id ->
+            getCollectionVariables(id).getVariablesMap().let { collVars ->
+                allVars.putAll(collVars)
+            }
+        }
+
+        // Add environment variables (override collection and globals)
+        val current = getCurrentEnvironment()
+        current?.let { env ->
+            val envVars = env.getVariablesMap()
+            allVars.putAll(envVars)
+        }
+
+        logger.debug("Resolved ${allVars.size} variables for collection $collectionId")
+        return allVars
     }
 
     // ========== Change Listeners ==========

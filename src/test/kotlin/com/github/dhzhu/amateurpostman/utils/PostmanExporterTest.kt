@@ -31,7 +31,8 @@ class PostmanExporterTest {
                         headers = mapOf("Accept" to "application/json")
                     )
                 )
-            )
+            ),
+            variables = emptyList()
         )
 
         val result = PostmanExporter.exportCollection(collection)
