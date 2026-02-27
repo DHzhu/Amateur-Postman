@@ -125,6 +125,34 @@ data class HttpRequest(
     val contentType: String? get() = body?.type?.mimeType
 }
 
+/** Network timing data for HTTP profiling */
+data class HttpProfilingData(
+    /** DNS resolution duration in milliseconds (null for connection reuse) */
+    val dnsDuration: Long?,
+    /** TCP connection duration in milliseconds (null for connection reuse) */
+    val tcpDuration: Long?,
+    /** SSL/TLS handshake duration in milliseconds (null for connection reuse or no SSL) */
+    val sslDuration: Long?,
+    /** Time to First Byte in milliseconds */
+    val ttfbDuration: Long?,
+    /** Total request duration in milliseconds */
+    val totalDuration: Long,
+    /** Whether the connection was reused from the pool */
+    val connectionReused: Boolean
+) {
+    companion object {
+        /** Empty profiling data when no timing information is available */
+        val Empty = HttpProfilingData(
+            dnsDuration = null,
+            tcpDuration = null,
+            sslDuration = null,
+            ttfbDuration = null,
+            totalDuration = 0,
+            connectionReused = false
+        )
+    }
+}
+
 /** Represents an HTTP response received from the server */
 data class HttpResponse(
         val statusCode: Int,
@@ -132,7 +160,8 @@ data class HttpResponse(
         val headers: Map<String, List<String>>,
         val body: String,
         val duration: Long, // Duration in milliseconds
-        val isSuccessful: Boolean = statusCode in 200..299
+        val isSuccessful: Boolean = statusCode in 200..299,
+        val profilingData: HttpProfilingData = HttpProfilingData.Empty
 )
 
 /** Supported HTTP methods */

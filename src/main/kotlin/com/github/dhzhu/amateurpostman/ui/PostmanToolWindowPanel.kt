@@ -115,6 +115,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
     private lateinit var responseHeadersArea: JBTextArea
     private lateinit var responseRawArea: JBTextArea
     private lateinit var responseTestResultsArea: JBTextArea
+    private lateinit var profilingPanel: ProfilingPanel
     private lateinit var statusLabel: JLabel
     private lateinit var responseSizeLabel: JLabel
 
@@ -330,6 +331,10 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         responseTestResultsArea.isEditable = false
         responseTestResultsArea.font = Font("Monospaced", Font.PLAIN, 12)
         responseTabbedPane.addTab("Test Results", JBScrollPane(responseTestResultsArea))
+
+        // Profiling tab
+        profilingPanel = ProfilingPanel()
+        responseTabbedPane.addTab("Profiling", profilingPanel)
 
         responsePanel.add(statusPanel, BorderLayout.NORTH)
         responsePanel.add(responseTabbedPane, BorderLayout.CENTER)
@@ -643,8 +648,10 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         responseTextPane.text = ""
         responseHeadersArea.text = ""
         responseRawArea.text = ""
+        responseTestResultsArea.text = ""
         responseSizeLabel.text = ""
         statusLabel.text = "Ready"
+        profilingPanel.clear()
     }
 
     private fun loadFromHistory(entry: com.github.dhzhu.amateurpostman.models.RequestHistoryEntry) {
@@ -1420,6 +1427,9 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                 responseTestResultsArea.text = "No tests defined."
             }
         }
+
+        // Update Profiling panel
+        profilingPanel.updateProfilingData(response.profilingData)
     }
 
     /**

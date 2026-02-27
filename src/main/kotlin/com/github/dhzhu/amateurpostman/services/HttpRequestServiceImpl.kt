@@ -68,9 +68,18 @@ class HttpRequestServiceImpl(private val project: Project) : HttpRequestService,
 
                 val startTime = System.currentTimeMillis()
 
+                // Create event listener for profiling
+                val eventListener = AmEventListener()
+
+                // Create a client with the event listener for this request
+                val clientWithListener = client.newBuilder()
+                    .eventListener(eventListener)
+                    .build()
+
                 try {
                     val okHttpRequest = buildOkHttpRequest(processedRequest)
-                    client.newCall(okHttpRequest).execute().use { response ->
+                    // Execute the call with profiling enabled
+                    clientWithListener.newCall(okHttpRequest).execute().use { response ->
                         // Check for cancellation after receiving response
                         coroutineContext.ensureActive()
 
@@ -84,12 +93,26 @@ class HttpRequestServiceImpl(private val project: Project) : HttpRequestService,
                                         headers = response.headers.toMultimap(),
                                         body = responseBody,
                                         duration = duration,
-                                        isSuccessful = response.isSuccessful
+                                        isSuccessful = response.isSuccessful,
+                                        profilingData = eventListener.getProfilingData()
                                 )
 
                         logger.info(
                                 "Request completed in ${duration}ms with status ${response.code}"
                         )
+
+                        // Log profiling details if available
+                        val profiling = eventListener.getProfilingData()
+                        if (profiling != com.github.dhzhu.amateurpostman.models.HttpProfilingData.Empty) {
+                            logger.debug(
+                                "Profiling: DNS=${profiling.dnsDuration}ms, " +
+                                "TCP=${profiling.tcpDuration}ms, " +
+                                "SSL=${profiling.sslDuration}ms, " +
+                                "TTFB=${profiling.ttfbDuration}ms, " +
+                                "ConnectionReused=${profiling.connectionReused}"
+                            )
+                        }
+
                         httpResponse
                     }
                 } catch (e: Exception) {
