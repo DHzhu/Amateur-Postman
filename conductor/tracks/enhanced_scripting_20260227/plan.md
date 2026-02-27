@@ -19,3 +19,6 @@
 - [x] Task: 实现原生的 `atob` 和 `btoa` 函数支持
 - [x] Task: 编写集成测试，验证通过脚本生成 HMAC-SHA256 签名并注入到请求 Header 中
 - [x] Task: Conductor - User Manual Verification 'External Libraries' (Protocol in workflow.md)
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions 84d4ad3
