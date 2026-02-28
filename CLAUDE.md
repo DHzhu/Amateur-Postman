@@ -6,9 +6,24 @@
 - **Conflict Resolution**: If any Claude-generated plan (`ROADMAP.md`, `PHASE_X_PLAN.md`) conflicts with the Conductor's `plan.md`, **stop and ask the user** to reconcile the "Source of Truth".
 
 ## 2. MCP Integration (server-memory)
-- **Startup Action**: Before every task, call `server-memory:search_nodes` to find entities starting with `Plan:` or `Project:`.
-- **Active Plan**: Locate the `file_path` property of the `Plan:[ProjectName]` entity and read that Markdown file before proposing changes.
-- **Progress Tracking**: After completing a task or Phase, you MUST update the `status` and `last_update` properties in `server-memory`.
+- **Startup Action**: Before every task, call `server-memory:read_graph` to get the complete project state. DO NOT use `search_nodes` for initial context loading.
+  - ⚠️ **Why**: `search_nodes` requires natural language keywords and may miss entities with prefixed names (e.g., `Plan:xxx`). `read_graph` returns the entire graph reliably.
+  - 📌 **Use `search_nodes` only** for targeted lookups with descriptive terms like "并发竞态" or "mock server", not entity prefixes.
+- **Entity Structure** (per sync-mem spec):
+  - `Project:[ProjectName]` → 项目根实体 (root_path, tech_stack)
+  - `Plan:[ProjectName]` → 指向 `tracks.md` (全局轨道注册表)
+  - `Track:[Name]` → 轨道实体 (focus, plan_id)
+  - `Plan:[TrackName]` → 指向 `plan.md` (具体轨道计划)
+  - `Style:[ProjectName]` → 代码风格指南
+  - `LastContext:[TrackName]` → 当前工作状态
+- **Active Plan**: Locate `Plan:[TrackName]` entity's `file_path` property (points to `plan.md`) and read the corresponding Markdown file before proposing changes.
+- **Progress Tracking**: After completing a task or Phase, you MUST update the `status`, `progress`, and `last_update` properties in the corresponding `Plan` entity, and update `active_file` in `LastContext`.
+- **Entity Relations** (uppercase naming):
+  - `Project:[ProjectName]` → `Plan:[ProjectName]` via `HAS_PLAN`
+  - `Project:[ProjectName]` → `Style:[ProjectName]` via `ENFORCES_STYLE`
+  - `Plan:[ProjectName]` → `Track:[Name]` via `TRACKS_PROGRESS`
+  - `Track:[Name]` → `Plan:[TrackName]` via `HAS_PLAN`
+- **Path Rule**: All `file_path` entries MUST be absolute paths.
 
 ## 3. Collaborative File Management
 - **ROADMAP.md**: Use this only as a high-level progress dashboard for Claude Code. It must sync with the milestones in Conductor's `plan.md`.
