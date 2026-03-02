@@ -14,6 +14,8 @@ import com.intellij.openapi.project.Project
 import com.oracle.truffle.js.scriptengine.GraalJSScriptEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.HostAccess
 
@@ -380,6 +382,14 @@ class ScriptExecutionService(
     }
 
     /**
+     * Mutex to serialize GraalVM JS engine.eval() calls.
+     * GraalJSScriptEngine is not thread-safe for concurrent operations,
+     * even with separate bindings. This ensures no context contamination
+     * between concurrent pre-request and test script executions.
+     */
+    private val scriptExecutionMutex = Mutex()
+
+    /**
      * Loads crypto-js library into the JS engine.
      */
     private fun loadCryptoJsLibrary(engine: GraalJSScriptEngine) {
@@ -446,7 +456,10 @@ class ScriptExecutionService(
 
             bindings["am"] = AmBinding(context)
 
-            engine.eval(script, bindings)
+            // Serialize script execution to prevent concurrent context contamination
+            scriptExecutionMutex.withLock {
+                engine.eval(script, bindings)
+            }
             context.getVariables()
         } catch (e: Exception) {
             // Log error but don't fail the request
@@ -482,7 +495,10 @@ class ScriptExecutionService(
 
             bindings["pm"] = PmBinding(response, context)
 
-            engine.eval(script, bindings)
+            // Serialize script execution to prevent concurrent context contamination
+            scriptExecutionMutex.withLock {
+                engine.eval(script, bindings)
+            }
             TestResult.create(context.getResults())
         } catch (e: Exception) {
             // Log error and return failed result

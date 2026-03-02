@@ -22,6 +22,7 @@ import com.intellij.ui.components.JBTextArea
 import com.intellij.ui.components.JBTextField
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.JBUI
+import com.github.dhzhu.amateurpostman.ui.MockServerPanel
 import java.awt.BorderLayout
 import java.awt.CardLayout
 import java.awt.Color
@@ -127,6 +128,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
     // Collections
     private lateinit var collectionsPanel: CollectionsPanel
+    private lateinit var mockServerPanel: MockServerPanel
 
     // Script panels
     private lateinit var preRequestScriptArea: JBTextArea
@@ -281,6 +283,10 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         testsPanel.add(testsInfoLabel, BorderLayout.NORTH)
         testsPanel.add(JBScrollPane(testsScriptArea), BorderLayout.CENTER)
         tabbedPane.addTab("Tests", testsPanel)
+
+        // Tab: Mock Server
+        mockServerPanel = MockServerPanel(project)
+        tabbedPane.addTab("Mock", mockServerPanel)
 
         // Response Area with tabs for Headers/Body/Raw
         val responsePanel = JPanel(BorderLayout())
@@ -441,7 +447,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                         BodyType.XML -> {
                             requestBodyArea.text = formatXml(content)
                         }
-                        BodyType.GRAPHQL, BodyType.HTML, BodyType.JAVASCRIPT, BodyType.TEXT, BodyType.MULTIPART -> {
+                        BodyType.GRAPHQL, BodyType.HTML, BodyType.JAVASCRIPT, BodyType.TEXT, BodyType.MULTIPART, BodyType.FORM_URLENCODED -> {
                             // No formatting needed for these types (GraphQL handled above)
                         }
                     }
