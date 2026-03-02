@@ -2,6 +2,8 @@ package com.github.dhzhu.amateurpostman.services
 
 import com.github.dhzhu.amateurpostman.models.HttpResponse
 import com.intellij.openapi.project.Project
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Before
@@ -94,5 +96,96 @@ class ScriptExecutionServiceTest {
 
         assertFalse(result.passed)
         assertTrue(result.results[0].message.contains("Error"))
+    }
+
+    /**
+     * Stress test for concurrent script execution.
+     * Verifies that the Mutex properly serializes engine calls
+     * and prevents context contamination between concurrent executions.
+     */
+    @Test
+    fun `test concurrent pre-request scripts do not contaminate each other`() = runBlocking {
+        val numConcurrent = 20
+        val results = (1..numConcurrent).map { i ->
+            async {
+                val script = "am.environment.set('thread_id', '$i'); am.environment.get('thread_id')"
+                scriptService.executePreRequestScript(script) to i
+            }
+        }.awaitAll()
+
+        // Each script should have its own isolated context
+        // With Mutex protection, no contamination should occur
+        results.forEach { (variables, expectedId) ->
+            assertEquals("Context contamination detected", expectedId.toString(), variables["thread_id"])
+        }
+    }
+
+    /**
+     * Stress test for concurrent test script execution.
+     * Verifies that concurrent test scripts execute correctly without interference.
+     */
+    @Test
+    fun `test concurrent test scripts execute correctly`() = runBlocking {
+        val numConcurrent = 20
+        val results = (1..numConcurrent).map { i ->
+            async {
+                val response = HttpResponse(
+                    statusCode = i * 10, // Unique status code for each
+                    statusMessage = "OK",
+                    body = "Response $i",
+                    headers = emptyMap(),
+                    duration = 100
+                )
+                val script = "pm.expect.statusCode(${i * 10})"
+                scriptService.executeTestScript(script, response) to i
+            }
+        }.awaitAll()
+
+        // All tests should pass without interference
+        results.forEach { (result, _) ->
+            assertTrue("Concurrent test script failed unexpectedly", result.passed)
+            assertEquals(1, result.results.size)
+        }
+    }
+
+    /**
+     * Mixed concurrent pre-request and test script execution stress test.
+     * Verifies that both script types can execute concurrently without interference.
+     */
+    @Test
+    fun `test mixed concurrent scripts execute correctly`() = runBlocking {
+        val numConcurrent = 10
+        val preRequestJobs = (1..numConcurrent).map { i ->
+            async {
+                val script = "am.environment.set('pre_id', '$i')"
+                scriptService.executePreRequestScript(script)
+            }
+        }
+        val testJobs = (1..numConcurrent).map { i ->
+            async {
+                val response = HttpResponse(
+                    statusCode = 200,
+                    statusMessage = "OK",
+                    body = "Test $i",
+                    headers = emptyMap(),
+                    duration = 100
+                )
+                val script = "pm.expect.body.toContain('$i')"
+                scriptService.executeTestScript(script, response)
+            }
+        }
+
+        val preResults = preRequestJobs.awaitAll()
+        val testResults = testJobs.awaitAll()
+
+        // All pre-request scripts should complete without error
+        preResults.forEach { variables ->
+            assertTrue("Pre-request script should complete", variables.containsKey("pre_id"))
+        }
+
+        // All test scripts should pass
+        testResults.forEach { result ->
+            assertTrue("Test script should pass", result.passed)
+        }
     }
 }

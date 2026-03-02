@@ -224,7 +224,7 @@ class PostmanExporterTest {
                     request = HttpRequest(
                         method = HttpMethod.POST,
                         url = "https://api.example.com/submit",
-                        body = HttpBody.of("username=john&password=secret", BodyType.TEXT)
+                        body = HttpBody.of("username=john&password=secret", BodyType.FORM_URLENCODED)
                     )
                 )
             )

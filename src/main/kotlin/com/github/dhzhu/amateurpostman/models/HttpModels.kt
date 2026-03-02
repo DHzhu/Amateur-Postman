@@ -7,6 +7,7 @@ enum class BodyType(val displayName: String, val mimeType: String, val fileExten
     XML("XML", "application/xml", "xml"),
     HTML("HTML", "text/html", "html"),
     JAVASCRIPT("JavaScript", "application/javascript", "js"),
+    FORM_URLENCODED("Form URL-Encoded", "application/x-www-form-urlencoded", "txt"),
     MULTIPART("Multipart", "multipart/form-data", "txt"),
     GRAPHQL("GraphQL", "application/json", "graphql");
 

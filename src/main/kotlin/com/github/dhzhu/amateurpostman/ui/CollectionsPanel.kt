@@ -3,6 +3,7 @@ package com.github.dhzhu.amateurpostman.ui
 import com.github.dhzhu.amateurpostman.models.*
 import com.github.dhzhu.amateurpostman.services.CollectionChangeListener
 import com.github.dhzhu.amateurpostman.services.CollectionService
+import com.github.dhzhu.amateurpostman.services.MockServerManager
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
@@ -209,6 +210,8 @@ class CollectionsPanel(
                 menu.add(MenuItem("Delete") { deleteRequest(node.collectionId, node.request.id) })
                 menu.addSeparator()
                 menu.add(MenuItem("Duplicate") { duplicateRequest(node.collectionId, node.request) })
+                menu.addSeparator()
+                menu.add(MenuItem("Create Mock from Request") { createMockFromRequest(node.request) })
             }
         }
 
@@ -412,6 +415,43 @@ class CollectionsPanel(
             request.testScript,
             request.parentId
         )
+    }
+
+    private fun createMockFromRequest(request: CollectionItem.Request) {
+        val httpRequest = request.request
+
+        // Extract path from URL
+        val url = httpRequest.url
+        val path = try {
+            val uri = java.net.URI(url)
+            uri.path.ifEmpty { "/" }
+        } catch (e: Exception) {
+            "/api/${request.name.lowercase().replace(" ", "-")}"
+        }
+
+        // Create default response body from request body or empty JSON
+        val defaultBody = httpRequest.body?.content?.takeIf { it.isNotBlank() } ?: "{\"success\": true}"
+
+        // Open dialog to configure mock rule
+        val mockRule = MockRule(
+            path = path,
+            method = httpRequest.method,
+            statusCode = 200,
+            body = defaultBody,
+            headers = mapOf("Content-Type" to "application/json")
+        )
+
+        val dialog = MockRuleDialog(project, mockRule)
+        if (dialog.showAndGet()) {
+            val rule = dialog.getMockRule()
+            val mockServerManager = project.service<MockServerManager>()
+            mockServerManager.addRule(rule)
+            Messages.showInfoMessage(
+                project,
+                "Mock rule created for ${rule.method} ${rule.path}\n\nStart the Mock Server from the Mock tab to use this rule.",
+                "Mock Created"
+            )
+        }
     }
 
     private fun importCollection() {

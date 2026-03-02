@@ -24,6 +24,7 @@ import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Headers
 
 /** Implementation of HttpRequestService using OkHttp */
 @Service(Service.Level.PROJECT)
@@ -117,14 +118,23 @@ class HttpRequestServiceImpl(private val project: Project) : HttpRequestService,
                     }
                 } catch (e: Exception) {
                     val duration = System.currentTimeMillis() - startTime
+                    // Log full stack trace internally for debugging
                     logger.warn("Request failed after ${duration}ms", e)
 
-                    // Return error response
+                    // Return user-friendly error response without exposing stack trace
+                    val userMessage = when (e) {
+                        is java.net.UnknownHostException -> "Unable to resolve host: ${e.message}"
+                        is java.net.ConnectException -> "Connection refused: ${e.message}"
+                        is java.net.SocketTimeoutException -> "Request timed out"
+                        is javax.net.ssl.SSLException -> "SSL error: ${e.message}"
+                        else -> "Request failed: ${e.message ?: "Unknown error"}"
+                    }
+
                     HttpResponse(
                             statusCode = 0,
                             statusMessage = e.message ?: "Request failed",
                             headers = emptyMap(),
-                            body = "Error: ${e.message}\n\n${e.stackTraceToString()}",
+                            body = "Error: $userMessage",
                             duration = duration,
                             isSuccessful = false
                     )
@@ -190,10 +200,18 @@ class HttpRequestServiceImpl(private val project: Project) : HttpRequestService,
         parts.forEach { part ->
             when (part) {
                 is MultipartPart.TextField -> {
-                    val requestBody = part.value.toRequestBody(
-                        part.contentType?.toMediaTypeOrNull() ?: null
-                    )
-                    builder.addFormDataPart(part.key, part.value)
+                    if (part.contentType != null) {
+                        // Custom content-type: use addPart with explicit headers
+                        // because addFormDataPart doesn't support custom content-type for text fields
+                        val requestBody = part.value.toRequestBody(part.contentType.toMediaTypeOrNull())
+                        builder.addPart(
+                            Headers.headersOf("Content-Disposition", "form-data; name=\"${part.key}\""),
+                            requestBody
+                        )
+                    } else {
+                        // Default behavior: use addFormDataPart with default text/plain
+                        builder.addFormDataPart(part.key, part.value)
+                    }
                 }
                 is MultipartPart.FileField -> {
                     val file = File(part.filePath)

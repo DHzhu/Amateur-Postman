@@ -254,10 +254,18 @@ object PostmanExporter {
         val contentType = httpBody.type.mimeType
 
         return when {
-            // Check for form data (simple detection)
-            contentType.contains("multipart/form-data") ||
-            body.contains("=") && !body.startsWith("{") && !body.startsWith("[") -> {
-                // Try to parse as form-urlencoded
+            // Check content-type to determine body mode
+            contentType.contains("multipart/form-data") -> {
+                // Note: Full multipart export not implemented, fall back to raw
+                PostmanBody(
+                    mode = "raw",
+                    raw = body,
+                    formdata = null,
+                    urlencoded = null
+                )
+            }
+            contentType.contains("application/x-www-form-urlencoded") -> {
+                // Parse as form-urlencoded based on content-type
                 try {
                     val params = body.split('&').mapNotNull { param ->
                         val parts = param.split('=', limit = 2)
@@ -284,7 +292,7 @@ object PostmanExporter {
                     PostmanBody(mode = "raw", raw = body, formdata = null, urlencoded = null)
                 }
             }
-            // Default to raw
+            // Default to raw for all other content types
             else -> {
                 PostmanBody(
                     mode = "raw",

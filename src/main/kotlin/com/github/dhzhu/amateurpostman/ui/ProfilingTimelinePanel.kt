@@ -1,6 +1,7 @@
 package com.github.dhzhu.amateurpostman.ui
 
 import com.github.dhzhu.amateurpostman.models.HttpProfilingData
+import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
 import java.awt.Color
 import java.awt.Dimension
@@ -19,15 +20,16 @@ import javax.swing.SwingConstants
  */
 private class ProfilingWaterfallComponent(private var profilingData: HttpProfilingData) : JComponent() {
 
-    // Colors for different phases
-    private val colorDNS = Color(156, 220, 254)    // Light blue
-    private val colorTCP = Color(181, 206, 168)    // Light green
-    private val colorSSL = Color(206, 145, 120)    // Light orange
-    private val colorTTFB = Color(249, 168, 212)   // Light pink
-    private val colorTransfer = Color(86, 156, 214) // Blue
-    private val colorBackground = Color(43, 43, 43)
-    private val colorText = Color(212, 212, 212)
-    private val colorGrid = Color(60, 60, 60)
+    // Theme-aware colors for different phases
+    // Each JBColor takes (darkThemeColor, lightThemeColor)
+    private val colorDNS = JBColor(Color(156, 220, 254), Color(100, 149, 237))    // Light blue / Cornflower blue
+    private val colorTCP = JBColor(Color(181, 206, 168), Color(60, 179, 113))     // Light green / Medium sea green
+    private val colorSSL = JBColor(Color(206, 145, 120), Color(205, 133, 63))     // Light orange / Peru
+    private val colorTTFB = JBColor(Color(249, 168, 212), Color(219, 112, 147))   // Light pink / Pale violet red
+    private val colorTransfer = JBColor(Color(86, 156, 214), Color(65, 105, 225))  // Blue / Royal blue
+    private val colorBackground = JBColor(Color(43, 43, 43), Color(245, 245, 245))  // Dark gray / Light gray
+    private val colorText = JBColor(Color(212, 212, 212), Color(50, 50, 50))        // Light gray / Dark gray
+    private val colorGrid = JBColor(Color(60, 60, 60), Color(220, 220, 220))        // Dark gray / Light gray
 
     // Layout constants
     private val paddingLeft = 120
