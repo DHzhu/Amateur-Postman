@@ -2,7 +2,7 @@
   "id": "mock_server_20260227",
   "name": "Mock Server 支持 (Mock Server Support)",
   "description": "实现内置 Mock Server，支持多条件匹配和自定义响应。",
-  "status": "ACTIVE",
+  "status": "ARCHIVED",
   "created_at": "2026-02-27",
   "priority": "MEDIUM"
 }
