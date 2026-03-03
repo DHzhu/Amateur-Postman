@@ -1,0 +1,8 @@
+{
+  "id": "ui_refinement_20260303",
+  "name": "UI/UX Refinement (Virtual Scrolling & High-Perf JSON Viewer)",
+  "status": "ACTIVE",
+  "created_at": "2026-03-03",
+  "priority": "LOW",
+  "description": "针对超大响应和集合列表的性能优化：引入虚拟滚动及高性能响应内容渲染。"
+}
