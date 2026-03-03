@@ -55,6 +55,7 @@ data class BodyMatcher(
  * @property delayMs Optional delay in milliseconds to simulate latency
  * @property enabled Whether this rule is active
  * @property bodyMatcher Optional request body matching configuration
+ * @property priority Rule priority (higher value = higher priority). Default is 0.
  */
 data class MockRule(
     val id: String = java.util.UUID.randomUUID().toString(),
@@ -65,7 +66,8 @@ data class MockRule(
     val body: String = "",
     val delayMs: Long = 0,
     val enabled: Boolean = true,
-    val bodyMatcher: BodyMatcher = BodyMatcher()
+    val bodyMatcher: BodyMatcher = BodyMatcher(),
+    val priority: Int = 0
 ) {
     companion object {
         /**

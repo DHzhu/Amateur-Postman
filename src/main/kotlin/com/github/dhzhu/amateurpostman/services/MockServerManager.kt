@@ -15,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.InetSocketAddress
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 import com.sun.net.httpserver.HttpServer
 import com.intellij.openapi.diagnostic.thisLogger
 
@@ -57,7 +58,8 @@ data class MockRuleState(
     var body: String = "",
     var delayMs: Long = 0,
     var enabled: Boolean = true,
-    var bodyMatcher: BodyMatcherState = BodyMatcherState()
+    var bodyMatcher: BodyMatcherState = BodyMatcherState(),
+    var priority: Int = 0
 ) {
     fun toMockRule(): MockRule = MockRule(
         id = id,
@@ -68,7 +70,8 @@ data class MockRuleState(
         body = body,
         delayMs = delayMs,
         enabled = enabled,
-        bodyMatcher = bodyMatcher.toBodyMatcher()
+        bodyMatcher = bodyMatcher.toBodyMatcher(),
+        priority = priority
     )
 
     companion object {
@@ -81,7 +84,8 @@ data class MockRuleState(
             body = rule.body,
             delayMs = rule.delayMs,
             enabled = rule.enabled,
-            bodyMatcher = BodyMatcherState.fromBodyMatcher(rule.bodyMatcher)
+            bodyMatcher = BodyMatcherState.fromBodyMatcher(rule.bodyMatcher),
+            priority = rule.priority
         )
     }
 }
@@ -104,6 +108,7 @@ class MockServerManager : PersistentStateComponent<MockServerState> {
     private var server: HttpServer? = null
     private val rules = ConcurrentHashMap<String, MockRule>()
     private val logger = thisLogger()
+    private val executor = Executors.newCachedThreadPool()
 
     /**
      * Current port the server is running on, or null if not running.
@@ -164,7 +169,7 @@ class MockServerManager : PersistentStateComponent<MockServerState> {
         try {
             val httpServer = HttpServer.create(InetSocketAddress(port), 0)
             httpServer.createContext("/", MockHandler())
-            httpServer.executor = null // Use default executor
+            httpServer.executor = executor // Use thread pool for concurrent request handling
             httpServer.start()
 
             server = httpServer
@@ -183,6 +188,7 @@ class MockServerManager : PersistentStateComponent<MockServerState> {
     fun stop() {
         server?.stop(0)
         server = null
+        executor.shutdown()
         logger.info("Mock server stopped")
     }
 
@@ -232,15 +238,17 @@ class MockServerManager : PersistentStateComponent<MockServerState> {
 
     /**
      * Finds a matching rule for the given request.
+     * Rules are sorted by priority (descending), so higher priority rules are matched first.
      *
      * @param path Request path
      * @param method Request method
      * @param requestBody Optional request body for body matching
-     * @return The matching rule, or null if none found
+     * @return The matching rule with highest priority, or null if none found
      */
     fun findMatchingRule(path: String, method: HttpMethod, requestBody: String? = null): MockRule? {
         return rules.values
             .filter { it.enabled }
+            .sortedByDescending { it.priority }
             .find { rule ->
                 rule.path == path && rule.method == method && rule.bodyMatcher.matches(requestBody)
             }
@@ -254,23 +262,45 @@ class MockServerManager : PersistentStateComponent<MockServerState> {
     private inner class MockHandler : com.sun.net.httpserver.HttpHandler {
         override fun handle(exchange: com.sun.net.httpserver.HttpExchange) {
             val path = exchange.requestURI.path
-            val method = parseHttpMethod(exchange.requestMethod)
+            val methodResult = parseHttpMethod(exchange.requestMethod)
 
-            // Read request body for body matching
+            // Handle unknown method
+            if (methodResult == null) {
+                handleMethodNotAllowed(exchange, exchange.requestMethod)
+                return
+            }
+
+            // Check Content-Length header for size limit
+            val contentLength = exchange.requestHeaders.getFirst("Content-Length")?.toLongOrNull() ?: 0
+            if (contentLength > MAX_REQUEST_BODY_SIZE) {
+                handlePayloadTooLarge(exchange)
+                return
+            }
+
+            // Read request body for body matching (with size limit)
             val requestBody = try {
-                exchange.requestBody.use { it.readBytes().toString(Charsets.UTF_8) }
+                exchange.requestBody.use { input ->
+                    // Read with limit to prevent OOM
+                    val buffer = ByteArray(minOf(contentLength.toInt(), MAX_REQUEST_BODY_SIZE + 1))
+                    val bytesRead = input.read(buffer)
+                    if (bytesRead > MAX_REQUEST_BODY_SIZE) {
+                        handlePayloadTooLarge(exchange)
+                        return
+                    }
+                    if (bytesRead > 0) String(buffer, 0, bytesRead, Charsets.UTF_8) else null
+                }
             } catch (e: Exception) {
                 null
             }
 
-            logger.debug("Received request: $method $path (body: ${requestBody?.take(100)}...)")
+            logger.debug("Received request: $methodResult $path (body: ${requestBody?.take(100)}...)")
 
-            val rule = findMatchingRule(path, method, requestBody)
+            val rule = findMatchingRule(path, methodResult, requestBody)
 
             if (rule != null) {
                 handleMockResponse(exchange, rule)
             } else {
-                handleNoMatch(exchange, path, method)
+                handleNoMatch(exchange, path, methodResult)
             }
         }
 
@@ -279,6 +309,9 @@ class MockServerManager : PersistentStateComponent<MockServerState> {
             rule: MockRule
         ) {
             // Apply delay if configured
+            // Note: Thread.sleep is acceptable here because we use a cached thread pool
+            // that can handle multiple concurrent requests without blocking each other.
+            // Each delayed request only blocks its own handler thread.
             if (rule.delayMs > 0) {
                 Thread.sleep(rule.delayMs)
             }
@@ -319,16 +352,56 @@ class MockServerManager : PersistentStateComponent<MockServerState> {
             logger.debug("No matching rule for $method $path")
         }
 
-        private fun parseHttpMethod(method: String): HttpMethod {
+        private fun handleMethodNotAllowed(
+            exchange: com.sun.net.httpserver.HttpExchange,
+            method: String
+        ) {
+            val response = """{"error":"Method Not Allowed","method":"$method"}"""
+            val responseBody = response.toByteArray(Charsets.UTF_8)
+
+            exchange.responseHeaders.add("Content-Type", "application/json")
+            exchange.responseHeaders.add("Allow", "GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS")
+            exchange.sendResponseHeaders(405, responseBody.size.toLong())
+            exchange.responseBody.use { os ->
+                os.write(responseBody)
+            }
+
+            logger.debug("Method not allowed: $method")
+        }
+
+        private fun handlePayloadTooLarge(exchange: com.sun.net.httpserver.HttpExchange) {
+            val response = """{"error":"Payload Too Large","maxSize":$MAX_REQUEST_BODY_SIZE}"""
+            val responseBody = response.toByteArray(Charsets.UTF_8)
+
+            exchange.responseHeaders.add("Content-Type", "application/json")
+            exchange.sendResponseHeaders(413, responseBody.size.toLong())
+            exchange.responseBody.use { os ->
+                os.write(responseBody)
+            }
+
+            logger.debug("Request payload too large")
+        }
+
+        /**
+         * Parses HTTP method string to HttpMethod enum.
+         * Returns null for unknown methods instead of defaulting to GET.
+         */
+        private fun parseHttpMethod(method: String): HttpMethod? {
             return try {
                 HttpMethod.valueOf(method.uppercase())
             } catch (e: IllegalArgumentException) {
-                HttpMethod.GET
+                null
             }
         }
     }
 
     companion object {
+        /**
+         * Maximum request body size in bytes (1MB).
+         * Requests larger than this will be rejected with 413 Payload Too Large.
+         */
+        const val MAX_REQUEST_BODY_SIZE = 1024 * 1024 // 1MB
+
         fun getInstance(project: Project): MockServerManager {
             return project.service()
         }

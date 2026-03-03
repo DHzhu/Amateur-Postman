@@ -29,6 +29,7 @@ class MockRuleDialog(
     private val methodCombo = JComboBox(HttpMethod.entries.toTypedArray())
     private val statusCodeField = JSpinner(SpinnerNumberModel(200, 100, 599, 1))
     private val delayField = JSpinner(SpinnerNumberModel(0, 0, 60000, 100))
+    private val priorityField = JSpinner(SpinnerNumberModel(0, Int.MIN_VALUE, Int.MAX_VALUE, 1))
     private val enabledCheckbox = JCheckBox("Enabled", true)
     private val bodyTextArea = JBTextArea(10, 40)
     private val headersTextArea = JBTextArea(5, 40)
@@ -49,6 +50,7 @@ class MockRuleDialog(
             methodCombo.selectedItem = rule.method
             statusCodeField.value = rule.statusCode
             delayField.value = rule.delayMs.toInt()
+            priorityField.value = rule.priority
             enabledCheckbox.isSelected = rule.enabled
             bodyTextArea.text = rule.body
             headersTextArea.text = rule.headers.entries.joinToString("\n") { "${it.key}: ${it.value}" }
@@ -105,6 +107,15 @@ class MockRuleDialog(
 
         gbc.gridx = 1
         panel.add(delayField, gbc)
+
+        // Priority
+        row++
+        gbc.gridx = 0
+        gbc.gridy = row
+        panel.add(JBLabel("Priority:"), gbc)
+
+        gbc.gridx = 1
+        panel.add(priorityField, gbc)
 
         // Enabled
         row++
@@ -200,7 +211,8 @@ class MockRuleDialog(
             body = bodyTextArea.text,
             delayMs = (delayField.value as Int).toLong(),
             enabled = enabledCheckbox.isSelected,
-            bodyMatcher = bodyMatcher
+            bodyMatcher = bodyMatcher,
+            priority = priorityField.value as Int
         )
     }
 
