@@ -1,9 +1,9 @@
 package com.github.dhzhu.amateurpostman.services
 
 import com.github.dhzhu.amateurpostman.models.Variable
-import org.junit.Assert.*
-import org.junit.Before
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 
 /**
  * Unit tests for variable scope priority.
@@ -23,9 +23,9 @@ class VariableScopePriorityTest {
         val key2 = "api_key"
         val key3 = "Api_Key"
 
-        assertEquals("Variable.normalizeKey should lowercase", "api_key", Variable.normalizeKey(key1))
-        assertEquals("Variable.normalizeKey should lowercase", "api_key", Variable.normalizeKey(key2))
-        assertEquals("Variable.normalizeKey should lowercase", "api_key", Variable.normalizeKey(key3))
+        assertEquals("api_key", Variable.normalizeKey(key1), "Variable.normalizeKey should lowercase")
+        assertEquals("api_key", Variable.normalizeKey(key2), "Variable.normalizeKey should lowercase")
+        assertEquals("api_key", Variable.normalizeKey(key3), "Variable.normalizeKey should lowercase")
     }
 
     /**
@@ -38,7 +38,7 @@ class VariableScopePriorityTest {
 
         assertEquals("enabled", enabledVar.value)
         assertEquals("disabled", disabledVar.value)
-        assertFalse("Disabled variable should return false for enabled", disabledVar.enabled)
+        assertFalse(disabledVar.enabled, "Disabled variable should return false for enabled")
     }
 
     /**
@@ -58,7 +58,7 @@ class VariableScopePriorityTest {
         val variable = Variable(key = "apiKey", value = "secret-key")
         assertEquals("apiKey", variable.key)
         assertEquals("secret-key", variable.value)
-        assertTrue("Default enabled should be true", variable.enabled)
+        assertTrue(variable.enabled, "Default enabled should be true")
         assertEquals("", variable.description)
     }
 
@@ -111,6 +111,6 @@ class VariableScopePriorityTest {
         // When only global has the key, global value should be used
 
         // Document expectation:
-        assertTrue("Environment > Collection > Global", true)
+        assertTrue(true, "Environment > Collection > Global")
     }
 }

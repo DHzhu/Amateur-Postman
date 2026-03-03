@@ -1,14 +1,14 @@
 package com.github.dhzhu.amateurpostman.models
 
-import org.junit.Assert.*
-import org.junit.Before
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 
 class EnvironmentModelsTest {
 
     private lateinit var testEnvironment: Environment
 
-    @Before
+    @BeforeEach
     fun setup() {
         testEnvironment = Environment(
             id = "test-env-1",

@@ -1,8 +1,8 @@
 package com.github.dhzhu.amateurpostman.ui
 
 import com.github.dhzhu.amateurpostman.models.HttpProfilingData
-import org.junit.Assert.*
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
 
 /**
  * Unit tests for ProfilingTimelinePanel.
@@ -27,7 +27,7 @@ class ProfilingTimelinePanelTest {
 
         // Should not throw any exception
         panel.updateProfilingData(data)
-        assertNotNull("Panel should be created", panel)
+        assertNotNull(panel, "Panel should be created")
     }
 
     /**
@@ -47,7 +47,7 @@ class ProfilingTimelinePanelTest {
 
         // Should not throw any exception
         panel.updateProfilingData(data)
-        assertNotNull("Panel should be created", panel)
+        assertNotNull(panel, "Panel should be created")
     }
 
     /**
@@ -67,7 +67,7 @@ class ProfilingTimelinePanelTest {
 
         // Should not throw any exception
         panel.updateProfilingData(data)
-        assertNotNull("Panel should be created", panel)
+        assertNotNull(panel, "Panel should be created")
     }
 
     /**
@@ -89,7 +89,7 @@ class ProfilingTimelinePanelTest {
         panel.clear()
 
         // Should not throw any exception
-        assertNotNull("Panel should still exist", panel)
+        assertNotNull(panel, "Panel should still exist")
     }
 
     /**
@@ -122,7 +122,7 @@ class ProfilingTimelinePanelTest {
         panel.updateProfilingData(data2)
         panel.updateProfilingData(HttpProfilingData.Empty)
 
-        assertNotNull("Panel should still exist", panel)
+        assertNotNull(panel, "Panel should still exist")
     }
 
     /**
@@ -134,7 +134,7 @@ class ProfilingTimelinePanelTest {
 
         // Should handle empty data gracefully
         panel.updateProfilingData(HttpProfilingData.Empty)
-        assertNotNull("Panel should be created", panel)
+        assertNotNull(panel, "Panel should be created")
     }
 
     /**
@@ -154,7 +154,7 @@ class ProfilingTimelinePanelTest {
 
         // Should handle very small durations
         panel.updateProfilingData(data)
-        assertNotNull("Panel should be created", panel)
+        assertNotNull(panel, "Panel should be created")
     }
 
     /**
@@ -174,6 +174,6 @@ class ProfilingTimelinePanelTest {
 
         // Should handle large durations (in seconds)
         panel.updateProfilingData(data)
-        assertNotNull("Panel should be created", panel)
+        assertNotNull(panel, "Panel should be created")
     }
 }

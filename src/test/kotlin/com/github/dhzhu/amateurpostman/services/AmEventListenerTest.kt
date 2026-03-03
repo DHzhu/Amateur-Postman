@@ -3,8 +3,8 @@ package com.github.dhzhu.amateurpostman.services
 import com.github.dhzhu.amateurpostman.models.HttpProfilingData
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.junit.Assert.*
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Proxy
@@ -60,18 +60,18 @@ class AmEventListenerTest {
         val profilingData = listener.getProfilingData()
 
         // Assert all timing data is collected for fresh connection
-        assertNotNull("DNS duration should not be null for fresh connection", profilingData.dnsDuration)
-        assertNotNull("TCP duration should not be null for fresh connection", profilingData.tcpDuration)
-        assertNotNull("SSL duration should not be null for fresh SSL connection", profilingData.sslDuration)
-        assertNotNull("TTFB duration should not be null", profilingData.ttfbDuration)
-        assertTrue("Total duration should be positive", profilingData.totalDuration > 0)
-        assertFalse("Connection should not be marked as reused", profilingData.connectionReused)
+        assertNotNull(profilingData.dnsDuration, "DNS duration should not be null for fresh connection")
+        assertNotNull(profilingData.tcpDuration, "TCP duration should not be null for fresh connection")
+        assertNotNull(profilingData.sslDuration, "SSL duration should not be null for fresh SSL connection")
+        assertNotNull(profilingData.ttfbDuration, "TTFB duration should not be null")
+        assertTrue(profilingData.totalDuration > 0, "Total duration should be positive")
+        assertFalse(profilingData.connectionReused, "Connection should not be marked as reused")
 
         // Verify timing relationships (allowing for test execution variations)
-        assertTrue("DNS duration should be at least 10ms", profilingData.dnsDuration!! >= 10)
-        assertTrue("TCP duration should be at least 15ms", profilingData.tcpDuration!! >= 15)
-        assertTrue("SSL duration should be at least 20ms", profilingData.sslDuration!! >= 20)
-        assertTrue("TTFB duration should be at least 25ms", profilingData.ttfbDuration!! >= 25)
+        assertTrue(profilingData.dnsDuration!! >= 10, "DNS duration should be at least 10ms")
+        assertTrue(profilingData.tcpDuration!! >= 15, "TCP duration should be at least 15ms")
+        assertTrue(profilingData.sslDuration!! >= 20, "SSL duration should be at least 20ms")
+        assertTrue(profilingData.ttfbDuration!! >= 25, "TTFB duration should be at least 25ms")
     }
 
     /**
@@ -107,12 +107,12 @@ class AmEventListenerTest {
         val profilingData = listener.getProfilingData()
 
         // Assert connection reuse behavior
-        assertNull("DNS duration should be null for connection reuse", profilingData.dnsDuration)
-        assertNull("TCP duration should be null for connection reuse", profilingData.tcpDuration)
-        assertNull("SSL duration should be null for connection reuse", profilingData.sslDuration)
-        assertNotNull("TTFB duration should still be collected", profilingData.ttfbDuration)
-        assertTrue("Total duration should be positive", profilingData.totalDuration > 0)
-        assertTrue("Connection should be marked as reused", profilingData.connectionReused)
+        assertNull(profilingData.dnsDuration, "DNS duration should be null for connection reuse")
+        assertNull(profilingData.tcpDuration, "TCP duration should be null for connection reuse")
+        assertNull(profilingData.sslDuration, "SSL duration should be null for connection reuse")
+        assertNotNull(profilingData.ttfbDuration, "TTFB duration should still be collected")
+        assertTrue(profilingData.totalDuration > 0, "Total duration should be positive")
+        assertTrue(profilingData.connectionReused, "Connection should be marked as reused")
     }
 
     /**
@@ -154,11 +154,11 @@ class AmEventListenerTest {
 
         val profilingData = listener.getProfilingData()
 
-        assertNotNull("DNS duration should be collected", profilingData.dnsDuration)
-        assertNotNull("TCP duration should be collected", profilingData.tcpDuration)
-        assertNull("SSL duration should be null for HTTP", profilingData.sslDuration)
-        assertNotNull("TTFB duration should be collected", profilingData.ttfbDuration)
-        assertFalse("Connection should not be marked as reused", profilingData.connectionReused)
+        assertNotNull(profilingData.dnsDuration, "DNS duration should be collected")
+        assertNotNull(profilingData.tcpDuration, "TCP duration should be collected")
+        assertNull(profilingData.sslDuration, "SSL duration should be null for HTTP")
+        assertNotNull(profilingData.ttfbDuration, "TTFB duration should be collected")
+        assertFalse(profilingData.connectionReused, "Connection should not be marked as reused")
     }
 
     /**
@@ -182,8 +182,8 @@ class AmEventListenerTest {
         val profilingData = listener.getProfilingData()
 
         // Even on failure, we should have partial timing data
-        assertNotNull("DNS duration should be collected before failure", profilingData.dnsDuration)
-        assertNull("TCP duration should be null (connection failed)", profilingData.tcpDuration)
+        assertNotNull(profilingData.dnsDuration, "DNS duration should be collected before failure")
+        assertNull(profilingData.tcpDuration, "TCP duration should be null (connection failed)")
     }
 
     /**
@@ -196,7 +196,7 @@ class AmEventListenerTest {
 
         val profilingData = listener.getProfilingData()
 
-        assertEquals("Should return empty profiling data", HttpProfilingData.Empty, profilingData)
+        assertEquals(HttpProfilingData.Empty, profilingData, "Should return empty profiling data")
     }
 
     /**
@@ -250,8 +250,8 @@ class AmEventListenerTest {
 
         // Total duration should be approximately 50ms (within 10ms tolerance)
         assertTrue(
-            "Total duration should be approximately 50ms, got ${profilingData.totalDuration}ms",
-            profilingData.totalDuration >= 40 && profilingData.totalDuration <= 100
+            profilingData.totalDuration >= 40 && profilingData.totalDuration <= 100,
+            "Total duration should be approximately 50ms, got ${profilingData.totalDuration}ms"
         )
     }
 }
