@@ -3,8 +3,9 @@ package com.github.dhzhu.amateurpostman.utils
 import com.github.dhzhu.amateurpostman.models.HttpMethod
 import com.github.dhzhu.amateurpostman.models.HttpBody
 import com.github.dhzhu.amateurpostman.models.BodyType
-import org.junit.Assert.*
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 /** Unit tests for CurlParser */
 class CurlParserTest {
@@ -142,14 +143,18 @@ class CurlParserTest {
         assertEquals(BodyType.JSON, request.body?.type)
     }
 
-    @Test(expected = IllegalArgumentException::class)
+    @Test
     fun testParseInvalidCommandThrows() {
-        CurlParser.parse("wget https://example.com")
+        assertThrows<IllegalArgumentException> {
+            CurlParser.parse("wget https://example.com")
+        }
     }
 
-    @Test(expected = IllegalArgumentException::class)
+    @Test
     fun testParseNoUrlThrows() {
-        CurlParser.parse("curl -X POST")
+        assertThrows<IllegalArgumentException> {
+            CurlParser.parse("curl -X POST")
+        }
     }
 
     @Test

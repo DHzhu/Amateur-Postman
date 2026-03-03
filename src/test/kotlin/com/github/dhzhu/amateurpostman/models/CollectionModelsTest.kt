@@ -1,15 +1,15 @@
 package com.github.dhzhu.amateurpostman.models
 
-import org.junit.Assert.*
-import org.junit.Before
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 
 class CollectionModelsTest {
 
     private lateinit var testCollection: RequestCollection
     private lateinit var testRequest: HttpRequest
 
-    @Before
+    @BeforeEach
     fun setup() {
         testRequest = HttpRequest(
             method = HttpMethod.GET,

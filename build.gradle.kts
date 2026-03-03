@@ -31,7 +31,12 @@ repositories {
 
 // Dependencies are managed with Gradle version catalog - read more: https://docs.gradle.org/current/userguide/platforms.html#sub:version-catalog
 dependencies {
-    testImplementation(libs.junit)
+    // JUnit 5 (Jupiter) - primary test framework
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testRuntimeOnly(libs.junit.platform.launcher)
+
+    // OpenTest4J for custom assertions
     testImplementation(libs.opentest4j)
 
     // HTTP Client - OkHttp for making HTTP requests
@@ -148,6 +153,11 @@ kover {
 tasks {
     wrapper {
         gradleVersion = providers.gradleProperty("gradleVersion").get()
+    }
+
+    // Enable JUnit Platform for JUnit 5 support
+    withType<Test> {
+        useJUnitPlatform()
     }
 
     publishPlugin {

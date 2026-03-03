@@ -1,8 +1,8 @@
 package com.github.dhzhu.amateurpostman.ui
 
 import com.github.dhzhu.amateurpostman.models.HttpProfilingData
-import org.junit.Assert.*
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
 
 /**
  * Unit tests for ProfilingDisplayModel.
@@ -26,7 +26,7 @@ class ProfilingDisplayModelTest {
 
         val displayModel = ProfilingDisplayModel.fromProfilingData(data)
 
-        assertTrue("Should have profiling data", displayModel.hasProfilingData)
+        assertTrue(displayModel.hasProfilingData, "Should have profiling data")
         assertEquals("50 ms", displayModel.dnsDuration)
         assertEquals("80 ms", displayModel.tcpDuration)
         assertEquals("120 ms", displayModel.sslDuration)
@@ -51,7 +51,7 @@ class ProfilingDisplayModelTest {
 
         val displayModel = ProfilingDisplayModel.fromProfilingData(data)
 
-        assertTrue("Should have profiling data", displayModel.hasProfilingData)
+        assertTrue(displayModel.hasProfilingData, "Should have profiling data")
         assertEquals("Connection Reused", displayModel.dnsDuration)
         assertEquals("Connection Reused", displayModel.tcpDuration)
         assertEquals("Connection Reused", displayModel.sslDuration)
@@ -76,7 +76,7 @@ class ProfilingDisplayModelTest {
 
         val displayModel = ProfilingDisplayModel.fromProfilingData(data)
 
-        assertTrue("Should have profiling data", displayModel.hasProfilingData)
+        assertTrue(displayModel.hasProfilingData, "Should have profiling data")
         assertEquals("30 ms", displayModel.dnsDuration)
         assertEquals("60 ms", displayModel.tcpDuration)
         assertEquals("N/A (HTTP)", displayModel.sslDuration)
@@ -94,7 +94,7 @@ class ProfilingDisplayModelTest {
 
         val displayModel = ProfilingDisplayModel.fromProfilingData(data)
 
-        assertFalse("Should not have profiling data", displayModel.hasProfilingData)
+        assertFalse(displayModel.hasProfilingData, "Should not have profiling data")
         assertEquals("N/A", displayModel.dnsDuration)
         assertEquals("N/A", displayModel.tcpDuration)
         assertEquals("N/A", displayModel.sslDuration)
@@ -119,7 +119,7 @@ class ProfilingDisplayModelTest {
 
         val displayModel = ProfilingDisplayModel.fromProfilingData(data)
 
-        assertTrue("Should have profiling data", displayModel.hasProfilingData)
+        assertTrue(displayModel.hasProfilingData, "Should have profiling data")
         assertEquals("1.50 s", displayModel.dnsDuration)
         assertEquals("2.30 s", displayModel.tcpDuration)
         assertEquals("120 ms", displayModel.sslDuration)
@@ -144,12 +144,12 @@ class ProfilingDisplayModelTest {
         val displayModel = ProfilingDisplayModel.fromProfilingData(data)
         val summary = displayModel.toSummary()
 
-        assertTrue("Summary should contain total time", summary.contains("Total Time: 450 ms"))
-        assertTrue("Summary should contain DNS", summary.contains("DNS: 50 ms"))
-        assertTrue("Summary should contain TCP", summary.contains("TCP: 80 ms"))
-        assertTrue("Summary should contain SSL", summary.contains("SSL: 120 ms"))
-        assertTrue("Summary should contain TTFB", summary.contains("TTFB: 300 ms"))
-        assertTrue("Summary should show connection not reused", summary.contains("Connection Reused: No"))
+        assertTrue(summary.contains("Total Time: 450 ms"), "Summary should contain total time")
+        assertTrue(summary.contains("DNS: 50 ms"), "Summary should contain DNS")
+        assertTrue(summary.contains("TCP: 80 ms"), "Summary should contain TCP")
+        assertTrue(summary.contains("SSL: 120 ms"), "Summary should contain SSL")
+        assertTrue(summary.contains("TTFB: 300 ms"), "Summary should contain TTFB")
+        assertTrue(summary.contains("Connection Reused: No"), "Summary should show connection not reused")
     }
 
     /**
@@ -169,12 +169,12 @@ class ProfilingDisplayModelTest {
         val displayModel = ProfilingDisplayModel.fromProfilingData(data)
         val summary = displayModel.toSummary()
 
-        assertTrue("Summary should contain total time", summary.contains("Total Time: 200 ms"))
-        assertFalse("Summary should not contain DNS (reused)", summary.contains("DNS:"))
-        assertFalse("Summary should not contain TCP (reused)", summary.contains("TCP:"))
-        assertFalse("Summary should not contain SSL (reused)", summary.contains("SSL:"))
-        assertTrue("Summary should contain TTFB", summary.contains("TTFB: 150 ms"))
-        assertTrue("Summary should show connection reused", summary.contains("Connection Reused: Yes"))
+        assertTrue(summary.contains("Total Time: 200 ms"), "Summary should contain total time")
+        assertFalse(summary.contains("DNS:"), "Summary should not contain DNS (reused)")
+        assertFalse(summary.contains("TCP:"), "Summary should not contain TCP (reused)")
+        assertFalse(summary.contains("SSL:"), "Summary should not contain SSL (reused)")
+        assertTrue(summary.contains("TTFB: 150 ms"), "Summary should contain TTFB")
+        assertTrue(summary.contains("Connection Reused: Yes"), "Summary should show connection reused")
     }
 
     /**

@@ -4,8 +4,8 @@ import com.github.dhzhu.amateurpostman.models.*
 import com.github.dhzhu.amateurpostman.models.HttpBody
 import com.github.dhzhu.amateurpostman.models.BodyType
 import com.google.gson.Gson
-import org.junit.Assert.*
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
 import java.io.File
 
 class PostmanExporterTest {

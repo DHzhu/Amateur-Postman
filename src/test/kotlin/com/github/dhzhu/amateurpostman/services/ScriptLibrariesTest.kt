@@ -2,9 +2,9 @@ package com.github.dhzhu.amateurpostman.services
 
 import com.intellij.openapi.project.Project
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.*
-import org.junit.Before
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 import org.mockito.kotlin.*
 
 /**
@@ -16,7 +16,7 @@ class ScriptLibrariesTest {
     private lateinit var scriptService: ScriptExecutionService
     private lateinit var environmentService: EnvironmentService
 
-    @Before
+    @BeforeEach
     fun setUp() {
         environmentService = mock<EnvironmentService>()
         scriptService = ScriptExecutionService(mock<Project>(), environmentService)

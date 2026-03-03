@@ -9,10 +9,10 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import org.junit.After
-import org.junit.Assert.*
-import org.junit.Before
-import org.junit.Test
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 import java.util.concurrent.TimeUnit
 
 /**
@@ -26,12 +26,12 @@ class MockServerBodyMatchingTest {
         .readTimeout(5, TimeUnit.SECONDS)
         .build()
 
-    @Before
+    @BeforeEach
     fun setUp() {
         mockServerManager = MockServerManager()
     }
 
-    @After
+    @AfterEach
     fun tearDown() {
         mockServerManager.stop()
         mockServerManager.clearRules()

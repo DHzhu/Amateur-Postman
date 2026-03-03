@@ -7,10 +7,10 @@ import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import org.junit.After
-import org.junit.Assert.*
-import org.junit.Before
-import org.junit.Test
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
 import java.util.concurrent.TimeUnit
 
@@ -22,12 +22,12 @@ class MockServerManagerTest {
         .readTimeout(5, TimeUnit.SECONDS)
         .build()
 
-    @Before
+    @BeforeEach
     fun setUp() {
         mockServerManager = MockServerManager()
     }
 
-    @After
+    @AfterEach
     fun tearDown() {
         mockServerManager.stop()
         mockServerManager.clearRules()
@@ -259,7 +259,7 @@ class MockServerManagerTest {
     }
 
     @Test
-    fun `test response delay`() = runBlocking {
+    fun `test response delay`() = runBlocking<Unit> {
         val port = mockServerManager.start(0)!!
         mockServerManager.addRule(
             MockRule(
@@ -278,7 +278,7 @@ class MockServerManagerTest {
         httpClient.newCall(request).execute()
         val elapsed = System.currentTimeMillis() - startTime
 
-        assertTrue("Response should be delayed by at least 100ms", elapsed >= 100)
+        assertTrue(elapsed >= 100, "Response should be delayed by at least 100ms")
     }
 
     @Test

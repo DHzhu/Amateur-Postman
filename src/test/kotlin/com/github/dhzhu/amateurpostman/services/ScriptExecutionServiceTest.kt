@@ -5,9 +5,9 @@ import com.intellij.openapi.project.Project
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.*
-import org.junit.Before
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 import org.mockito.kotlin.*
 
 class ScriptExecutionServiceTest {
@@ -15,7 +15,7 @@ class ScriptExecutionServiceTest {
     private lateinit var scriptService: ScriptExecutionService
     private lateinit var environmentService: EnvironmentService
 
-    @Before
+    @BeforeEach
     fun setUp() {
         environmentService = mock<EnvironmentService>()
         scriptService = ScriptExecutionService(mock<Project>(), environmentService)
@@ -116,7 +116,7 @@ class ScriptExecutionServiceTest {
         // Each script should have its own isolated context
         // With Mutex protection, no contamination should occur
         results.forEach { (variables, expectedId) ->
-            assertEquals("Context contamination detected", expectedId.toString(), variables["thread_id"])
+            assertEquals(expectedId.toString(), variables["thread_id"], "Context contamination detected")
         }
     }
 
@@ -143,7 +143,7 @@ class ScriptExecutionServiceTest {
 
         // All tests should pass without interference
         results.forEach { (result, _) ->
-            assertTrue("Concurrent test script failed unexpectedly", result.passed)
+            assertTrue(result.passed, "Concurrent test script failed unexpectedly")
             assertEquals(1, result.results.size)
         }
     }
@@ -180,12 +180,12 @@ class ScriptExecutionServiceTest {
 
         // All pre-request scripts should complete without error
         preResults.forEach { variables ->
-            assertTrue("Pre-request script should complete", variables.containsKey("pre_id"))
+            assertTrue(variables.containsKey("pre_id"), "Pre-request script should complete")
         }
 
         // All test scripts should pass
         testResults.forEach { result ->
-            assertTrue("Test script should pass", result.passed)
+            assertTrue(result.passed, "Test script should pass")
         }
     }
 }
