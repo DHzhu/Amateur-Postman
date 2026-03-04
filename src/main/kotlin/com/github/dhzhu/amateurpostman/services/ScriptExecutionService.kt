@@ -1,8 +1,11 @@
 package com.github.dhzhu.amateurpostman.services
 
-import com.github.dhzhu.amateurpostman.models.HttpResponse
+import com.github.dhzhu.amateurpostman.models.BodyType
+import com.github.dhzhu.amateurpostman.models.HttpBody
+import com.github.dhzhu.amateurpostman.models.HttpMethod
 import com.github.dhzhu.amateurpostman.models.HttpProfilingData
 import com.github.dhzhu.amateurpostman.models.HttpRequest
+import com.github.dhzhu.amateurpostman.models.HttpResponse
 import com.github.dhzhu.amateurpostman.models.Variable
 import com.google.gson.Gson
 import com.google.gson.JsonParser
@@ -13,6 +16,7 @@ import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.oracle.truffle.js.scriptengine.GraalJSScriptEngine
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -328,9 +332,11 @@ class PmRequestBinding(private val request: HttpRequest) {
 class PmBinding(
     private val httpResponse: HttpResponse,
     private val context: TestContext,
-    request: HttpRequest? = null
+    request: HttpRequest? = null,
+    private val httpRequestService: HttpRequestService? = null
 ) {
-    @JvmField val expect = PmExpectBinding(context)
+    // Initially set to the basic expect binding, but can be overridden by chai.expect
+    @JvmField var expect: Any = PmExpectBinding(context)
     @JvmField val response = PmResponseBinding(httpResponse)
     @JvmField val request: PmRequestBinding? = request?.let { PmRequestBinding(it) }
 
@@ -341,6 +347,54 @@ class PmBinding(
      */
     fun test(name: String, fn: () -> Boolean) {
         context.test(name, fn)
+    }
+
+    /**
+     * Executes an HTTP request synchronously from within a JS script.
+     * Called by the JS-side pm.sendRequest wrapper in the preamble.
+     *
+     * @param requestJson JSON string describing the request:
+     *   {"url":"...", "method":"GET", "header":{...}, "body":{"raw":"..."}}
+     *   or just a URL string (handled by the JS wrapper before this call)
+     * @return JSON string: {"code":200, "body":"...", "headers":{...}}
+     *   or {"_error":"message"} on failure
+     */
+    fun sendRequest(requestJson: String): String {
+        val svc = httpRequestService
+            ?: return Gson().toJson(mapOf("_error" to "pm.sendRequest is not available"))
+        val gson = Gson()
+        return try {
+            val req = parseSendRequest(requestJson)
+            val resp = runBlocking { svc.executeRequest(req) }
+            gson.toJson(mapOf(
+                "code" to resp.statusCode,
+                "body" to resp.body,
+                "headers" to resp.headers.mapValues { it.value.firstOrNull() ?: "" }
+            ))
+        } catch (e: Exception) {
+            gson.toJson(mapOf("_error" to (e.message ?: "sendRequest failed")))
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun parseSendRequest(requestJson: String): HttpRequest {
+        val map = Gson().fromJson(requestJson, Map::class.java) as Map<String, Any?>
+        val url = map["url"] as? String
+            ?: throw IllegalArgumentException("pm.sendRequest: url is required")
+        val method = try {
+            HttpMethod.valueOf((map["method"] as? String)?.uppercase() ?: "GET")
+        } catch (e: IllegalArgumentException) { HttpMethod.GET }
+        val headers = buildMap<String, String> {
+            (map["header"] as? Map<*, *>)?.forEach { (k, v) ->
+                if (k is String && v is String) put(k, v)
+            }
+        }
+        val bodyMap = map["body"] as? Map<*, *>
+        val body = bodyMap?.let {
+            val raw = it["raw"] as? String
+            if (!raw.isNullOrBlank()) HttpBody(raw, BodyType.JSON) else null
+        }
+        return HttpRequest(url = url, method = method, headers = headers, body = body)
     }
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -353,10 +407,15 @@ class PmBinding(
 @Service(Service.Level.PROJECT)
 class ScriptExecutionService(
     private val project: Project,
-    private val environmentService: EnvironmentService
+    private val environmentService: EnvironmentService,
+    private val httpRequestService: HttpRequestService? = null
 ) {
     // Called by IntelliJ service framework (single-arg Project constructor)
-    constructor(project: Project) : this(project, project.service())
+    constructor(project: Project) : this(project, project.service(), null)
+
+    private fun getHttpService(): HttpRequestService? = httpRequestService ?: try {
+        project.service<HttpRequestServiceImpl>()
+    } catch (e: Exception) { null }
 
     private val engine = try {
         // GraalVM 24.x defaults to a restrictive host access policy that prevents
@@ -371,6 +430,12 @@ class ScriptExecutionService(
 
         // Load crypto-js library
         loadCryptoJsLibrary(jsEngine)
+
+        // Load chai.js assertion library
+        loadChaiLibrary(jsEngine)
+
+        // Load ajv JSON Schema validation library
+        loadAjvLibrary(jsEngine)
 
         // Register global utility functions
         registerUtilityFunctions(jsEngine)
@@ -390,6 +455,18 @@ class ScriptExecutionService(
     private val scriptExecutionMutex = Mutex()
 
     /**
+     * Reference to chai object loaded during initialization.
+     * Used to inject into each script execution's bindings.
+     */
+    @Volatile private var chaiRef: Any? = null
+
+    /**
+     * Reference to Ajv constructor loaded during initialization.
+     * Used to inject into each script execution's bindings for JSON Schema validation.
+     */
+    @Volatile private var ajvRef: Any? = null
+
+    /**
      * Loads crypto-js library into the JS engine.
      */
     private fun loadCryptoJsLibrary(engine: GraalJSScriptEngine) {
@@ -404,6 +481,55 @@ class ScriptExecutionService(
             }
         } catch (e: Exception) {
             thisLogger().error("Failed to load crypto-js library", e)
+        }
+    }
+
+    /**
+     * Loads chai.js assertion library into the JS engine.
+     * Exposes chai.expect as global expect function.
+     */
+    private fun loadChaiLibrary(engine: GraalJSScriptEngine) {
+        try {
+            // Define 'global' for chai.js compatibility with GraalVM JS
+            engine.eval("if (typeof global === 'undefined') { var global = globalThis; }")
+
+            val chaiResource = this.javaClass.classLoader.getResourceAsStream("js/chai.min.js")
+            if (chaiResource != null) {
+                val chaiCode = chaiResource.bufferedReader().use { it.readText() }
+                engine.eval(chaiCode)
+                // Store whole chai object for later injection
+                chaiRef = engine.eval("chai")
+                thisLogger().info("chai.js library loaded successfully")
+            } else {
+                thisLogger().warn("chai.js library not found in resources")
+            }
+        } catch (e: Exception) {
+            thisLogger().error("Failed to load chai.js library", e)
+        }
+    }
+
+    /**
+     * Loads ajv v6 JSON Schema validation library into the JS engine.
+     * Exposes the Ajv constructor globally for use in test scripts.
+     */
+    private fun loadAjvLibrary(engine: GraalJSScriptEngine) {
+        try {
+            val ajvResource = this.javaClass.classLoader.getResourceAsStream("js/ajv.min.js")
+            if (ajvResource != null) {
+                val ajvCode = ajvResource.bufferedReader().use { it.readText() }
+                engine.eval(ajvCode)
+                // Capture Ajv constructor for injection into isolated script scopes
+                ajvRef = engine.eval("typeof Ajv !== 'undefined' ? Ajv : null")
+                if (ajvRef != null) {
+                    thisLogger().info("ajv library loaded successfully")
+                } else {
+                    thisLogger().warn("ajv library loaded but Ajv constructor not found in global scope")
+                }
+            } else {
+                thisLogger().warn("ajv library not found in resources")
+            }
+        } catch (e: Exception) {
+            thisLogger().error("Failed to load ajv library", e)
         }
     }
 
@@ -429,6 +555,144 @@ class ScriptExecutionService(
             thisLogger().info("Utility functions (atob, btoa) registered")
         } catch (e: Exception) {
             thisLogger().error("Failed to register utility functions", e)
+        }
+    }
+
+    /**
+     * Builds a JavaScript preamble that wraps the Java pm host object in a
+     * native JS object and optionally sets up the global expect from chai.
+     *
+     * Root cause: pm.response.json() returns Gson-parsed Java Map/List objects.
+     * GraalVM exposes these as "foreign" objects in JS, causing chai's strict
+     * type assertions (equal, be.a('number'), Array.isArray) to fail because
+     * Java String/Number/List are not the same as native JS primitives.
+     *
+     * Fix: override pm.response.json() to return JSON.parse(body), which
+     * produces genuine native JS objects that chai can assert against correctly.
+     */
+    private fun buildPmWrapperScript(withChai: Boolean): String = buildString {
+        appendLine("""
+            pm = (function(__jpm) {
+                // Force JS string coercion so body.includes() and other JS string
+                // methods work correctly regardless of GraalVM's Java-String wrapping.
+                var __body = String(__jpm.response.body);
+
+                var __resp = {
+                    code: __jpm.response.code,
+                    body: __body,
+                    responseTime: __jpm.response.responseTime,
+                    headers: {
+                        get: function(h) { return __jpm.response.headers.get(h); },
+                        getAll: function(h) { return __jpm.response.headers.getAll(h); }
+                    },
+                    json: function() { return JSON.parse(__body); },
+                    text: function() { return __body; }
+                };
+
+                // pm.response.to assertion chain (Postman-compatible shorthand)
+                // Usage: pm.response.to.have.status(200);  pm.response.to.be.ok;
+                // Throws on failure — wrap in pm.test() for proper test recording.
+                (function() {
+                    var __tobe = {};
+                    ['ok', 'success'].forEach(function(p) {
+                        Object.defineProperty(__tobe, p, { get: function() {
+                            if (__resp.code < 200 || __resp.code >= 300)
+                                throw new Error('Expected 2xx status but got ' + __resp.code);
+                            return true;
+                        }});
+                    });
+                    Object.defineProperty(__tobe, 'notFound', { get: function() {
+                        if (__resp.code !== 404) throw new Error('Expected 404 but got ' + __resp.code);
+                        return true;
+                    }});
+                    Object.defineProperty(__tobe, 'error', { get: function() {
+                        if (__resp.code < 400) throw new Error('Expected 4xx/5xx but got ' + __resp.code);
+                        return true;
+                    }});
+                    Object.defineProperty(__tobe, 'json', { get: function() {
+                        var ct = String(__resp.headers.get('content-type') || '');
+                        if (!ct.toLowerCase().includes('json'))
+                            throw new Error('Expected JSON content-type but got "' + ct + '"');
+                        return true;
+                    }});
+                    __resp.to = {
+                        have: {
+                            status: function(code) {
+                                if (__resp.code !== code)
+                                    throw new Error('Expected status ' + code + ' but got ' + __resp.code);
+                                return true;
+                            },
+                            header: function(name, value) {
+                                var raw = __resp.headers.get(name);
+                                if (raw === null || raw === undefined)
+                                    throw new Error('Expected header "' + name + '" to exist');
+                                if (value !== undefined && String(raw) !== String(value))
+                                    throw new Error('Expected header "' + name + '" to be "' + value + '" but got "' + String(raw) + '"');
+                                return true;
+                            },
+                            body: function(text) {
+                                if (!__body.includes(String(text)))
+                                    throw new Error('Expected body to include "' + text + '"');
+                                return true;
+                            },
+                            jsonSchema: function(schema) {
+                                if (typeof Ajv === 'undefined')
+                                    throw new Error('ajv is not loaded — cannot validate JSON Schema');
+                                var ajv = new Ajv({allErrors: true});
+                                var valid = ajv.validate(schema, __resp.json());
+                                if (!valid)
+                                    throw new Error('Schema validation failed: ' + ajv.errorsText());
+                                return true;
+                            }
+                        },
+                        be: __tobe
+                    };
+                })();
+
+                return {
+                    test: function(n, f) { __jpm.test(n, f); },
+                    expect: __jpm.expect,
+                    response: __resp,
+                    request: __jpm.request ? {
+                        url: __jpm.request.url,
+                        method: __jpm.request.method,
+                        headers: __jpm.request.headers,
+                        getHeader: function(h) { return __jpm.request.getHeader(h); },
+                        getBody: function() { return __jpm.request.getBody(); }
+                    } : null,
+                    sendRequest: function(req, callback) {
+                        var reqJson = typeof req === 'string'
+                            ? JSON.stringify({url: req, method: 'GET'})
+                            : JSON.stringify(req);
+                        var resultJson = __jpm.sendRequest(reqJson);
+                        var result = JSON.parse(resultJson);
+                        if (!callback) return;
+                        if (result._error) {
+                            callback(result._error, null);
+                        } else {
+                            var resp = {
+                                code: result.code,
+                                body: result.body,
+                                headers: {
+                                    get: function(h) {
+                                        var lh = h.toLowerCase();
+                                        for (var k in result.headers) {
+                                            if (k.toLowerCase() === lh) return result.headers[k];
+                                        }
+                                        return null;
+                                    }
+                                },
+                                json: function() { return JSON.parse(result.body); },
+                                text: function() { return result.body; }
+                            };
+                            callback(null, resp);
+                        }
+                    }
+                };
+            })(pm);
+        """.trimIndent())
+        if (withChai) {
+            appendLine("var expect = chai.expect;")
         }
     }
 
@@ -493,11 +757,25 @@ class ScriptExecutionService(
             val context = TestContext(response)
             val bindings = engine.createBindings()
 
-            bindings["pm"] = PmBinding(response, context)
+            bindings["pm"] = PmBinding(response, context, httpRequestService = getHttpService())
+
+            // Inject chai object binding if available
+            if (chaiRef != null) {
+                bindings["chai"] = chaiRef
+            }
+
+            // Inject Ajv constructor binding if available
+            if (ajvRef != null) {
+                bindings["Ajv"] = ajvRef
+            }
 
             // Serialize script execution to prevent concurrent context contamination
             scriptExecutionMutex.withLock {
-                engine.eval(script, bindings)
+                // Prepend preamble: wraps pm in native JS for chai compatibility,
+                // sets up global expect from chai if available.
+                @Suppress("kotlin:S2755") // engine.eval is the intended ScriptEngine API
+                val fullScript = buildPmWrapperScript(chaiRef != null) + "\n" + script
+                engine.eval(fullScript, bindings)
             }
             TestResult.create(context.getResults())
         } catch (e: Exception) {
