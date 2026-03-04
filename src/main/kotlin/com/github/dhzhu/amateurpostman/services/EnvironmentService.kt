@@ -25,6 +25,8 @@ class EnvironmentService(private val project: Project) :
 
     private var state = EnvironmentState()
     private val listeners = mutableListOf<EnvironmentChangeListener>()
+    // Temporary variables set by scripts (not persisted)
+    private val temporaryVariables = mutableMapOf<String, String>()
 
     override fun getState(): EnvironmentState = state
 
@@ -421,6 +423,7 @@ class EnvironmentService(private val project: Project) :
         return allVars
     }
 
+    
     // ========== Change Listeners ==========
 
     /**
@@ -443,6 +446,166 @@ class EnvironmentService(private val project: Project) :
 
     private fun notifyListeners() {
         listeners.forEach { it.onEnvironmentChanged() }
+    }
+
+    // ========== Temporary Variables Management for Scripts ==========
+
+    /**
+     * Sets a temporary variable from a script (e.g., Pre-request script).
+     * These variables have the highest priority and are not persisted.
+     *
+     * @param key The variable key
+     * @param value The variable value
+     */
+    fun setTemporaryVariable(key: String, value: String) {
+        synchronized(temporaryVariables) {
+            temporaryVariables[key] = value
+            logger.debug("Set temporary variable: $key = $value")
+        }
+    }
+
+    /**
+     * Gets a temporary variable set by a script.
+     *
+     * @param key The variable key
+     * @return The variable value, or null if not found
+     */
+    fun getTemporaryVariable(key: String): String? {
+        synchronized(temporaryVariables) {
+            return temporaryVariables[key]
+        }
+    }
+
+    /**
+     * Gets all temporary variables set by scripts.
+     *
+     * @return Map of temporary variables
+     */
+    fun getTemporaryVariables(): Map<String, String> {
+        synchronized(temporaryVariables) {
+            return temporaryVariables.toMap()
+        }
+    }
+
+    /**
+     * Clears all temporary variables.
+     * This should be called after a request execution to clean up script variables.
+     */
+    fun clearTemporaryVariables() {
+        synchronized(temporaryVariables) {
+            temporaryVariables.clear()
+            logger.debug("Cleared all temporary variables")
+        }
+    }
+
+    /**
+     * Gets all variables with their source information for visualization.
+     * Merges variables from multiple scopes with priority tracking.
+     *
+     * @param collectionId Optional collection ID to include collection variables
+     * @param includeTemporary Whether to include temporary variables from scripts
+     * @return VariableResolutionResult containing all variables grouped by source with shadowing info
+     */
+    fun getAllVariablesWithSource(collectionId: String? = null, includeTemporary: Boolean = true): VariableResolutionResult {
+        val globalVars = getGlobalVariablesMap()
+        val collectionVars = collectionId?.let { getCollectionVariables(it).getVariablesMap() } ?: emptyMap()
+        val environmentVars = getCurrentEnvironment()?.getVariablesMap() ?: emptyMap()
+        val temporaryVars = if (includeTemporary) getTemporaryVariables() else emptyMap()
+
+        // Create a map to track the final resolved value for each key
+        val finalVars = mutableMapOf<String, String>()
+
+        // Add global variables first (lowest priority)
+        val globalVariablesWithSource = globalVars.map { (key, value) ->
+            val isShadowed = collectionVars.containsKey(key) || environmentVars.containsKey(key) || temporaryVars.containsKey(key)
+            val finalValue = if (isShadowed) {
+                // Check which higher-priority source takes precedence
+                when {
+                    temporaryVars.containsKey(key) -> temporaryVars[key]!!
+                    environmentVars.containsKey(key) -> environmentVars[key]!!
+                    collectionVars.containsKey(key) -> collectionVars[key]!!
+                    else -> value
+                }
+            } else value
+
+            finalVars[key] = finalValue
+            VariableWithSource(
+                key = key,
+                value = value,
+                scope = VariableScope.GLOBAL,
+                sourceName = "Globals",
+                isShadowed = isShadowed,
+                finalValue = finalValue
+            )
+        }
+
+        // Add collection variables (medium priority)
+        val collectionVariablesWithSource = collectionVars.map { (key, value) ->
+            val isShadowed = environmentVars.containsKey(key) || temporaryVars.containsKey(key)
+            val finalValue = if (isShadowed) {
+                // Check which higher-priority source takes precedence
+                if (temporaryVars.containsKey(key)) temporaryVars[key]!!
+                else environmentVars[key]!!
+            } else value
+
+            finalVars[key] = finalValue
+            VariableWithSource(
+                key = key,
+                value = value,
+                scope = VariableScope.COLLECTION,
+                sourceName = collectionId ?: "Collection",
+                isShadowed = isShadowed,
+                finalValue = finalValue
+            )
+        }
+
+        // Add environment variables (high priority)
+        val environmentVariablesWithSource = environmentVars.map { (key, value) ->
+            val isShadowed = temporaryVars.containsKey(key)
+            val finalValue = if (isShadowed) temporaryVars[key]!! else value
+
+            finalVars[key] = finalValue
+            VariableWithSource(
+                key = key,
+                value = value,
+                scope = VariableScope.ENVIRONMENT,
+                sourceName = getCurrentEnvironment()?.name ?: "Current Env",
+                isShadowed = isShadowed,
+                finalValue = finalValue
+            )
+        }
+
+        // Add temporary variables (highest priority)
+        val temporaryVariablesWithSource = temporaryVars.map { (key, value) ->
+            // Temporary variables have the highest priority, so they are never shadowed by other types
+            val isShadowed = false
+            val finalValue = value
+
+            finalVars[key] = finalValue
+            VariableWithSource(
+                key = key,
+                value = value,
+                scope = VariableScope.TEMPORARY,
+                sourceName = "Pre-request Script",
+                isShadowed = isShadowed,
+                finalValue = finalValue
+            )
+        }
+
+        // Combine all variables into a single map for easy lookup
+        val allVariablesWithSource = mutableMapOf<String, VariableWithSource>()
+        globalVariablesWithSource.forEach { allVariablesWithSource[it.key] = it }
+        collectionVariablesWithSource.forEach { allVariablesWithSource[it.key] = it }
+        environmentVariablesWithSource.forEach { allVariablesWithSource[it.key] = it }
+        temporaryVariablesWithSource.forEach { allVariablesWithSource[it.key] = it }
+
+        return VariableResolutionResult(
+            allVariables = allVariablesWithSource,
+            globalVariables = globalVariablesWithSource,
+            collectionVariables = collectionVariablesWithSource,
+            environmentVariables = environmentVariablesWithSource,
+            temporaryVariables = temporaryVariablesWithSource
+        )
     }
 }
 

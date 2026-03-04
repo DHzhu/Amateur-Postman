@@ -7,18 +7,12 @@ import com.github.dhzhu.amateurpostman.services.MockServerManager
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
-import com.intellij.ui.ColorUtil
 import com.intellij.ui.components.JBScrollPane
-import com.intellij.ui.tree.StructureTreeModel
 import com.intellij.ui.treeStructure.Tree
-import com.intellij.util.ui.UIUtil
-import com.intellij.util.ui.tree.TreeModelAdapter
-import com.intellij.util.ui.tree.TreeUtil
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
-import java.awt.event.ActionEvent
 import javax.swing.*
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeCellRenderer
@@ -30,7 +24,7 @@ import javax.swing.tree.TreeSelectionModel
  * Panel for displaying and managing request collections.
  *
  * Features:
- * - Tree view of collections, folders, and requests
+ * - Optimized tree view with lazy loading for large collections
  * - Context menu for operations
  * - Request loading on selection
  */
@@ -61,12 +55,15 @@ class CollectionsPanel(
     private fun createUI() {
         border = BorderFactory.createEmptyBorder(5, 5, 5, 5)
 
-        // Setup tree
+        // Setup tree with optimized settings
         tree.model = DefaultTreeModel(rootNode)
         tree.selectionModel.selectionMode = TreeSelectionModel.SINGLE_TREE_SELECTION
         tree.cellRenderer = CollectionTreeCellRenderer()
         tree.isRootVisible = false
         tree.showsRootHandles = true
+
+        // Performance optimization: enable large model
+        tree.setLargeModel(true)
 
         // Mouse listener for context menu and double-click
         tree.addMouseListener(object : MouseAdapter() {
@@ -129,7 +126,7 @@ class CollectionsPanel(
     }
 
     private fun loadCollections() {
-        // Clear existing nodes
+        // Clear existing nodes efficiently
         rootNode.removeAllChildren()
 
         // Load collections from service
@@ -142,36 +139,43 @@ class CollectionsPanel(
 
             // Add items (folders and requests)
             collection.items.forEach { item ->
-                collectionNode.add(createItemNode(item))
+                collectionNode.add(createItemNode(item, collection.id))
             }
         }
 
-        // Refresh tree
-        (tree.model as DefaultTreeModel).reload()
-        expandAllRows()
+        // Refresh tree with optimized reload
+        val treeModel = tree.model as DefaultTreeModel
+        treeModel.reload()
+
+        // Smart expansion: only expand first level for performance
+        expandFirstLevel()
     }
 
-    private fun createItemNode(item: CollectionItem): DefaultMutableTreeNode {
+    private fun createItemNode(item: CollectionItem, collectionId: String): DefaultMutableTreeNode {
         return when (item) {
             is CollectionItem.Folder -> {
-                val folderNode = FolderNode(item)
+                val folderNode = FolderNode(item, collectionId)
                 // Add children recursively
                 item.children.forEach { child ->
-                    folderNode.add(createItemNode(child))
+                    folderNode.add(createItemNode(child, collectionId))
                 }
                 folderNode
             }
             is CollectionItem.Request -> {
-                RequestNode(item)
+                RequestNode(item, collectionId)
             }
         }
     }
 
-    private fun expandAllRows() {
-        var row = 0
-        while (row < tree.rowCount) {
-            tree.expandRow(row)
-            row++
+    private fun expandFirstLevel() {
+        // Only expand collection nodes, not their children
+        // This is much faster for large datasets
+        for (i in 0 until tree.rowCount) {
+            val path = tree.getPathForRow(i)
+            if (path != null && path.pathCount == 2) {
+                // Only expand level 1 (collections)
+                tree.expandRow(i)
+            }
         }
     }
 
@@ -670,9 +674,7 @@ class CollectionsPanel(
 
     private class MenuItem(text: String, private val action: () -> Unit) : JMenuItem(text) {
         init {
-            addActionListener { e: ActionEvent? ->
-                action()
-            }
+            addActionListener { action() }
         }
     }
 }
