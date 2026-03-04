@@ -23,6 +23,7 @@ import com.intellij.ui.components.JBTextField
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.JBUI
 import com.github.dhzhu.amateurpostman.ui.MockServerPanel
+import com.github.dhzhu.amateurpostman.ui.QuickLookPanel
 import java.awt.BorderLayout
 import java.awt.CardLayout
 import java.awt.Color
@@ -78,6 +79,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
     private var selectedBodyType = BodyType.JSON
     private var statusText = "Ready"
     private var currentEditingRequestItem: com.github.dhzhu.amateurpostman.models.CollectionItem.Request? = null
+    private var currentActiveCollectionId: String? = null
 
     // UI Components
     private lateinit var urlField: JBTextField
@@ -111,7 +113,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
     private lateinit var bearerTokenField: JBTextField
 
     // Response with syntax highlighting
-    private lateinit var responseTextPane: JTextPane
+    private lateinit var responseViewer: HighPerfResponseViewer
     private lateinit var responseTabbedPane: JBTabbedPane
     private lateinit var responseHeadersArea: JBTextArea
     private lateinit var responseRawArea: JBTextArea
@@ -166,9 +168,19 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         exportCurlButton.addActionListener { exportCurl() }
         val saveButton = JButton("Save")
         saveButton.addActionListener { saveRequest() }
+
+        // Quick Look button
+        val quickLookButton = JButton("🔍")  // Using magnifying glass emoji as icon
+        quickLookButton.toolTipText = "Environment Quick Look"
+        quickLookButton.addActionListener {
+            val quickLookPanel = QuickLookPanel(project)
+            quickLookPanel.show(quickLookButton, getCurrentCollectionId()) // Pass current collection ID if available
+        }
+
         curlButtonPanel.add(importCurlButton)
         curlButtonPanel.add(exportCurlButton)
         curlButtonPanel.add(saveButton)
+        curlButtonPanel.add(quickLookButton)  // Add the Quick Look button
 
         val topContainer = JPanel(BorderLayout())
         topContainer.add(topPanel, BorderLayout.NORTH)
@@ -314,13 +326,9 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         // Response tabs
         responseTabbedPane = JBTabbedPane()
 
-        // Body tab with syntax highlighting
-        responseTextPane = JTextPane()
-        responseTextPane.isEditable = false
-        responseTextPane.font = Font("Monospaced", Font.PLAIN, 12)
-        responseTextPane.background = Color(43, 43, 43)
-        responseTextPane.foreground = Color(212, 212, 212)
-        responseTabbedPane.addTab("Body", JBScrollPane(responseTextPane))
+        // Body tab with high-performance viewer
+        responseViewer = HighPerfResponseViewer()
+        responseTabbedPane.addTab("Body", responseViewer)
 
         // Headers tab
         responseHeadersArea = createTextArea()
@@ -642,7 +650,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
     }
 
     private fun copyResponse() {
-        val text = responseTextPane.text
+        val text = responseViewer.getText()
         if (text.isNotEmpty()) {
             val clipboard = Toolkit.getDefaultToolkit().systemClipboard
             clipboard.setContents(StringSelection(text), null)
@@ -651,7 +659,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
     }
 
     private fun clearResponse() {
-        responseTextPane.text = ""
+        responseViewer.clear()
         responseHeadersArea.text = ""
         responseRawArea.text = ""
         responseTestResultsArea.text = ""
@@ -1241,7 +1249,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         }
 
         statusLabel.text = "Sending request..."
-        responseTextPane.text = ""
+        responseViewer.clear()
         isRequestInProgress = true
         sendButton.text = "Cancel"
 
@@ -1357,8 +1365,10 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                         // Request was cancelled, already handled
                     } catch (e: Exception) {
                         statusLabel.text = "Error: ${e.message}"
-                        responseTextPane.text =
-                                "Error executing request:\n${e.message}\n\n${e.stackTraceToString()}"
+                        responseViewer.setResponseBody(
+                                "Error executing request:\n${e.message}\n\n${e.stackTraceToString()}",
+                                "text/plain"
+                        )
                     } finally {
                         isRequestInProgress = false
                         sendButton.text = "Send"
@@ -1393,35 +1403,10 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         }
         responseRawArea.text = rawResponse
 
-        // Populate Body tab with syntax highlighting
-        val doc = responseTextPane.styledDocument
-        doc.remove(0, doc.length)
-
+        // Populate Body tab with high-performance viewer
         val body = formatResponseBody(response.body, response.headers)
         val contentType = response.headers["Content-Type"]?.firstOrNull() ?: ""
-
-        if (contentType.contains("application/json", ignoreCase = true)) {
-            // Apply JSON syntax highlighting
-            val tokens = SyntaxHighlighter.highlightJsonToTokens(body)
-            for (token in tokens) {
-                val style = SimpleAttributeSet()
-                val color =
-                        when (token.type) {
-                            SyntaxHighlighter.TokenType.KEY -> Color(156, 220, 254)
-                            SyntaxHighlighter.TokenType.STRING -> Color(206, 145, 120)
-                            SyntaxHighlighter.TokenType.NUMBER -> Color(181, 206, 168)
-                            SyntaxHighlighter.TokenType.BOOLEAN, SyntaxHighlighter.TokenType.NULL ->
-                                    Color(86, 156, 214)
-                            else -> Color(212, 212, 212)
-                        }
-                StyleConstants.setForeground(style, color)
-                doc.insertString(doc.length, token.text, style)
-            }
-        } else {
-            val normalStyle = SimpleAttributeSet()
-            StyleConstants.setForeground(normalStyle, Color(212, 212, 212))
-            doc.insertString(doc.length, body, normalStyle)
-        }
+        responseViewer.setResponseBody(body, contentType)
 
         // Execute Tests script
         scope.launch {
@@ -1490,6 +1475,38 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         } catch (e: Exception) {
             json
         }
+    }
+
+    /**
+     * Gets the currently active collection ID, if any.
+     * This is determined based on the currently edited request or other context.
+     *
+     * @return The current collection ID or null if none is active
+     */
+    private fun getCurrentCollectionId(): String? {
+        // If we're currently editing a request item, return its collection ID
+        currentEditingRequestItem?.let { requestItem ->
+            // Find which collection this request belongs to
+            val collectionService = project.service<com.github.dhzhu.amateurpostman.services.CollectionService>()
+            for (collection in collectionService.getCollections()) {
+                if (collection.findItemById(requestItem.id) != null) {
+                    return collection.id
+                }
+            }
+        }
+
+        // Otherwise, return the last known active collection ID
+        return currentActiveCollectionId
+    }
+
+    /**
+     * Sets the current active collection ID.
+     * This can be called when a collection is selected in the UI.
+     *
+     * @param collectionId The collection ID to set as active
+     */
+    fun setCurrentActiveCollection(collectionId: String?) {
+        currentActiveCollectionId = collectionId
     }
 
     override fun dispose() {

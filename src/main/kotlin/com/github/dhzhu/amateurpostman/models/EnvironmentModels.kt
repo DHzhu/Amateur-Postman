@@ -352,6 +352,52 @@ data class SerializableEnvironment(
 }
 
 /**
+ * Represents the source/scope of a variable.
+ */
+enum class VariableScope {
+    GLOBAL,         // 全局变量
+    COLLECTION,     // 集合变量
+    ENVIRONMENT,    // 环境变量
+    TEMPORARY       // 临时变量（由 Pre-request 脚本动态设置）
+}
+
+/**
+ * Represents a variable with its source information for debugging.
+ *
+ * @property key The variable identifier
+ * @property value The variable value
+ * @property scope The source scope of this variable
+ * @property sourceName Name of the source (e.g., environment name, collection name)
+ * @property isShadowed Whether this variable is shadowed by a higher priority scope
+ * @property finalValue The final resolved value after all overrides
+ */
+data class VariableWithSource(
+    val key: String,
+    val value: String,
+    val scope: VariableScope,
+    val sourceName: String,
+    val isShadowed: Boolean = false,
+    val finalValue: String = value
+)
+
+/**
+ * Represents the complete variable resolution result for a given context.
+ *
+ * @property allVariables Map of all variables by key
+ * @property globalVariables Variables from global scope
+ * @property collectionVariables Variables from collection scope (if applicable)
+ * @property environmentVariables Variables from environment scope
+ * @property temporaryVariables Dynamically set variables from scripts
+ */
+data class VariableResolutionResult(
+    val allVariables: Map<String, VariableWithSource> = emptyMap(),
+    val globalVariables: List<VariableWithSource> = emptyList(),
+    val collectionVariables: List<VariableWithSource> = emptyList(),
+    val environmentVariables: List<VariableWithSource> = emptyList(),
+    val temporaryVariables: List<VariableWithSource> = emptyList()
+)
+
+/**
  * Serializable version of Variable for XML persistence.
  *
  * @property key The variable identifier

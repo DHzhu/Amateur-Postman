@@ -137,12 +137,29 @@ class CollectionRunnerDialog(
         val buttonPanel = JPanel(FlowLayout(FlowLayout.RIGHT))
         runButton = JButton("Run Collection")
         runButton.addActionListener { startRun() }
+
+        // Add batch operation buttons
+        val runFailedButton = JButton("Run Failed")
+        runFailedButton.addActionListener { runFailedOnly() }
+        runFailedButton.toolTipText = "Re-run only failed requests"
+
+        val exportButton = JButton("Export Results")
+        exportButton.addActionListener { exportResults() }
+        exportButton.toolTipText = "Export results to file"
+
+        val clearButton = JButton("Clear")
+        clearButton.addActionListener { clearResults() }
+        clearButton.toolTipText = "Clear results"
+
         closeButton = JButton("Close")
         closeButton.addActionListener {
             runJob?.cancel()
             super.close(DialogWrapper.OK_EXIT_CODE)
         }
         buttonPanel.add(runButton)
+        buttonPanel.add(runFailedButton)
+        buttonPanel.add(exportButton)
+        buttonPanel.add(clearButton)
         buttonPanel.add(closeButton)
         topPanel.add(buttonPanel, BorderLayout.SOUTH)
 
@@ -379,6 +396,114 @@ class CollectionRunnerDialog(
                 appendLine("$status ${result.itemName} (${result.statusCode}) - ${result.duration}ms")
             }
         }
+    }
+
+    /**
+     * Re-runs only the failed requests.
+     */
+    private fun runFailedOnly() {
+        if (isRunning) return
+
+        val failedRequests = results.filter { !it.passed }
+        if (failedRequests.isEmpty()) {
+            detailsArea.text = "No failed requests to re-run."
+            return
+        }
+
+        // Get the original request items for failed requests
+        val allRequests = getAllRequests(collection.items)
+        val failedItems = allRequests.filter { req ->
+            failedRequests.any { it.itemName == req.name }
+        }
+
+        if (failedItems.isEmpty()) {
+            detailsArea.text = "Could not find failed requests."
+            return
+        }
+
+        // Reset and run only failed
+        results.clear()
+        resultsListModel.clear()
+        progressBar.value = 0
+        progressBar.maximum = failedItems.size
+        detailsArea.text = "Running ${failedItems.size} failed requests..."
+        isRunning = true
+        runButton.text = "Stop"
+        closeButton.isEnabled = false
+
+        runJob = scope.launch {
+            try {
+                var passed = 0
+                var failed = 0
+                var totalDuration = 0L
+
+                failedItems.forEachIndexed { index, item ->
+                    if (!isRunning) return@launch
+
+                    val result = runRequest(item)
+                    results.add(result)
+                    resultsListModel.addElement(result)
+
+                    if (result.passed) passed++ else failed++
+                    totalDuration += result.duration
+
+                    progressBar.value = index + 1
+                    progressBar.string = "${index + 1} / ${failedItems.size}"
+                    updateStats(failedItems.size, passed, failed, totalDuration)
+                }
+
+                detailsArea.text = buildFinalSummary()
+                isRunning = false
+                runButton.text = "Run Collection"
+                closeButton.isEnabled = true
+
+            } catch (e: Exception) {
+                detailsArea.text = "Error: ${e.message}\n\n${e.stackTraceToString()}"
+                isRunning = false
+                runButton.text = "Run Collection"
+                closeButton.isEnabled = true
+            }
+        }
+    }
+
+    /**
+     * Exports the results to a file.
+     */
+    private fun exportResults() {
+        if (results.isEmpty()) {
+            detailsArea.text = "No results to export."
+            return
+        }
+
+        val fileChooser = javax.swing.JFileChooser()
+        fileChooser.dialogTitle = "Export Results"
+        fileChooser.selectedFile = java.io.File("${collection.name}_results.txt")
+        fileChooser.fileFilter = javax.swing.filechooser.FileNameExtensionFilter(
+            "Text Files (*.txt)", "txt"
+        )
+
+        val result = fileChooser.showSaveDialog(this.window)
+        if (result == javax.swing.JFileChooser.APPROVE_OPTION) {
+            val file = fileChooser.selectedFile
+            try {
+                file.writeText(buildFinalSummary())
+                detailsArea.text = "Results exported to: ${file.absolutePath}"
+            } catch (e: Exception) {
+                detailsArea.text = "Error exporting results: ${e.message}"
+            }
+        }
+    }
+
+    /**
+     * Clears the results.
+     */
+    private fun clearResults() {
+        results.clear()
+        resultsListModel.clear()
+        progressBar.value = 0
+        progressBar.string = "0 / ${getRequestCount(collection)}"
+        statsLabel.text = "Ready to run ${getRequestCount(collection)} requests"
+        detailsArea.text = "Select an item to view details"
     }
 
     /**

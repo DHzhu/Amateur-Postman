@@ -18,6 +18,9 @@ object SyntaxHighlighter {
     private val COLON_COLOR = Color(212, 212, 212) // Gray for colons
     private val DEFAULT_COLOR = Color(212, 212, 212) // Default text color
 
+    // Performance threshold: use simplified highlighting for large files
+    const val SIZE_THRESHOLD_FOR_SIMPLIFIED = 500_000 // 500KB
+
     /**
      * Apply JSON syntax highlighting to a JTextPane
      * @param textPane The JTextPane to apply highlighting to
@@ -43,7 +46,87 @@ object SyntaxHighlighter {
      * @return List of styled tokens for rendering
      */
     fun highlightJsonToTokens(json: String): List<StyledToken> {
-        return tokenizeJson(json)
+        // Use simplified tokenization for large files
+        return if (json.length > SIZE_THRESHOLD_FOR_SIMPLIFIED) {
+            tokenizeJsonSimplified(json)
+        } else {
+            tokenizeJson(json)
+        }
+    }
+
+    /**
+     * Simplified tokenizer for large JSON files - faster but less detailed.
+     * Groups consecutive similar characters together.
+     */
+    private fun tokenizeJsonSimplified(json: String): List<StyledToken> {
+        val tokens = mutableListOf<StyledToken>()
+        val length = json.length
+        var i = 0
+
+        // Use StringBuilder for better memory efficiency
+        val currentToken = StringBuilder()
+
+        while (i < length) {
+            val c = json[i]
+            when {
+                c == '"' -> {
+                    // Flush current token
+                    if (currentToken.isNotEmpty()) {
+                        tokens.add(StyledToken(currentToken.toString(), TokenType.DEFAULT))
+                        currentToken.clear()
+                    }
+
+                    // Read entire string
+                    val start = i
+                    i++
+                    while (i < length && json[i] != '"') {
+                        if (json[i] == '\\' && i + 1 < length) {
+                            i += 2
+                        } else {
+                            i++
+                        }
+                    }
+                    if (i < length) i++
+                    tokens.add(StyledToken(json.substring(start, i), TokenType.STRING))
+                }
+                c == '{' || c == '}' || c == '[' || c == ']' -> {
+                    if (currentToken.isNotEmpty()) {
+                        tokens.add(StyledToken(currentToken.toString(), TokenType.DEFAULT))
+                        currentToken.clear()
+                    }
+                    tokens.add(StyledToken(c.toString(), TokenType.BRACKET))
+                    i++
+                }
+                c == ':' || c == ',' -> {
+                    if (currentToken.isNotEmpty()) {
+                        tokens.add(StyledToken(currentToken.toString(), TokenType.DEFAULT))
+                        currentToken.clear()
+                    }
+                    tokens.add(StyledToken(c.toString(), TokenType.COLON))
+                    i++
+                }
+                c.isWhitespace() -> {
+                    if (currentToken.isNotEmpty()) {
+                        tokens.add(StyledToken(currentToken.toString(), TokenType.DEFAULT))
+                        currentToken.clear()
+                    }
+                    val start = i
+                    while (i < length && json[i].isWhitespace()) i++
+                    tokens.add(StyledToken(json.substring(start, i), TokenType.WHITESPACE))
+                }
+                else -> {
+                    currentToken.append(c)
+                    i++
+                }
+            }
+        }
+
+        // Flush remaining token
+        if (currentToken.isNotEmpty()) {
+            tokens.add(StyledToken(currentToken.toString(), TokenType.DEFAULT))
+        }
+
+        return tokens
     }
 
     /** Tokenize JSON string into styled tokens */

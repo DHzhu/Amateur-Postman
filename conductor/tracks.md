@@ -44,8 +44,15 @@ This file tracks all major tracks for the project. Each track has its own detail
   *Description: 修复 GraalVM 类型兼容性，集成 chai.js/ajv，实现 pm.sendRequest 桥接及 pm.response.to 快捷断言链。新增 38 个测试，全量 120 个测试。*
   *Completed: 2026-03-04*
 
----
+- [x] **Track: Variable Scopes Visualization** [DONE]
+  *Link: [./archive/variable_viz_20260303/](./archive/variable_viz_20260303/)*
+  *Description: Environment Quick Look 悬浮窗，变量来源追踪，优先级高亮显示。*
+  *Completed: 2026-03-04*
+
+- [x] **Track: UI/UX Refinement (Virtual Scrolling & High-Perf JSON Viewer)** [DONE]
+  *Link: [./archive/ui_refinement_20260303/](./archive/ui_refinement_20260303/)*
+  *Description: 集合树高性能渲染、HighPerfResponseViewer 组件、主题感知颜色、Collection Runner 批量操作。*
+  *Completed: 2026-03-04*
 
 ## Next Up
-- [ ] **Track: Variable Scopes Visualization (Environment Quick Look)**
-- [ ] **Track: UI/UX Refinement (Virtual Scrolling & High-Perf JSON Viewer)**
+
