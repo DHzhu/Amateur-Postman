@@ -39,7 +39,13 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+- [x] **Track: Scripting Power-up (Advanced API & pm.sendRequest)** [DONE]
+  *Link: [./archive/scripting_powerup_20260303/](./archive/scripting_powerup_20260303/)*
+  *Description: 修复 GraalVM 类型兼容性，集成 chai.js/ajv，实现 pm.sendRequest 桥接及 pm.response.to 快捷断言链。新增 38 个测试，全量 120 个测试。*
+  *Completed: 2026-03-04*
+
+---
+
 ## Next Up
-- [ ] **Track: Scripting Power-up (Advanced API & pm.sendRequest)**
 - [ ] **Track: Variable Scopes Visualization (Environment Quick Look)**
 - [ ] **Track: UI/UX Refinement (Virtual Scrolling & High-Perf JSON Viewer)**

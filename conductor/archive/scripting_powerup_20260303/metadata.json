@@ -1,0 +1,11 @@
+{
+  "id": "scripting_powerup_20260303",
+  "name": "Scripting Power-up (Advanced API & pm.sendRequest)",
+  "status": "ARCHIVED",
+  "progress": "100%",
+  "created_at": "2026-03-03",
+  "archived_at": "2026-03-04",
+  "priority": "HIGH",
+  "description": "增强脚本能力：支持 pm.sendRequest 异步请求、引入更完整的断言库 (Chai 风格) 及深度集成第三方库。",
+  "summary": "完成脚本能力全面增强：修复 GraalVM Java对象类型兼容问题，集成 chai.js 集联断言，实现 pm.sendRequest 异步请求桥接，新增 pm.response.to 快捷断言链及 ajv JSON Schema 校验。共新增 38 个测试，全量 120 个测试。"
+}

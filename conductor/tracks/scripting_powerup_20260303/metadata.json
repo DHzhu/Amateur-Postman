@@ -1,8 +1,0 @@
-{
-  "id": "scripting_powerup_20260303",
-  "name": "Scripting Power-up (Advanced API & pm.sendRequest)",
-  "status": "ACTIVE",
-  "created_at": "2026-03-03",
-  "priority": "HIGH",
-  "description": "增强脚本能力：支持 pm.sendRequest 异步请求、引入更完整的断言库 (Chai 风格) 及深度集成第三方库。"
-}
