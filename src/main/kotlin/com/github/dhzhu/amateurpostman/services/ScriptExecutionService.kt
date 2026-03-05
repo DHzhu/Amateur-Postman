@@ -3,23 +3,22 @@ package com.github.dhzhu.amateurpostman.services
 import com.github.dhzhu.amateurpostman.models.BodyType
 import com.github.dhzhu.amateurpostman.models.HttpBody
 import com.github.dhzhu.amateurpostman.models.HttpMethod
-import com.github.dhzhu.amateurpostman.models.HttpProfilingData
 import com.github.dhzhu.amateurpostman.models.HttpRequest
 import com.github.dhzhu.amateurpostman.models.HttpResponse
 import com.github.dhzhu.amateurpostman.models.Variable
 import com.google.gson.Gson
 import com.google.gson.JsonParser
-import java.util.Base64
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.oracle.truffle.js.scriptengine.GraalJSScriptEngine
+import java.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.HostAccess
 
@@ -29,22 +28,14 @@ import org.graalvm.polyglot.HostAccess
  * @property passed Whether all tests passed
  * @property results List of individual test results
  */
-data class TestResult(
-    val passed: Boolean,
-    val results: List<AssertionResult>
-) {
+data class TestResult(val passed: Boolean, val results: List<AssertionResult>) {
     companion object {
         fun create(results: List<AssertionResult>): TestResult {
-            return TestResult(
-                passed = results.all { it.passed },
-                results = results
-            )
+            return TestResult(passed = results.all { it.passed }, results = results)
         }
     }
 
-    /**
-     * Returns a summary string for display.
-     */
+    /** Returns a summary string for display. */
     fun getSummary(): String {
         val passed = results.count { it.passed }
         val failed = results.count { !it.passed }
@@ -59,11 +50,7 @@ data class TestResult(
  * @property passed Whether the assertion passed
  * @property message Optional message (error message if failed, or success message)
  */
-data class AssertionResult(
-    val name: String,
-    val passed: Boolean,
-    val message: String = ""
-)
+data class AssertionResult(val name: String, val passed: Boolean, val message: String = "")
 
 /**
  * Context object available in Pre-request scripts.
@@ -71,80 +58,60 @@ data class AssertionResult(
  * Provides access to environment variables and utility functions.
  */
 class PreRequestContext(
-    private val environmentService: EnvironmentService,
-    private val collectionId: String? = null,
-    private val temporaryVariables: MutableMap<String, String> = mutableMapOf()
+        private val environmentService: EnvironmentService,
+        private val collectionId: String? = null,
+        private val temporaryVariables: MutableMap<String, String> = mutableMapOf()
 ) {
-    /**
-     * Sets an environment variable.
-     */
+    /** Sets an environment variable. */
     fun set(key: String, value: String) {
         temporaryVariables[key] = value
         // Also update the current environment
         environmentService.setVariableInCurrent(key, value)
     }
 
-    /**
-     * Gets an environment variable.
-     */
+    /** Gets an environment variable. */
     fun get(key: String): String? {
         return temporaryVariables[key] ?: environmentService.getVariableFromCurrent(key)
     }
 
-    /**
-     * Gets all variables (temporary + environment).
-     */
+    /** Gets all variables (temporary + environment). */
     fun getVariables(): Map<String, String> {
         val envVars = environmentService.getCurrentEnvironmentVariables()
         return temporaryVariables + envVars
     }
 
-    /**
-     * Sets a global variable.
-     */
+    /** Sets a global variable. */
     fun setGlobal(key: String, value: String) {
         environmentService.setGlobalVariable(Variable(key, value))
     }
 
-    /**
-     * Gets a global variable.
-     */
+    /** Gets a global variable. */
     fun getGlobal(key: String): String? {
         val normalizedKey = Variable.normalizeKey(key)
         return environmentService.getGlobalVariablesMap()[normalizedKey]
     }
 
-    /**
-     * Sets a collection variable.
-     */
+    /** Sets a collection variable. */
     fun setCollectionVariable(key: String, value: String) {
         collectionId?.let { id ->
             environmentService.setCollectionVariable(id, Variable(key, value))
         }
     }
 
-    /**
-     * Gets a collection variable.
-     */
+    /** Gets a collection variable. */
     fun getCollectionVariable(key: String): String? {
         return collectionId?.let { id ->
             environmentService.getCollectionVariables(id).getVariableValue(key)
         }
     }
 
-    /**
-     * Returns the current timestamp in milliseconds.
-     */
+    /** Returns the current timestamp in milliseconds. */
     fun timestamp(): Long = System.currentTimeMillis()
 
-    /**
-     * Returns a random UUID.
-     */
+    /** Returns a random UUID. */
     fun uuid(): String = java.util.UUID.randomUUID().toString()
 
-    /**
-     * Returns a random integer between min and max (inclusive).
-     */
+    /** Returns a random integer between min and max (inclusive). */
     fun randomInt(min: Int = 0, max: Int = Int.MAX_VALUE - 1): Int {
         return kotlin.random.Random.nextInt(min, max + 1)
     }
@@ -155,48 +122,51 @@ class PreRequestContext(
  *
  * Provides access to response data and assertion functions.
  */
-class TestContext(
-    private val response: HttpResponse,
-    private val request: HttpRequest? = null
-) {
+class TestContext(private val response: HttpResponse, private val request: HttpRequest? = null) {
     private val assertions = mutableListOf<AssertionResult>()
 
     /**
-     * Adds a test assertion.
+     * Adds a test assertion from a Kotlin context (e.g. [TestContext.assertStatusCode]).
      *
      * @param name The test name
-     * @param fn The test function - should return true if test passes
+     * @param fn Kotlin lambda that returns true if the test passes
      */
     fun test(name: String, fn: () -> Boolean) {
-        val passed = try {
-            fn()
-        } catch (e: Exception) {
-            false
-        }
+        val passed =
+                try {
+                    fn()
+                } catch (e: Exception) {
+                    false
+                }
         assertions.add(AssertionResult(name, passed))
     }
 
     /**
-     * Asserts that the response has a specific status code.
+     * Records a pre-evaluated test result from the JS preamble layer.
+     *
+     * The JS preamble wrapper executes the user-supplied JS function itself and passes only the
+     * primitive [Boolean] result here. This avoids passing JS function objects across the GraalVM
+     * host/guest boundary, which triggers "unexpected interop primitive" errors.
+     *
+     * @param name Test name
+     * @param passed Whether the test passed
+     * @param error Error message if failed, empty string otherwise
      */
+    fun recordTest(name: String, passed: Boolean, error: String) {
+        assertions.add(AssertionResult(name, passed, error))
+    }
+
+    /** Asserts that the response has a specific status code. */
     fun assertStatusCode(expectedCode: Int) {
-        test("Status code is $expectedCode") {
-            response.statusCode == expectedCode
-        }
+        test("Status code is $expectedCode") { response.statusCode == expectedCode }
     }
 
-    /**
-     * Asserts that the response body contains a specific string.
-     */
+    /** Asserts that the response body contains a specific string. */
     fun assertBodyContains(text: String) {
-        test("Response body contains \"$text\"") {
-            response.body.contains(text)
-        }
+        test("Response body contains \"$text\"") { response.body.contains(text) }
     }
 
-    /**
-     * Asserts that a header exists and has a specific value.
-     */
+    /** Asserts that a header exists and has a specific value. */
     fun assertHeader(name: String, value: String) {
         test("Header \"$name\" is \"$value\"") {
             val headerValues = response.headers[name]
@@ -204,18 +174,12 @@ class TestContext(
         }
     }
 
-    /**
-     * Asserts that the response time is less than a threshold.
-     */
+    /** Asserts that the response time is less than a threshold. */
     fun assertResponseTimeLessThan(maxMs: Long) {
-        test("Response time is less than ${maxMs}ms") {
-            response.duration < maxMs
-        }
+        test("Response time is less than ${maxMs}ms") { response.duration < maxMs }
     }
 
-    /**
-     * Gets all assertion results.
-     */
+    /** Gets all assertion results. */
     fun getResults(): List<AssertionResult> = assertions.toList()
 }
 
@@ -305,9 +269,7 @@ class PmResponseBinding(private val response: HttpResponse) {
         }
     }
 
-    /**
-     * Get response body as raw text.
-     */
+    /** Get response body as raw text. */
     fun text(): String = response.body
 }
 
@@ -330,10 +292,10 @@ class PmRequestBinding(private val request: HttpRequest) {
 }
 
 class PmBinding(
-    private val httpResponse: HttpResponse,
-    private val context: TestContext,
-    request: HttpRequest? = null,
-    private val httpRequestService: HttpRequestService? = null
+        private val httpResponse: HttpResponse,
+        private val context: TestContext,
+        request: HttpRequest? = null,
+        private val httpRequestService: HttpRequestService? = null
 ) {
     // Initially set to the basic expect binding, but can be overridden by chai.expect
     @JvmField var expect: Any = PmExpectBinding(context)
@@ -341,36 +303,50 @@ class PmBinding(
     @JvmField val request: PmRequestBinding? = request?.let { PmRequestBinding(it) }
 
     /**
-     * Postman-style test function.
+     * Postman-style test function for direct Kotlin callers. JS scripts use [recordTest] instead
+     * (via the preamble wrapper).
      * @param name Test name
-     * @param fn Test function that returns true if test passes
+     * @param fn Kotlin lambda that returns true if test passes
      */
     fun test(name: String, fn: () -> Boolean) {
         context.test(name, fn)
     }
 
     /**
-     * Executes an HTTP request synchronously from within a JS script.
-     * Called by the JS-side pm.sendRequest wrapper in the preamble.
+     * Records a pre-evaluated test result, called by the JS preamble wrapper. Accepts only plain
+     * Java types to avoid GraalVM interop primitive errors.
+     */
+    fun recordTest(name: String, passed: Boolean, error: String) {
+        context.recordTest(name, passed, error)
+    }
+
+    /**
+     * Executes an HTTP request synchronously from within a JS script. Called by the JS-side
+     * pm.sendRequest wrapper in the preamble.
      *
-     * @param requestJson JSON string describing the request:
-     *   {"url":"...", "method":"GET", "header":{...}, "body":{"raw":"..."}}
-     *   or just a URL string (handled by the JS wrapper before this call)
-     * @return JSON string: {"code":200, "body":"...", "headers":{...}}
-     *   or {"_error":"message"} on failure
+     * @param requestJson JSON string describing the request: {"url":"...", "method":"GET",
+     * "header":{...}, "body":{"raw":"..."}} or just a URL string (handled by the JS wrapper before
+     * this call)
+     * @return JSON string: {"code":200, "body":"...", "headers":{...}} or {"_error":"message"} on
+     * failure
      */
     fun sendRequest(requestJson: String): String {
-        val svc = httpRequestService
-            ?: return Gson().toJson(mapOf("_error" to "pm.sendRequest is not available"))
+        val svc =
+                httpRequestService
+                        ?: return Gson().toJson(
+                                        mapOf("_error" to "pm.sendRequest is not available")
+                                )
         val gson = Gson()
         return try {
             val req = parseSendRequest(requestJson)
             val resp = runBlocking { svc.executeRequest(req) }
-            gson.toJson(mapOf(
-                "code" to resp.statusCode,
-                "body" to resp.body,
-                "headers" to resp.headers.mapValues { it.value.firstOrNull() ?: "" }
-            ))
+            gson.toJson(
+                    mapOf(
+                            "code" to resp.statusCode,
+                            "body" to resp.body,
+                            "headers" to resp.headers.mapValues { it.value.firstOrNull() ?: "" }
+                    )
+            )
         } catch (e: Exception) {
             gson.toJson(mapOf("_error" to (e.message ?: "sendRequest failed")))
         }
@@ -379,21 +355,27 @@ class PmBinding(
     @Suppress("UNCHECKED_CAST")
     private fun parseSendRequest(requestJson: String): HttpRequest {
         val map = Gson().fromJson(requestJson, Map::class.java) as Map<String, Any?>
-        val url = map["url"] as? String
-            ?: throw IllegalArgumentException("pm.sendRequest: url is required")
-        val method = try {
-            HttpMethod.valueOf((map["method"] as? String)?.uppercase() ?: "GET")
-        } catch (e: IllegalArgumentException) { HttpMethod.GET }
-        val headers = buildMap<String, String> {
-            (map["header"] as? Map<*, *>)?.forEach { (k, v) ->
-                if (k is String && v is String) put(k, v)
-            }
-        }
+        val url =
+                map["url"] as? String
+                        ?: throw IllegalArgumentException("pm.sendRequest: url is required")
+        val method =
+                try {
+                    HttpMethod.valueOf((map["method"] as? String)?.uppercase() ?: "GET")
+                } catch (e: IllegalArgumentException) {
+                    HttpMethod.GET
+                }
+        val headers =
+                buildMap<String, String> {
+                    (map["header"] as? Map<*, *>)?.forEach { (k, v) ->
+                        if (k is String && v is String) put(k, v)
+                    }
+                }
         val bodyMap = map["body"] as? Map<*, *>
-        val body = bodyMap?.let {
-            val raw = it["raw"] as? String
-            if (!raw.isNullOrBlank()) HttpBody(raw, BodyType.JSON) else null
-        }
+        val body =
+                bodyMap?.let {
+                    val raw = it["raw"] as? String
+                    if (!raw.isNullOrBlank()) HttpBody(raw, BodyType.JSON) else null
+                }
         return HttpRequest(url = url, method = method, headers = headers, body = body)
     }
 }
@@ -406,72 +388,84 @@ class PmBinding(
  */
 @Service(Service.Level.PROJECT)
 class ScriptExecutionService(
-    private val project: Project,
-    private val environmentService: EnvironmentService,
-    private val httpRequestService: HttpRequestService? = null
+        private val project: Project,
+        private val environmentService: EnvironmentService,
+        private val httpRequestService: HttpRequestService? = null
 ) {
     // Called by IntelliJ service framework (single-arg Project constructor)
     constructor(project: Project) : this(project, project.service(), null)
 
-    private fun getHttpService(): HttpRequestService? = httpRequestService ?: try {
-        project.service<HttpRequestServiceImpl>()
-    } catch (e: Exception) { null }
+    // Two-arg constructor retained for test compatibility
+    constructor(
+            project: Project,
+            environmentService: EnvironmentService
+    ) : this(project, environmentService, null)
 
-    private val engine = try {
-        // GraalVM 24.x defaults to a restrictive host access policy that prevents
-        // JS from calling Java/Kotlin host objects. We must explicitly enable
-        // HostAccess.ALL so that scripts can invoke Kotlin lambdas exposed via bindings.
-        val jsEngine = GraalJSScriptEngine.create(
-            null,
-            Context.newBuilder("js")
-                .allowHostAccess(HostAccess.ALL)
-                .allowHostClassLookup { true }
-        )
+    private fun getHttpService(): HttpRequestService? =
+            httpRequestService
+                    ?: try {
+                        project.service<HttpRequestServiceImpl>()
+                    } catch (e: Exception) {
+                        null
+                    }
 
-        // Load crypto-js library
-        loadCryptoJsLibrary(jsEngine)
+    private val engine =
+            try {
+                // GraalVM 24.x defaults to a restrictive host access policy that prevents
+                // JS from calling Java/Kotlin host objects. We must explicitly enable
+                // HostAccess.ALL so that scripts can invoke Kotlin lambdas exposed via bindings.
+                val jsEngine =
+                        GraalJSScriptEngine.create(
+                                null,
+                                Context.newBuilder("js")
+                                        .allowHostAccess(HostAccess.ALL)
+                                        .allowHostClassLookup { true }
+                        )
 
-        // Load chai.js assertion library
-        loadChaiLibrary(jsEngine)
+                // Load crypto-js library
+                loadCryptoJsLibrary(jsEngine)
 
-        // Load ajv JSON Schema validation library
-        loadAjvLibrary(jsEngine)
+                // Load chai.js assertion library
+                loadChaiLibrary(jsEngine)
 
-        // Register global utility functions
-        registerUtilityFunctions(jsEngine)
+                // Load ajv JSON Schema validation library
+                loadAjvLibrary(jsEngine)
 
-        jsEngine
-    } catch (e: Exception) {
-        thisLogger().error("Failed to initialize GraalVM JS engine", e)
-        null
-    }
+                // Register global utility functions
+                registerUtilityFunctions(jsEngine)
+
+                jsEngine
+            } catch (e: Exception) {
+                thisLogger().error("Failed to initialize GraalVM JS engine", e)
+                null
+            }
 
     /**
-     * Mutex to serialize GraalVM JS engine.eval() calls.
-     * GraalJSScriptEngine is not thread-safe for concurrent operations,
-     * even with separate bindings. This ensures no context contamination
+     * Mutex to serialize GraalVM JS engine.eval() calls. GraalJSScriptEngine is not thread-safe for
+     * concurrent operations, even with separate bindings. This ensures no context contamination
      * between concurrent pre-request and test script executions.
      */
     private val scriptExecutionMutex = Mutex()
 
     /**
-     * Reference to chai object loaded during initialization.
-     * Used to inject into each script execution's bindings.
+     * Whether chai.js was successfully loaded into the engine's global JS scope. Used to decide
+     * whether to inject `var expect = chai.expect` in the preamble. We avoid storing the GraalVM JS
+     * object reference itself, as injecting it across ScriptContexts (via Bindings) triggers
+     * OtherContextGuestObject interop errors.
      */
-    @Volatile private var chaiRef: Any? = null
+    @Volatile private var hasChaiLoaded: Boolean = false
 
     /**
-     * Reference to Ajv constructor loaded during initialization.
-     * Used to inject into each script execution's bindings for JSON Schema validation.
+     * Whether ajv was successfully loaded into the engine's global JS scope. Same rationale as
+     * [hasChaiLoaded]: accessed by name from JS, not via Java reference.
      */
-    @Volatile private var ajvRef: Any? = null
+    @Volatile private var hasAjvLoaded: Boolean = false
 
-    /**
-     * Loads crypto-js library into the JS engine.
-     */
+    /** Loads crypto-js library into the JS engine. */
     private fun loadCryptoJsLibrary(engine: GraalJSScriptEngine) {
         try {
-            val cryptoJsResource = this.javaClass.classLoader.getResourceAsStream("js/crypto-js.min.js")
+            val cryptoJsResource =
+                    this.javaClass.classLoader.getResourceAsStream("js/crypto-js.min.js")
             if (cryptoJsResource != null) {
                 val cryptoJsCode = cryptoJsResource.bufferedReader().use { it.readText() }
                 engine.eval(cryptoJsCode)
@@ -485,8 +479,8 @@ class ScriptExecutionService(
     }
 
     /**
-     * Loads chai.js assertion library into the JS engine.
-     * Exposes chai.expect as global expect function.
+     * Loads chai.js assertion library into the JS engine. Exposes chai.expect as global expect
+     * function.
      */
     private fun loadChaiLibrary(engine: GraalJSScriptEngine) {
         try {
@@ -497,8 +491,19 @@ class ScriptExecutionService(
             if (chaiResource != null) {
                 val chaiCode = chaiResource.bufferedReader().use { it.readText() }
                 engine.eval(chaiCode)
-                // Store whole chai object for later injection
-                chaiRef = engine.eval("chai")
+                // Disable Proxy mode globally and permanently for the lifetime of this engine.
+                // chai v4+ defaults useProxy=true, which wraps assertion chains in ES6 Proxy
+                // objects. GraalVM JS fallback runtime (no JVMCI/JIT) has a compatibility issue
+                // with Reflect.get() on defineProperty getters inside Proxy traps, causing
+                // "unexpected interop primitive" AssertionErrors when chai assertions run.
+                // Setting useProxy=false once here makes chai fall back to plain
+                // Object.defineProperty getters, which GraalVM handles correctly.
+                engine.eval("chai.config.useProxy = false;")
+                // Track availability by boolean flag, NOT by Java reference.
+                // Storing the GraalVM JS Value and injecting it across ScriptContexts via
+                // Bindings triggers OtherContextGuestObject.migrateReturn errors. The chai
+                // object is accessible by name from the global JS scope instead.
+                hasChaiLoaded = true
                 thisLogger().info("chai.js library loaded successfully")
             } else {
                 thisLogger().warn("chai.js library not found in resources")
@@ -509,8 +514,8 @@ class ScriptExecutionService(
     }
 
     /**
-     * Loads ajv v6 JSON Schema validation library into the JS engine.
-     * Exposes the Ajv constructor globally for use in test scripts.
+     * Loads ajv v6 JSON Schema validation library into the JS engine. Exposes the Ajv constructor
+     * globally for use in test scripts.
      */
     private fun loadAjvLibrary(engine: GraalJSScriptEngine) {
         try {
@@ -518,12 +523,18 @@ class ScriptExecutionService(
             if (ajvResource != null) {
                 val ajvCode = ajvResource.bufferedReader().use { it.readText() }
                 engine.eval(ajvCode)
-                // Capture Ajv constructor for injection into isolated script scopes
-                ajvRef = engine.eval("typeof Ajv !== 'undefined' ? Ajv : null")
-                if (ajvRef != null) {
+                // Check whether Ajv was actually registered in global scope.
+                // Use local val — we no longer keep a field reference to the GraalVM JS object
+                // to avoid cross-ScriptContext interop errors.
+                val ajvPresent = engine.eval("typeof Ajv !== 'undefined'")
+                if (ajvPresent == true || ajvPresent?.toString() == "true") {
+                    hasAjvLoaded = true
                     thisLogger().info("ajv library loaded successfully")
                 } else {
-                    thisLogger().warn("ajv library loaded but Ajv constructor not found in global scope")
+                    thisLogger()
+                            .warn(
+                                    "ajv library loaded but Ajv constructor not found in global scope"
+                            )
                 }
             } else {
                 thisLogger().warn("ajv library not found in resources")
@@ -533,9 +544,7 @@ class ScriptExecutionService(
         }
     }
 
-    /**
-     * Registers global utility functions (atob, btoa).
-     */
+    /** Registers global utility functions (atob, btoa). */
     private fun registerUtilityFunctions(engine: GraalJSScriptEngine) {
         try {
             // Register atob function using Java interop
@@ -559,19 +568,20 @@ class ScriptExecutionService(
     }
 
     /**
-     * Builds a JavaScript preamble that wraps the Java pm host object in a
-     * native JS object and optionally sets up the global expect from chai.
+     * Builds a JavaScript preamble that wraps the Java pm host object in a native JS object and
+     * optionally sets up the global expect from chai.
      *
-     * Root cause: pm.response.json() returns Gson-parsed Java Map/List objects.
-     * GraalVM exposes these as "foreign" objects in JS, causing chai's strict
-     * type assertions (equal, be.a('number'), Array.isArray) to fail because
-     * Java String/Number/List are not the same as native JS primitives.
+     * Root cause: pm.response.json() returns Gson-parsed Java Map/List objects. GraalVM exposes
+     * these as "foreign" objects in JS, causing chai's strict type assertions (equal,
+     * be.a('number'), Array.isArray) to fail because Java String/Number/List are not the same as
+     * native JS primitives.
      *
-     * Fix: override pm.response.json() to return JSON.parse(body), which
-     * produces genuine native JS objects that chai can assert against correctly.
+     * Fix: override pm.response.json() to return JSON.parse(body), which produces genuine native JS
+     * objects that chai can assert against correctly.
      */
     private fun buildPmWrapperScript(withChai: Boolean): String = buildString {
-        appendLine("""
+        appendLine(
+                """
             pm = (function(__jpm) {
                 // Force JS string coercion so body.includes() and other JS string
                 // methods work correctly regardless of GraalVM's Java-String wrapping.
@@ -650,7 +660,21 @@ class ScriptExecutionService(
                 })();
 
                 return {
-                    test: function(n, f) { __jpm.test(n, f); },
+                    // Execute JS test function in JS, pass only primitive result to Java.
+                    // Passing JS function objects to Java triggers GraalVM "unexpected interop
+                    // primitive" AssertionErrors, so we resolve the Boolean here.
+                    test: function(n, f) {
+                        var __passed = false;
+                        var __err = '';
+                        try {
+                            var __r = f();
+                            __passed = (__r === undefined || __r === null || __r !== false);
+                        } catch(e) {
+                            __passed = false;
+                            __err = e ? String(e.message || e) : 'unknown error';
+                        }
+                        __jpm.recordTest(n, __passed, __err);
+                    },
                     expect: __jpm.expect,
                     response: __resp,
                     request: __jpm.request ? {
@@ -690,8 +714,14 @@ class ScriptExecutionService(
                     }
                 };
             })(pm);
-        """.trimIndent())
+        """.trimIndent()
+        )
         if (withChai) {
+            // Disable chai's Proxy wrapper — GraalVM JS fallback runtime has compatibility
+            // issues with Reflect.get() on defineProperty getters inside Proxy traps.
+            // Turning off useProxy makes chai fall back to plain Object.defineProperty getters,
+            // which GraalVM handles correctly.
+            appendLine("chai.config.useProxy = false;")
             appendLine("var expect = chai.expect;")
         }
     }
@@ -704,33 +734,39 @@ class ScriptExecutionService(
      * @return Map of temporary variables set during script execution
      */
     suspend fun executePreRequestScript(
-        script: String,
-        collectionId: String? = null
-    ): Map<String, String> = withContext(Dispatchers.IO) {
-        if (script.isBlank() || engine == null) {
-            if (engine == null && script.isNotBlank()) {
-                thisLogger().warn("Skipping pre-request script: JS engine not available")
+            script: String,
+            collectionId: String? = null
+    ): Map<String, String> =
+            withContext(Dispatchers.IO) {
+                if (script.isBlank() || engine == null) {
+                    if (engine == null && script.isNotBlank()) {
+                        thisLogger().warn("Skipping pre-request script: JS engine not available")
+                    }
+                    return@withContext emptyMap()
+                }
+
+                try {
+                    val context = PreRequestContext(environmentService, collectionId)
+
+                    // Inject am into ENGINE_SCOPE (same pattern as executeTestScript) to avoid
+                    // cross-ScriptContext OtherContextGuestObject interop errors.
+                    scriptExecutionMutex.withLock {
+                        val globalBindings =
+                                engine.getBindings(javax.script.ScriptContext.ENGINE_SCOPE)
+                        globalBindings["am"] = AmBinding(context)
+                        try {
+                            engine.eval(script)
+                        } finally {
+                            globalBindings.remove("am")
+                        }
+                    }
+                    context.getVariables()
+                } catch (e: Exception) {
+                    // Log error but don't fail the request
+                    thisLogger().warn("Pre-request script execution failed: ${e.message}")
+                    emptyMap()
+                }
             }
-            return@withContext emptyMap()
-        }
-
-        try {
-            val context = PreRequestContext(environmentService, collectionId)
-            val bindings = engine.createBindings()
-
-            bindings["am"] = AmBinding(context)
-
-            // Serialize script execution to prevent concurrent context contamination
-            scriptExecutionMutex.withLock {
-                engine.eval(script, bindings)
-            }
-            context.getVariables()
-        } catch (e: Exception) {
-            // Log error but don't fail the request
-            thisLogger().warn("Pre-request script execution failed: ${e.message}")
-            emptyMap()
-        }
-    }
 
     /**
      * Executes a Test script against a response.
@@ -739,53 +775,62 @@ class ScriptExecutionService(
      * @param response The HTTP response to test
      * @return TestResult with assertion results
      */
-    suspend fun executeTestScript(
-        script: String,
-        response: HttpResponse
-    ): TestResult = withContext(Dispatchers.IO) {
-        if (script.isBlank() || engine == null) {
-            if (engine == null && script.isNotBlank()) {
-                thisLogger().warn("Skipping test script: JS engine not available")
-                return@withContext TestResult.create(listOf(
-                    AssertionResult("Script execution", false, "Error: JS engine not available")
-                ))
+    suspend fun executeTestScript(script: String, response: HttpResponse): TestResult =
+            withContext(Dispatchers.IO) {
+                if (script.isBlank() || engine == null) {
+                    if (engine == null && script.isNotBlank()) {
+                        thisLogger().warn("Skipping test script: JS engine not available")
+                        return@withContext TestResult.create(
+                                listOf(
+                                        AssertionResult(
+                                                "Script execution",
+                                                false,
+                                                "Error: JS engine not available"
+                                        )
+                                )
+                        )
+                    }
+                    return@withContext TestResult.create(emptyList())
+                }
+
+                try {
+                    val context = TestContext(response)
+
+                    // Serialize script execution to prevent concurrent context contamination.
+                    // Inject pm into the ENGINE_SCOPE (global ScriptContext) rather than into an
+                    // isolated Bindings object. This is safe because scriptExecutionMutex ensures
+                    // sequential access, and it allows the script to access global JS objects
+                    // (chai, Ajv) without cross-ScriptContext object migration — which would
+                    // trigger OtherContextGuestObject.migrateReturn "unexpected interop primitive"
+                    // errors caused by passing GraalVM JS Values across ScriptContext boundaries.
+                    scriptExecutionMutex.withLock {
+                        val globalBindings =
+                                engine.getBindings(javax.script.ScriptContext.ENGINE_SCOPE)
+                        globalBindings["pm"] =
+                                PmBinding(response, context, httpRequestService = getHttpService())
+                        try {
+                            val fullScript = buildPmWrapperScript(hasChaiLoaded) + "\n" + script
+                            @Suppress("kotlin:S2755") engine.eval(fullScript)
+                        } finally {
+                            // Clean up pm reference after execution to avoid stale state
+                            globalBindings.remove("pm")
+                        }
+                    }
+                    TestResult.create(context.getResults())
+                } catch (e: Exception) {
+                    // Log error and return failed result
+                    thisLogger().warn("Test script execution failed: ${e.message}")
+                    TestResult.create(
+                            listOf(
+                                    AssertionResult(
+                                            "Script execution",
+                                            false,
+                                            "Error: ${e.message}"
+                                    )
+                            )
+                    )
+                }
             }
-            return@withContext TestResult.create(emptyList())
-        }
-
-        try {
-            val context = TestContext(response)
-            val bindings = engine.createBindings()
-
-            bindings["pm"] = PmBinding(response, context, httpRequestService = getHttpService())
-
-            // Inject chai object binding if available
-            if (chaiRef != null) {
-                bindings["chai"] = chaiRef
-            }
-
-            // Inject Ajv constructor binding if available
-            if (ajvRef != null) {
-                bindings["Ajv"] = ajvRef
-            }
-
-            // Serialize script execution to prevent concurrent context contamination
-            scriptExecutionMutex.withLock {
-                // Prepend preamble: wraps pm in native JS for chai compatibility,
-                // sets up global expect from chai if available.
-                @Suppress("kotlin:S2755") // engine.eval is the intended ScriptEngine API
-                val fullScript = buildPmWrapperScript(chaiRef != null) + "\n" + script
-                engine.eval(fullScript, bindings)
-            }
-            TestResult.create(context.getResults())
-        } catch (e: Exception) {
-            // Log error and return failed result
-            thisLogger().warn("Test script execution failed: ${e.message}")
-            TestResult.create(listOf(
-                AssertionResult("Script execution", false, "Error: ${e.message}")
-            ))
-        }
-    }
 
     companion object {
         fun getInstance(project: Project): ScriptExecutionService {
