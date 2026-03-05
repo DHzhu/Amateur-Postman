@@ -11,12 +11,13 @@
 
 ## ✨ 核心特性
 
-- 🚀 **极简 UI**: 聚焦核心测试流程，告别臃肿的界面。
-- 📜 **脚本增强**: 集成 GraalVM JS，完美兼容 Postman 风格脚本（支持 `pm.sendRequest`、`chai.js` 断言、`CryptoJS` 等）。
-- 🧬 **多级变量系统**: 支持 Global、Environment、Collection 三层作用域，通过 `VariableResolver` 实现动态占位符解析。
-- 🛠️ **内置 Mock Server**: 基于 Netty 实现，支持自定义规则匹配、权重控制及 OOM 保护。
-- 🔥 **高性能表现**: 深度优化的 UI 渲染逻辑，支持 1000+ 请求管理与 5MB+ 响应流畅预览。
-- ✅ **稳健性保障**: 拥有 280+ 核心单元测试（覆盖 Mock, Scripting, JUnit 5 迁移等）。
+- 🚀 **极简 UI**: 聚焦核心测试流程，支持**虚拟滚动（Virtual Scrolling）**，轻松应对 1000+ 请求集合。
+- 📜 **脚本增强**: 内置 GraalVM JS，深度兼容 Postman API（支持 `pm.sendRequest`、`chai.js` 断言、`ajv` 模式校验、`CryptoJS` 等）。
+- 🧬 **变量与可视化**: 动态解析全局、环境、集合变量，支持 **Environment Quick Look** 悬浮窗与变量来源/优先级追踪。
+- 🛠️ **内置 Mock Server**: 基于 Netty 实现，具备规则权重匹配、流式 Body 读取与 OOM 自动保护机制。
+- 🔥 **高性能表现**: 深度优化的 **High-Perf Response Viewer**，支持 10MB+ 超大响应流畅预览与主题感知高亮。
+- 📊 **性能分析**: 详细的请求耗时分解，提供 DNS、TCP、SSL、TTFB 等关键节点的时序瀑布流视图。
+- ✅ **稳健性保障**: 拥有 **330+** 核心单元测试（基于 JUnit 5），确保在高性能场景下的稳定性。
 
 ## 📸 快速上手
 
@@ -29,9 +30,13 @@
 ## 🗺️ 路线图 (Roadmap)
 
 - [x] **Phase 1: 核心请求与集合管理** (Completed)
-- [x] **Phase 2: Mock Server 与脚本增强** (Completed)
-- [ ] **Phase 3: 变量可视化 (Environment Quick Look)** (In Progress)
-- [ ] **Phase 4: UI/UX 性能优化与虚拟滚动** (Upcoming)
+- [x] **Phase 2: 脚本引擎增强 (Advanced API & pm.sendRequest)** (Completed)
+- [x] **Phase 3: 变量可视化 (Environment Quick Look)** (Completed)
+- [x] **Phase 4: 内置 Mock Server 与规则引擎** (Completed)
+- [x] **Phase 5: UI/UX 性能优化与虚拟滚动** (Completed)
+- [x] **Phase 6: 性能分析与时序瀑布流** (Completed)
+- [ ] **Phase 7: 协议扩展 (gRPC & WebSocket)** (Upcoming)
+- [ ] **Phase 8: 外部脚本库动态加载支持** (Upcoming)
 
 ## 🤝 参与贡献
 
