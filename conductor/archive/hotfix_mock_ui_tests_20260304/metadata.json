@@ -1,0 +1,8 @@
+{
+  "id": "hotfix_mock_ui_tests_20260304",
+  "name": "Hotfix: Mock Server, UI & Test Infrastructure",
+  "status": "ACTIVE",
+  "created_at": "2026-03-04",
+  "priority": "HIGH",
+  "description": "修复 Mock Server 生命周期、测试框架混用导致的崩溃以及脚本引擎逻辑回归。"
+}

@@ -1,22 +1,19 @@
 package com.github.dhzhu.amateurpostman.services
 
 import com.github.dhzhu.amateurpostman.models.*
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.openapi.project.Project
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.mock
 
-class VariableSourceTest : BasePlatformTestCase() {
+class VariableSourceTest {
 
     private lateinit var environmentService: EnvironmentService
 
-    override fun setUp() {
-        super.setUp()
-        environmentService = EnvironmentService(project)
-    }
-
-    override fun tearDown() {
-        environmentService = null!!
-        super.tearDown()
+    @BeforeEach
+    fun setUp() {
+        environmentService = EnvironmentService(mock<Project>())
     }
 
     @Test
@@ -48,14 +45,14 @@ class VariableSourceTest : BasePlatformTestCase() {
         assertNotNull(apiUrlVar)
         assertEquals("https://environment.example.com", apiUrlVar!!.finalValue)
         assertEquals(VariableScope.ENVIRONMENT, apiUrlVar.scope)
-        assertTrue(apiUrlVar.isShadowed) // 全局和集合变量都被它覆盖了
+        assertFalse(apiUrlVar.isShadowed) // 环境变量是最高优先级（无临时变量），本身不被遮蔽
 
-        // 验证 timeout 变量的解析 (应该取集合变量的值，因为它被环境变量覆盖)
+        // 验证 timeout 变量的解析 (环境变量无此键，集合变量为最终值)
         val timeoutVar = result.allVariables["timeout"]
         assertNotNull(timeoutVar)
         assertEquals("10000", timeoutVar!!.finalValue)
         assertEquals(VariableScope.COLLECTION, timeoutVar.scope)
-        assertTrue(timeoutVar.isShadowed) // 被环境变量覆盖，但环境变量没有这个键
+        assertFalse(timeoutVar.isShadowed) // 集合作用域的 timeout 无更高优先级作用域覆盖，不被遮蔽
 
         // 验证 debug 变量的解析 (应该取环境变量的值)
         val debugVar = result.allVariables["debug"]
@@ -91,7 +88,7 @@ class VariableSourceTest : BasePlatformTestCase() {
         assertNotNull(commonKeyVar)
         assertEquals("environment_value", commonKeyVar!!.finalValue)
         assertEquals(VariableScope.ENVIRONMENT, commonKeyVar.scope)
-        assertTrue(commonKeyVar.isShadowed) // 全局和集合变量都被覆盖
+        assertFalse(commonKeyVar.isShadowed) // 环境变量是最高优先级，本身不被遮蔽
 
         // 验证全局变量被标记为已遮蔽
         val globalCommonKeyVar = result.globalVariables.firstOrNull { it.key == "common_key" }
