@@ -1,0 +1,49 @@
+Task: Fix GraalVM 'unexpected interop primitive' test failures
+
+## Summary
+Resolved 39 failing tests (330 total) caused by GraalVM JS engine
+cross-ScriptContext object migration errors.
+
+## Root Cause
+chai/Ajv JS objects were loaded into the engine's default ScriptContext
+during initialization, then stored as Java references (chaiRef/ajvRef)
+and injected into isolated Bindings ScriptContexts per-execution.
+GraalVM's OtherContextGuestObject.migrateReturn() asserted failure when
+migrating JS objects across context boundaries, producing:
+  'unexpected interop primitive' AssertionError (PolyglotException)
+
+## Changes in ScriptExecutionService.kt
+
+### Binding injection strategy (critical fix)
+- REMOVED: engine.createBindings() + engine.eval(script, bindings)
+- ADDED: engine.getBindings(ENGINE_SCOPE) + engine.eval(script)
+  pm/am Java objects now injected directly into the global ENGINE_SCOPE
+  so scripts can access chai/Ajv from the global JS scope without
+  any cross-context migration.
+
+### JS object reference elimination
+- REMOVED: chaiRef: Any? and ajvRef: Any? fields (held GraalVM JS Values)
+- ADDED: hasChaiLoaded: Boolean and hasAjvLoaded: Boolean flags
+  Only boolean presence flags retained; no GraalVM JS object references.
+
+### JS preamble test() wrapper
+- CHANGED: test: function(n, f) { __jpm.test(n, f) }
+  → test: function(n, f) { executes f() in JS; calls __jpm.recordTest(n, passed, err) }
+  JS functions no longer cross the host/guest boundary — only String/Boolean primitives do.
+
+### New Java API
+- ADDED: TestContext.recordTest(name: String, passed: Boolean, error: String)
+- ADDED: PmBinding.recordTest(...) delegate
+- RESTORED: TestContext.test(name: String, fn: () -> Boolean) to canonical Kotlin signature
+- ADDED: ScriptExecutionService two-arg constructor for test compatibility
+
+### chai Proxy fix
+- ADDED: engine.eval('chai.config.useProxy = false') immediately after loading chai
+  Disables ES6 Proxy-based assertion chains globally; avoids Reflect.get()
+  incompatibility in GraalVM fallback runtime (no JVMCI/JIT).
+
+## Files Modified
+- src/main/kotlin/com/github/dhzhu/amateurpostman/services/ScriptExecutionService.kt
+
+## Test Result
+330/330 tests passing (previously 39 failures)
