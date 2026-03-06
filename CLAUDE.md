@@ -1,27 +1,22 @@
-# Project Memory & Coordination Protocol
+# Project Strategy & Coordination
 
-## 1. Governance & Tiered Protocols
+## 1. Bootstrap
+- **Initialization**: On session start, MUST check for `conductor/index.md`.
+- **Source of Truth**: If `conductor/` exists, `conductor/workflow.md` is the absolute mandate for all operations.
+- **Protocol**: Follow the "Universal File Resolution Protocol" via `index.md`.
 
-- **Zero-Trust Pre-flight (Session Init)**: NEVER blindly trust current session snapshots.
-  - **Action**: Empirically verify physical reality via directory listing and precise memory access tools for `Project:[ProjectName]`.
-- **Tier A: Lifecycle Changes** (Track Creation, Completion, Archiving):
-  - **Protocol**: **MUST** `activate_skill("sync-mem")` and follow its expert procedural guidance.
-- **Tier B: Functional Tasks** (Coding, Docs, Bug Fixes):
-  - **Memory Interaction**: When accessing a track via its memory pointer:
-    1. Resolve the `Track:[ProjectName]:[ID]` entity's `file_path`.
-    2. **MUST** read both `spec.md` (requirements) and `plan.md` (execution logs) in the same directory.
-    3. **Surgical Read-Before-Write**: Always `read_file` the target immediately before any `replace` or `write_file` to prevent stale context.
-  - **Audit**: Concise one-line confirmation of the action.
+## 2. Governance
+- **Tier A (Lifecycle)**: For track creation, status changes, or archiving, **MUST** `activate_skill("sync-mem")`.
+- **Tier B (Tasks)**: For coding and bug fixes, follow the `Dev Cycle` in `workflow.md`.
+- **Commits**: For all code changes, **MUST** `activate_skill("git-commit")`.
 
-## 2. Technical Standards
+## 3. Technical Standards
+- **Language**: 
+  - User interactions, reports, commit messages, and git notes MUST be in **Simplified Chinese**.
+  - All rule-defining files (`GEMINI.md`, `CLAUDE.md`, `SKILL.md`) and technical metadata MUST be in **English**.
+- **Execution**: Always run physical verification (e.g., `./gradlew check`) before marking tasks complete.
+- **Safety**: Perform a `read_file` "pre-flight" check before any `replace` or `write_file` operation.
 
-- **Primary Interaction**: Use **Simplified Chinese (简体中文)** for all user-facing responses and reports.
-- **Rules & Metadata**: **English** is mandatory for all rule-defining files (`GEMINI.md`, `CLAUDE.md`, `SKILL.md`), technical metadata, and tool configuration.
-- **Naming Policy**: All memory entities MUST use project-prefixed names (e.g., `Track:[ProjectName]:[ID]`).
-- **Path Rule**: All `file_path` entries MUST be absolute paths.
-
-## 3. Development Standards
-
-- **Coding Style**: Follow the `Style:[ProjectName]` entity properties and `conductor/code_styleguides/`.
-- **Tool Isolation**: MCP tools are internal; **NEVER** attempt to invoke them through `run_shell_command`.
-- **Environment**: All paths must be absolute within the current OS environment.
+## 4. Environment
+- **Style**: Follow `conductor/code_styleguides/` and `Style:[ProjectName]` entity properties.
+- **Tooling**: Prefer non-interactive commands. Do not invoke MCP tools directly via shell.
