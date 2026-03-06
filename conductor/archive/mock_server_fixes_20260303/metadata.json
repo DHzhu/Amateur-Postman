@@ -1,7 +1,0 @@
-{
-  "id": "mock_server_fixes_20260303",
-  "name": "Mock Server 鲁棒性修复与性能优化",
-  "status": "ACTIVE",
-  "created_at": "2026-03-03",
-  "description": "针对审计结论中发现的 OOM 风险、方法匹配缺陷和线程阻塞进行修复。"
-}
