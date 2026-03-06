@@ -14,13 +14,13 @@
   - `grpc-testing = "1.65.1"` (`io.grpc:grpc-testing`), `grpc-inprocess = "1.65.1"`
 - [x] **步骤 0.2**: 修改 `build.gradle.kts` 引入依赖，运行 `./gradlew classes` — 编译通过，无冲突。
 - [x] **步骤 0.3**: 建立 `GrpcInfrastructureTest` — ManagedChannel 和 InProcessServer 均验证通过。
-- [ ] **步骤 0.4**: 运行 `./gradlew verifyPlugin`（推迟到阶段 4 统一验证）
+- [x] **步骤 0.4**: 运行 `./gradlew verifyPlugin`（推迟到阶段 4 统一验证）
 
 **完成标准（DoD）**
 
 - [x] Gradle 编译通过，无冲突报告。
 - [x] `GrpcInfrastructureTest` 成功实例化 `Channel` 并执行 `shutdownNow()`。
-- [ ] Plugin Verifier 无新增 ERROR 级别报告。
+- [x] Plugin Verifier 无新增 ERROR 级别报告。
 
 ## 阶段 1: Proto 动态解析实现 ✅ DONE
 
@@ -67,13 +67,13 @@
 - [x] Service/Method 下拉联动刷新功能正常。
 - [x] 环境变量在 gRPC 调用中生效。
 
-## 阶段 4: 总体验收与文档（2h - 3h）
+## 阶段 4: 总体验收与文档 ✅ DONE
 
-- [ ] **步骤 4.1**: 运行全量测试 `./gradlew test`（含原有 HTTP 测试回归）。
-- [ ] **步骤 4.2**: 运行 `./gradlew verifyPlugin` 最终确认兼容性。
-- [ ] **步骤 4.3**: 更新 `README.md`（路线图、特性列表）。
-- [ ] **步骤 4.4**: 更新 `conductor/tech-stack.md`（新增 gRPC/Protobuf 依赖描述）。
-- [ ] **步骤 4.5**: 归档轨道。
+- [x] **步骤 4.1**: 运行全量测试 `./gradlew test`（含原有 HTTP 测试回归）。
+- [x] **步骤 4.2**: 运行 `./gradlew verifyPlugin` 最终确认兼容性。
+- [x] **步骤 4.3**: 更新 `README.md`（路线图、特性列表）。
+- [x] **步骤 4.4**: 更新 `conductor/tech-stack.md`（新增 gRPC/Protobuf 依赖描述）。
+- [x] **步骤 4.5**: 归档轨道。
 
 **回归命令**
 
@@ -86,7 +86,7 @@
 
 **完成标准（DoD）**
 
-- [ ] 所有测试全绿（含原有 HTTP 测试无回归）。
-- [ ] Plugin Verifier 无 ERROR。
-- [ ] 核心功能演示通过。
-- [ ] 文档已更新。
+- [x] 所有测试全绿（含原有 HTTP 测试无回归）。
+- [x] Plugin Verifier 无 ERROR。
+- [x] 核心功能演示通过。
+- [x] 文档已更新。

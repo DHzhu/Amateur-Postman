@@ -1,7 +1,0 @@
-{
-  "id": "junit5_upgrade_20260302",
-  "name": "JUnit 5 升级与兼容性验证",
-  "status": "ARCHIVED",
-  "created_at": "2026-03-02",
-  "description": "安全、平滑地将测试框架从 JUnit 4 升级到 JUnit 5，处理历史兼容性问题，解决潜在的构建失败隐患。"
-}
