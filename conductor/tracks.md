@@ -3,7 +3,9 @@
 This file tracks all major tracks for the project. Each track has its own detailed plan in its respective folder.
 
 ## Active Tracks
-(Currently none)
+- [ ] **Track: Protocol Expansion (gRPC) Support**
+  *Link: [./tracks/grpc_support_20260305/](./tracks/grpc_support_20260305/)*
+  *Description: 引入 gRPC 协议支持，实现 Proto 解析、Unary Call 调用及 UI 适配。*
 
 ## Next Up
 (Currently none)

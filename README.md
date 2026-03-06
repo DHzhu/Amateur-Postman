@@ -17,6 +17,7 @@
 - 🛠️ **内置 Mock Server**: 基于 Netty 实现，具备规则权重匹配、流式 Body 读取与 OOM 自动保护机制。
 - 🔥 **高性能表现**: 深度优化的 **High-Perf Response Viewer**，支持 10MB+ 超大响应流畅预览与主题感知高亮。
 - 📊 **性能分析**: 详细的请求耗时分解，提供 DNS、TCP、SSL、TTFB 等关键节点的时序瀑布流视图。
+- 🔌 **gRPC 支持**: 动态加载 `.proto` 文件，无需代码生成，支持 Unary 调用、Metadata 注入与变量解析。
 - ✅ **稳健性保障**: 拥有 **330+** 核心单元测试（基于 JUnit 5），确保在高性能场景下的稳定性。
 
 ## 📸 快速上手
@@ -35,8 +36,9 @@
 - [x] **Phase 4: 内置 Mock Server 与规则引擎** (Completed)
 - [x] **Phase 5: UI/UX 性能优化与虚拟滚动** (Completed)
 - [x] **Phase 6: 性能分析与时序瀑布流** (Completed)
-- [ ] **Phase 7: 协议扩展 (gRPC & WebSocket)** (Upcoming)
-- [ ] **Phase 8: 外部脚本库动态加载支持** (Upcoming)
+- [ ] **Phase 7: 协议扩展 — gRPC Unary Call** (✅ Completed)
+- [ ] **Phase 8: 协议扩展 — WebSocket & gRPC Streaming** (Upcoming)
+- [ ] **Phase 9: 外部脚本库动态加载支持** (Upcoming)
 
 ## 🤝 参与贡献
 
