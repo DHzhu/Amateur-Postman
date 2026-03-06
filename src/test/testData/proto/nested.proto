@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package nested;
+
+// Nested messages - complexity level 2
+service OrderService {
+  rpc CreateOrder (CreateOrderRequest) returns (CreateOrderResponse);
+  rpc GetOrder (GetOrderRequest) returns (Order);
+}
+
+message Address {
+  string street = 1;
+  string city = 2;
+  string country = 3;
+}
+
+message Item {
+  string sku = 1;
+  int32 quantity = 2;
+  double price_per_unit = 3;
+}
+
+message CreateOrderRequest {
+  string customer_id = 1;
+  repeated Item items = 2;
+  Address shipping_address = 3;
+}
+
+message CreateOrderResponse {
+  string order_id = 1;
+  string status = 2;
+}
+
+message GetOrderRequest {
+  string order_id = 1;
+}
+
+message Order {
+  string order_id = 1;
+  string customer_id = 2;
+  repeated Item items = 3;
+  Address shipping_address = 4;
+  string status = 5;
+}

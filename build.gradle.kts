@@ -52,11 +52,20 @@ dependencies {
     // JS Scripting Engine (GraalVM JS)
     implementation(libs.graaljs)
     implementation(libs.graaljs.scriptengine)
-    
+
+    // gRPC & Protobuf (using netty-shaded to avoid IntelliJ Netty version conflicts)
+    implementation(libs.grpc.netty.shaded)
+    implementation(libs.grpc.protobuf)
+    implementation(libs.grpc.stub)
+    implementation(libs.protobuf.java)
+    implementation(libs.protobuf.java.util)
+
     // Test dependencies
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.grpc.testing)
+    testImplementation(libs.grpc.inprocess)
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
