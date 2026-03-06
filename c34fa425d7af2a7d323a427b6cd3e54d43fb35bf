@@ -1,0 +1,1 @@
+Task: 重构协作基建\nWhy: 实现物理文件作为唯一真值，解耦规范定义与自动化执行，并支持中文审计。\nChanges: 重构 CLAUDE.md 为引导程序；恢复 workflow.md 初版详细步骤；同步调整全局技能。\nVerification: 手动比对初版 git 历史，确认步骤编号与描述 100% 一致。
