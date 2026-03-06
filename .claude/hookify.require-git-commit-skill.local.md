@@ -10,9 +10,9 @@ pattern: git\s+commit
 **Notice: git commit detected. Automatically triggering git-commit skill.**
 
 **The skill provides:**
-- ✅ Single-line Chinese commit message validation
-- ✅ Commit format check (via commit-check.sh)
-- ✅ Automatic retry mechanism
-- ✅ Automatic push prompt
+- ✅ Chinese single-line commit message validation (Conventional Commit format)
+- ✅ Git Notes audit (attach task summary to commit)
+- ✅ Plan sync (update plan.md task status)
+- ✅ Knowledge graph sync (auto-trigger sync-mem)
 
-This ensures all commits comply with the project's Chinese commit message standards.
+This ensures all commits comply with the project's Git workflow standards.
