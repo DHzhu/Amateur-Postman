@@ -32,11 +32,11 @@ All tasks follow a strict lifecycle:
    - With the safety of passing tests, refactor the implementation code and the test code to improve clarity, remove duplication, and enhance performance without changing the external behavior.
    - Rerun tests to ensure they still pass after refactoring.
 
-6. **Verify Coverage:** Run coverage reports using the project's chosen tools. For example, in a Python project, this might look like:
+6. **Verify Coverage:** Run coverage reports using the project's chosen tools. For example, for this Kotlin project:
    ```bash
-   pytest --cov=app --cov-report=html
+   ./gradlew koverHtmlReport
    ```
-   Target: >80% coverage for new code. The specific tools and commands will vary by language and framework.
+   Target: >80% coverage for new code.
 
 7. **Document Deviations:** If implementation differs from tech stack:
    - **STOP** implementation
@@ -46,16 +46,16 @@ All tasks follow a strict lifecycle:
 
 8. **Commit Code Changes:**
    - Stage all code changes related to the task.
-   - Propose a clear, concise commit message e.g, `feat(ui): Create basic HTML structure for calculator`.
+   - Propose a clear, concise commit message in Simplified Chinese using Conventional Commit format (e.g., `feat(ui): 实现主面板布局`).
    - Perform the commit.
+   - **Note**: It is highly recommended to use `activate_skill("git-commit")` to automate steps 8-11.
 
 9. **Attach Task Summary with Git Notes:**
    - **Step 9.1: Get Commit Hash:** Obtain the hash of the *just-completed commit* (`git log -1 --format="%H"`).
-   - **Step 9.2: Draft Note Content:** Create a detailed summary for the completed task. This should include the task name, a summary of changes, a list of all created/modified files, and the core "why" for the change.
+   - **Step 9.2: Draft Note Content:** Create a detailed summary in Simplified Chinese for the completed task. This should include the task name, a summary of changes, a list of all created/modified files, and the core "why" for the change.
    - **Step 9.3: Attach Note:** Use the `git notes` command to attach the summary to the commit.
      ```bash
-     # The note content from the previous step is passed via the -m flag.
-     git notes add -m "<note content>" <commit_hash>
+     git notes add -m "<note content in Chinese>" <commit_hash>
      ```
 
 10. **Get and Record Task Commit SHA:**
@@ -65,6 +65,7 @@ All tasks follow a strict lifecycle:
 11. **Commit Plan Update:**
     - **Action:** Stage the modified `plan.md` file.
     - **Action:** Commit this change with a descriptive message (e.g., `conductor(plan): Mark task 'Create user model' as complete`).
+    - **Post-Action**: After physical updates, `activate_skill("sync-mem")` to sync the state to the Knowledge Graph.
 
 ### Phase Completion Verification and Checkpointing Protocol
 
@@ -82,34 +83,14 @@ All tasks follow a strict lifecycle:
 
 3.  **Execute Automated Tests with Proactive Debugging:**
     -   Before execution, you **must** announce the exact shell command you will use to run the tests.
-    -   **Example Announcement:** "I will now run the automated test suite to verify the phase. **Command:** `CI=true npm test`"
+    -   **Example Announcement:** "I will now run the automated test suite to verify the phase. **Command:** `./gradlew test`"
     -   Execute the announced command.
     -   If tests fail, you **must** inform the user and begin debugging. You may attempt to propose a fix a **maximum of two times**. If the tests still fail after your second proposed fix, you **must stop**, report the persistent failure, and ask the user for guidance.
 
 4.  **Propose a Detailed, Actionable Manual Verification Plan:**
     -   **CRITICAL:** To generate the plan, first analyze `product.md`, `product-guidelines.md`, and `plan.md` to determine the user-facing goals of the completed phase.
-    -   You **must** generate a step-by-step plan that walks the user through the verification process, including any necessary commands and specific, expected outcomes.
-    -   The plan you present to the user **must** follow this format:
-
-        **For a Frontend Change:**
-        ```
-        The automated tests have passed. For manual verification, please follow these steps:
-
-        **Manual Verification Steps:**
-        1.  **Start the development server with the command:** `npm run dev`
-        2.  **Open your browser to:** `http://localhost:3000`
-        3.  **Confirm that you see:** The new user profile page, with the user's name and email displayed correctly.
-        ```
-
-        **For a Backend Change:**
-        ```
-        The automated tests have passed. For manual verification, please follow these steps:
-
-        **Manual Verification Steps:**
-        1.  **Ensure the server is running.**
-        2.  **Execute the following command in your terminal:** `curl -X POST http://localhost:8080/api/v1/users -d '{"name": "test"}'`
-        3.  **Confirm that you receive:** A JSON response with a status of `201 Created`.
-        ```
+    -   You **must** generate a step-by-step plan in Simplified Chinese that walks the user through the verification process, including any necessary commands and specific, expected outcomes.
+    -   The plan you present to the user **must** follow the format defined in the reference docs.
 
 5.  **Await Explicit User Feedback:**
     -   After presenting the detailed plan, ask the user for confirmation: "**Does this meet your expectations? Please confirm with yes or provide feedback on what needs to be changed.**"
@@ -120,7 +101,7 @@ All tasks follow a strict lifecycle:
     -   Perform the commit with a clear and concise message (e.g., `conductor(checkpoint): Checkpoint end of Phase X`).
 
 7.  **Attach Auditable Verification Report using Git Notes:**
-    -   **Step 7.1: Draft Note Content:** Create a detailed verification report including the automated test command, the manual verification steps, and the user's confirmation.
+    -   **Step 7.1: Draft Note Content:** Create a detailed verification report in Chinese including the automated test command, the manual verification steps, and the user's confirmation.
     -   **Step 7.2: Attach Note:** Use the `git notes` command and the full commit hash from the previous step to attach the full report to the checkpoint commit.
 
 8.  **Get and Record Phase Checkpoint SHA:**
@@ -131,8 +112,9 @@ All tasks follow a strict lifecycle:
 9. **Commit Plan Update:**
     - **Action:** Stage the modified `plan.md` file.
     - **Action:** Commit this change with a descriptive message following the format `conductor(plan): Mark phase '<PHASE NAME>' as complete`.
+    - **Post-Action**: `activate_skill("sync-mem")` to sync the state.
 
-10.  **Announce Completion:** Inform the user that the phase is complete and the checkpoint has been created, with the detailed verification report attached as a git note.
+10.  **Announce Completion:** Inform the user that the phase is complete and the checkpoint has been created.
 
 ### Quality Gates
 
@@ -141,58 +123,42 @@ Before marking any task complete, verify:
 - [ ] All tests pass
 - [ ] Code coverage meets requirements (>80%)
 - [ ] Code follows project's code style guidelines (as defined in `code_styleguides/`)
-- [ ] All public functions/methods are documented (e.g., docstrings, JSDoc, GoDoc)
-- [ ] Type safety is enforced (e.g., type hints, TypeScript types, Go types)
-- [ ] No linting or static analysis errors (using the project's configured tools)
-- [ ] Works correctly on mobile (if applicable)
+- [ ] All public functions/methods are documented (e.g., KDoc)
+- [ ] Type safety is enforced
+- [ ] No linting or static analysis errors (using `./gradlew check`)
 - [ ] Documentation updated if needed
 - [ ] No security vulnerabilities introduced
 
 ## Development Commands
 
-**AI AGENT INSTRUCTION: This section should be adapted to the project's specific language, framework, and build tools.**
-
 ### Setup
 ```bash
-# Example: Commands to set up the development environment (e.g., install dependencies, configure database)
-# e.g., for a Node.js project: npm install
-# e.g., for a Go project: go mod tidy
+./gradlew wrapper
 ```
 
 ### Daily Development
 ```bash
-# Example: Commands for common daily tasks (e.g., start dev server, run tests, lint, format)
-# e.g., for a Node.js project: npm run dev, npm test, npm run lint
-# e.g., for a Go project: go run main.go, go test ./..., go fmt ./...
+./gradlew build
+./gradlew test
+./gradlew runIde
 ```
 
 ### Before Committing
 ```bash
-# Example: Commands to run all pre-commit checks (e.g., format, lint, type check, run tests)
-# e.g., for a Node.js project: npm run check
-# e.g., for a Go project: make check (if a Makefile exists)
+./gradlew check
 ```
 
 ## Testing Requirements
 
 ### Unit Testing
 - Every module must have corresponding tests.
-- Use appropriate test setup/teardown mechanisms (e.g., fixtures, beforeEach/afterEach).
+- Use appropriate test setup/teardown mechanisms.
 - Mock external dependencies.
 - Test both success and failure cases.
 
 ### Integration Testing
 - Test complete user flows
-- Verify database transactions
-- Test authentication and authorization
-- Check form submissions
-
-### Mobile Testing
-- Test on actual iPhone when possible
-- Use Safari developer tools
-- Test touch interactions
-- Verify responsive layouts
-- Check performance on 3G/4G
+- Verify data persistence
 
 ## Code Review Process
 
@@ -226,17 +192,17 @@ Before requesting review:
    - Images optimized
    - Caching implemented where needed
 
-6. **Mobile Experience**
-   - Touch targets adequate (44x44px)
-   - Text readable without zooming
-   - Performance acceptable on mobile
-   - Interactions feel native
+6. **Mobile Experience** (if applicable)
+   - Touch targets adequate
+   - Performance acceptable
 
 ## Commit Guidelines
 
+**Standard**: It is highly recommended to use **`activate_skill("git-commit")`** to automate the following guidelines:
+
 ### Message Format
 ```
-<type>(<scope>): <description>
+<type>(<scope>): <description in Chinese>
 
 [optional body]
 
@@ -251,14 +217,7 @@ Before requesting review:
 - `refactor`: Code change that neither fixes a bug nor adds a feature
 - `test`: Adding missing tests
 - `chore`: Maintenance tasks
-
-### Examples
-```bash
-git commit -m "feat(auth): Add remember me functionality"
-git commit -m "fix(posts): Correct excerpt generation for short posts"
-git commit -m "test(comments): Add tests for emoji reaction limits"
-git commit -m "style(mobile): Improve button touch targets"
-```
+- `conductor`: Conductor-related changes (plan/metadata)
 
 ## Definition of Done
 
@@ -269,65 +228,15 @@ A task is complete when:
 3. Code coverage meets project requirements
 4. Documentation complete (if applicable)
 5. Code passes all configured linting and static analysis checks
-6. Works beautifully on mobile (if applicable)
-7. Implementation notes added to `plan.md`
-8. Changes committed with proper message
-9. Git note with task summary attached to the commit
+6. Implementation notes added to `plan.md` and Git Notes
+7. Changes committed with proper message
+8. Git note with task summary attached to the commit
+9. `sync-mem` activated to synchronize state
 
 ## Emergency Procedures
-
-### Critical Bug in Production
-1. Create hotfix branch from main
-2. Write failing test for bug
-3. Implement minimal fix
-4. Test thoroughly including mobile
-5. Deploy immediately
-6. Document in plan.md
-
-### Data Loss
-1. Stop all write operations
-2. Restore from latest backup
-3. Verify data integrity
-4. Document incident
-5. Update backup procedures
-
-### Security Breach
-1. Rotate all secrets immediately
-2. Review access logs
-3. Patch vulnerability
-4. Notify affected users (if any)
-5. Document and update security procedures
-
-## Deployment Workflow
-
-### Pre-Deployment Checklist
-- [ ] All tests passing
-- [ ] Coverage >80%
-- [ ] No linting errors
-- [ ] Mobile testing complete
-- [ ] Environment variables configured
-- [ ] Database migrations ready
-- [ ] Backup created
-
-### Deployment Steps
-1. Merge feature branch to main
-2. Tag release with version
-3. Push to deployment service
-4. Run database migrations
-5. Verify deployment
-6. Test critical paths
-7. Monitor for errors
-
-### Post-Deployment
-1. Monitor analytics
-2. Check error logs
-3. Gather user feedback
-4. Plan next iteration
-
-## Continuous Improvement
-
-- Review workflow weekly
-- Update based on pain points
-- Document lessons learned
-- Optimize for user happiness
-- Keep things simple and maintainable
+1. Create hotfix branch from main.
+2. Write failing test for bug.
+3. Implement minimal fix.
+4. Test thoroughly.
+5. Deploy immediately.
+6. Document in `plan.md` and sync.
