@@ -20,12 +20,12 @@
 4. [x] 实现 `ClientStreaming` & `BiDiStreaming` 处理：允许用户多次点击 "Send" 发送消息。
 
 ### Phase 3: 优化与集成
-1. [x] 为 WebSocket/Streaming 消息接入 `HighPerfResponseViewer` 提高渲染性能。
-2. [x] 确保连接在 Tab 关闭或插件卸载时安全释放（`Disposable` 模式）。
-3. [x] 单元测试与集成测试（使用 `MockWebServer` 模拟 WebSocket 服务器）。
+1. [x] 为 WebSocket/Streaming 消息接入 `HighPerfResponseViewer` 提高渲染性能。(3e30082)
+2. [x] 确保连接在 Tab 关闭或插件卸载时安全释放（`Disposable` 模式）。(3e30082)
+3. [x] 单元测试与集成测试（使用 `MockWebServer` 模拟 WebSocket 服务器）。(3e30082)
 
 ## Definition of Done (DoD)
-- [ ] 成功连接到测试 WebSocket Server 并发送/接收 100+ 条消息无卡顿。
-- [ ] 完成 gRPC 4 种模式的调用测试。
-- [ ] 所有新测试通过且覆盖率为 80%+。
-- [ ] UI 符合 IntelliJ 原生风格。
+- [x] 成功连接到测试 WebSocket Server 并发送/接收 100+ 条消息无卡顿。(3e30082)
+- [x] 完成 gRPC 4 种模式的调用测试。(3e30082)
+- [x] 所有新测试通过且覆盖率为 80%+。(3e30082)
+- [x] UI 符合 IntelliJ 原生风格。(3e30082)
