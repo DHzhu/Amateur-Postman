@@ -1,0 +1,10 @@
+Task: Protocol Expansion (WebSocket & gRPC Streaming)
+Why: 扩展协议支持以覆盖现代 API 调试需求，包括长连接和流式通信。
+Changes:
+1. 新增 WebSocketPanel 和 WebSocketService 支持 ws/wss。
+2. 重构 GrpcEditorPanel 并新增 GrpcStreamingService 支持 Server/Client/Bidi Streaming。
+3. 引入 StreamMessageList 高性能渲染组件。
+4. 增强资源管理，确保 Disposable 模式下连接安全释放。
+Verification:
+- 运行并通过 WebSocketServiceIntegrationTest 和 GrpcStreamingServiceTest。
+- 手动验证 WebSocket 消息收发及 gRPC 双向流功能。
