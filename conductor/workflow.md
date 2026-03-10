@@ -65,7 +65,7 @@ All tasks follow a strict lifecycle:
 11. **Commit Plan Update:**
     - **Action:** Stage the modified `plan.md` file.
     - **Action:** Commit this change with a descriptive message (e.g., `conductor(plan): Mark task 'Create user model' as complete`).
-    - **Post-Action**: After physical updates, `activate_skill("sync-mem")` to sync the state to the Knowledge Graph.
+    - **Post-Action**: After physical updates, `activate_skill("sync-mem")` to sync the state to the Knowledge Graph and perform memory pruning.
 
 ### Phase Completion Verification and Checkpointing Protocol
 
@@ -112,7 +112,7 @@ All tasks follow a strict lifecycle:
 9. **Commit Plan Update:**
     - **Action:** Stage the modified `plan.md` file.
     - **Action:** Commit this change with a descriptive message following the format `conductor(plan): Mark phase '<PHASE NAME>' as complete`.
-    - **Post-Action**: `activate_skill("sync-mem")` to sync the state.
+    - **Post-Action**: `activate_skill("sync-mem")` to sync the state and perform memory pruning.
 
 10.  **Announce Completion:** Inform the user that the phase is complete and the checkpoint has been created.
 
@@ -231,7 +231,7 @@ A task is complete when:
 6. Implementation notes added to `plan.md` and Git Notes
 7. Changes committed with proper message
 8. Git note with task summary attached to the commit
-9. `sync-mem` activated to synchronize state
+9. `sync-mem` activated to synchronize state and perform memory pruning
 
 ## Emergency Procedures
 1. Create hotfix branch from main.

@@ -10,6 +10,11 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## Archive
 
+- [x] **Track: Protocol Expansion (WebSocket & gRPC Streaming)** [DONE]
+  *Link: [./archive/protocol_expansion_streaming_20260309/](./archive/protocol_expansion_streaming_20260309/)*
+  *Description: 扩展 WebSocket 连接与 gRPC (Server/Client/Bi-Di) 流式协议支持，包含高性能消息渲染、Disposable 资源管理、单元测试与集成测试。*
+  *Completed: 2026-03-10*
+
 - [x] **Track: Protocol Expansion (gRPC) Support** [DONE]
   *Link: [./archive/grpc_support_20260305/](./archive/grpc_support_20260305/)*
   *Description: 引入 gRPC 协议支持，实现 Proto 解析、Unary Call 调用及 UI 适配。*

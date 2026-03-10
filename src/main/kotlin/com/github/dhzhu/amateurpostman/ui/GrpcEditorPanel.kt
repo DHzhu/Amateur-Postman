@@ -3,11 +3,17 @@ package com.github.dhzhu.amateurpostman.ui
 import com.github.dhzhu.amateurpostman.services.grpc.GrpcCallRequest
 import com.github.dhzhu.amateurpostman.services.grpc.GrpcCallResult
 import com.github.dhzhu.amateurpostman.services.grpc.GrpcMethodInfo
+import com.github.dhzhu.amateurpostman.services.grpc.GrpcMethodType
 import com.github.dhzhu.amateurpostman.services.grpc.GrpcRequestService
 import com.github.dhzhu.amateurpostman.services.grpc.GrpcServiceInfo
+import com.github.dhzhu.amateurpostman.services.grpc.GrpcStreamMessage
+import com.github.dhzhu.amateurpostman.services.grpc.GrpcStreamRequest
+import com.github.dhzhu.amateurpostman.services.grpc.GrpcStreamState
+import com.github.dhzhu.amateurpostman.services.grpc.GrpcStreamingService
 import com.github.dhzhu.amateurpostman.services.grpc.ProtoParseResult
 import com.github.dhzhu.amateurpostman.services.grpc.ProtoParser
 import com.github.dhzhu.amateurpostman.utils.VariableResolver
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.project.Project
@@ -20,10 +26,12 @@ import com.intellij.util.ui.JBUI
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.swing.Swing
 import java.awt.BorderLayout
 import java.awt.CardLayout
+import java.awt.Color
 import java.awt.Dimension
 import java.awt.FlowLayout
 import java.awt.Font
@@ -44,21 +52,27 @@ import com.intellij.openapi.ui.ComboBox
 /**
  * GrpcEditorPanel — the complete gRPC request editor UI.
  *
+ * Features:
+ * - High-performance message list with JSON syntax highlighting
+ * - Disposable pattern for proper resource cleanup
+ * - Support for all gRPC streaming types
+ *
  * Layout:
  *   ┌─────────────────────────────────────────────────┐
- *   │  [Proto File: ____________] [Browse] [Load]     │  ← Step 3.2
- *   │  Service: [▼ GreeterService]  Method: [▼ Say…] │  ← Step 3.3
+ *   │  [Proto File: ____________] [Browse] [Load]     │
+ *   │  Service: [▼ GreeterService]  Method: [▼ Say…] │
  *   │  Host: [_________] Port: [_____] [Send gRPC]   │
  *   ├──────────────────────┬──────────────────────────┤
  *   │  Request             │ Response                 │
- *   │  [Body tab]          │ [Body / Status / Meta]   │  ← Step 3.4 / 3.5
+ *   │  [Body tab]          │ [Body / Status / Meta]   │
  *   │  [Metadata tab]      │                          │
  *   └──────────────────────┴──────────────────────────┘
  */
-class GrpcEditorPanel(private val project: Project) {
+class GrpcEditorPanel(private val project: Project) : Disposable {
 
     private val parser = ProtoParser()
     private val grpcService = GrpcRequestService(parser)
+    private val streamingService = GrpcStreamingService(parser)
     private val scope = CoroutineScope(Dispatchers.Swing + SupervisorJob())
 
     // ─── State ────────────────────────────────────────────────────────────────
@@ -66,6 +80,7 @@ class GrpcEditorPanel(private val project: Project) {
     private var parseResult: ProtoParseResult? = null
     private var currentServiceDescriptorMap: Map<String, com.google.protobuf.Descriptors.ServiceDescriptor> = emptyMap()
     private var fileDescriptors: Map<String, com.google.protobuf.Descriptors.FileDescriptor> = emptyMap()
+    private var currentMethodType: GrpcMethodType = GrpcMethodType.UNARY
 
     // ─── UI components ────────────────────────────────────────────────────────
     private lateinit var protoPathField: JBTextField
@@ -75,7 +90,13 @@ class GrpcEditorPanel(private val project: Project) {
     private lateinit var portField: JBTextField
     private lateinit var useTlsCheckBox: javax.swing.JCheckBox
     private lateinit var sendButton: JButton
+    private lateinit var completeButton: JButton
+    private lateinit var cancelButton: JButton
     private lateinit var statusLabel: JLabel
+
+    // Streaming status
+    private lateinit var streamStateLabel: JLabel
+    private lateinit var streamCountLabel: JLabel
 
     // Request panels
     private lateinit var bodyArea: JBTextArea
@@ -87,6 +108,9 @@ class GrpcEditorPanel(private val project: Project) {
     private lateinit var responseStatusLabel: JLabel
     private lateinit var responseMetaArea: JBTextArea
 
+    // High-performance streaming message list with JSON syntax highlighting
+    private lateinit var messageList: StreamMessageList<GrpcStreamMessage>
+
     // ─── Public factory ────────────────────────────────────────────────────────
 
     fun createPanel(): JPanel {
@@ -96,6 +120,8 @@ class GrpcEditorPanel(private val project: Project) {
         root.add(createConfigBar(), BorderLayout.NORTH)
         root.add(createSplitEditor(), BorderLayout.CENTER)
         root.add(createStatusBar(), BorderLayout.SOUTH)
+
+        setupStreamObservation()
 
         return root
     }
@@ -153,10 +179,22 @@ class GrpcEditorPanel(private val project: Project) {
         useTlsCheckBox = javax.swing.JCheckBox("TLS")
         callRow.add(useTlsCheckBox)
 
-        sendButton = JButton("▶ Send gRPC")
+        sendButton = JButton("▶ Send")
         sendButton.isEnabled = false
         sendButton.addActionListener { sendGrpcRequest() }
         callRow.add(sendButton)
+
+        completeButton = JButton("✓ Complete")
+        completeButton.isEnabled = false
+        completeButton.toolTipText = "Complete client stream (Client/Bidi streaming only)"
+        completeButton.addActionListener { completeStream() }
+        callRow.add(completeButton)
+
+        cancelButton = JButton("✗ Cancel")
+        cancelButton.isEnabled = false
+        cancelButton.toolTipText = "Cancel active stream"
+        cancelButton.addActionListener { cancelStream() }
+        callRow.add(cancelButton)
 
         panel.add(protoRow, BorderLayout.NORTH)
         panel.add(callRow, BorderLayout.SOUTH)
@@ -225,14 +263,24 @@ class GrpcEditorPanel(private val project: Project) {
         val panel = JPanel(BorderLayout())
         panel.border = BorderFactory.createTitledBorder("Response")
 
-        // Status line at the top
-        responseStatusLabel = JLabel("—")
-        responseStatusLabel.border = JBUI.Borders.empty(4, 6)
-        panel.add(responseStatusLabel, BorderLayout.NORTH)
+        // Streaming status line
+        val statusPanel = JPanel(FlowLayout(FlowLayout.LEFT, 8, 2))
+        streamStateLabel = JLabel("IDLE")
+        streamStateLabel.icon = StreamStateIcon(GrpcStreamState.IDLE)
+        statusPanel.add(streamStateLabel)
+        statusPanel.add(JLabel("|"))
+        streamCountLabel = JLabel("Sent: 0 | Received: 0")
+        statusPanel.add(streamCountLabel)
+        panel.add(statusPanel, BorderLayout.NORTH)
 
-        // Tabs for Body + Trailing Metadata (Step 3.5)
+        // Tabs for Messages + Body + Trailing Metadata
         val tabs = JBTabbedPane()
 
+        // Messages tab (for streaming) - using high-performance component
+        messageList = StreamMessageList(maxMessages = 1000)
+        tabs.addTab("Messages", messageList)
+
+        // Body tab (for unary response)
         responseBodyArea = JBTextArea()
         responseBodyArea.font = Font("Monospaced", Font.PLAIN, 13)
         responseBodyArea.isEditable = false
@@ -244,6 +292,12 @@ class GrpcEditorPanel(private val project: Project) {
         tabs.addTab("Trailing Metadata", JBScrollPane(responseMetaArea))
 
         panel.add(tabs, BorderLayout.CENTER)
+
+        // Response status label at bottom
+        responseStatusLabel = JLabel("—")
+        responseStatusLabel.border = JBUI.Borders.empty(4, 6)
+        panel.add(responseStatusLabel, BorderLayout.SOUTH)
+
         return panel
     }
 
@@ -328,8 +382,17 @@ class GrpcEditorPanel(private val project: Project) {
         val model = methodComboBox.model as DefaultComboBoxModel<String>
         model.removeAllElements()
 
-        // Only show Unary methods (streaming not supported yet)
-        serviceInfo.methods.filter { it.isUnary }.forEach { model.addElement(it.name) }
+        // Show all methods with type label
+        serviceInfo.methods.forEach { method ->
+            val typeLabel = when {
+                method.isUnary -> "Unary"
+                method.isServerStreaming -> "ServerStream"
+                method.isClientStreaming -> "ClientStream"
+                method.isBidirectional -> "BidiStream"
+                else -> "Unknown"
+            }
+            model.addElement("${method.name} ($typeLabel)")
+        }
         if (model.size > 0) {
             methodComboBox.selectedIndex = 0
             onMethodChanged()
@@ -337,16 +400,38 @@ class GrpcEditorPanel(private val project: Project) {
         sendButton.isEnabled = model.size > 0
     }
 
-    /** Step 3.4: When method changes, optionally update the body template */
+    /** Step 3.4: When method changes, update method type */
     private fun onMethodChanged() {
-        // Body will be re-generated only if user explicitly clicks "Generate Template"
-        // to avoid clobbering edits
+        val selectedMethodDisplay = methodComboBox.selectedItem as? String ?: return
+        val methodName = selectedMethodDisplay.substringBefore(" (").trim()
+
+        val selectedService = serviceComboBox.selectedItem as? String ?: return
+        val services = parseResult?.services ?: return
+        val serviceInfo = services.find { it.name == selectedService } ?: return
+        val methodInfo = serviceInfo.methods.find { it.name == methodName } ?: return
+
+        currentMethodType = when {
+            methodInfo.isUnary -> GrpcMethodType.UNARY
+            methodInfo.isServerStreaming -> GrpcMethodType.SERVER_STREAMING
+            methodInfo.isClientStreaming -> GrpcMethodType.CLIENT_STREAMING
+            methodInfo.isBidirectional -> GrpcMethodType.BIDI_STREAMING
+            else -> GrpcMethodType.UNARY
+        }
+
+        // Update button text based on method type
+        sendButton.text = when (currentMethodType) {
+            GrpcMethodType.UNARY -> "▶ Send"
+            GrpcMethodType.SERVER_STREAMING -> "▶ Start Stream"
+            GrpcMethodType.CLIENT_STREAMING -> "▶ Start & Send"
+            GrpcMethodType.BIDI_STREAMING -> "▶ Start & Send"
+        }
     }
 
     /** Step 3.4: Generate a JSON template based on the selected method's input type */
     private fun generateBodyTemplate() {
         val selectedService = serviceComboBox.selectedItem as? String ?: return
-        val selectedMethod = methodComboBox.selectedItem as? String ?: return
+        val selectedMethodDisplay = methodComboBox.selectedItem as? String ?: return
+        val selectedMethod = selectedMethodDisplay.substringBefore(" (").trim()
 
         val fileDesc = fileDescriptors.values
             .firstOrNull { it.findServiceByName(selectedService) != null } ?: return
@@ -378,7 +463,8 @@ class GrpcEditorPanel(private val project: Project) {
 
     private fun sendGrpcRequest() {
         val selectedServiceName = serviceComboBox.selectedItem as? String ?: return
-        val selectedMethodName = methodComboBox.selectedItem as? String ?: return
+        val selectedMethodDisplay = methodComboBox.selectedItem as? String ?: return
+        val selectedMethodName = selectedMethodDisplay.substringBefore(" (").trim()
         val host = hostField.text.trim()
         val port = portField.text.trim().toIntOrNull()
 
@@ -409,17 +495,36 @@ class GrpcEditorPanel(private val project: Project) {
             it.findServiceByName(selectedServiceName) != null
         }
         val serviceDesc = fileDesc?.findServiceByName(selectedServiceName)
+        val methodDesc = serviceDesc?.findMethodByName(selectedMethodName)
 
-        if (serviceDesc == null) {
-            statusLabel.text = "Cannot find service descriptor. Please reload the .proto file."
+        if (serviceDesc == null || methodDesc == null) {
+            statusLabel.text = "Cannot find service/method descriptor. Please reload the .proto file."
             return
         }
 
+        when (currentMethodType) {
+            GrpcMethodType.UNARY -> sendUnaryRequest(serviceDesc, methodDesc, host, port, bodyJson, metadata, selectedServiceName, selectedMethodName)
+            GrpcMethodType.SERVER_STREAMING -> startServerStreaming(serviceDesc, methodDesc, host, port, bodyJson, metadata, selectedServiceName, selectedMethodName)
+            GrpcMethodType.CLIENT_STREAMING -> startClientStreaming(serviceDesc, methodDesc, host, port, bodyJson, metadata, selectedServiceName, selectedMethodName)
+            GrpcMethodType.BIDI_STREAMING -> startBidiStreaming(serviceDesc, methodDesc, host, port, bodyJson, metadata, selectedServiceName, selectedMethodName)
+        }
+    }
+
+    private fun sendUnaryRequest(
+        serviceDesc: com.google.protobuf.Descriptors.ServiceDescriptor,
+        methodDesc: com.google.protobuf.Descriptors.MethodDescriptor,
+        host: String,
+        port: Int,
+        bodyJson: String,
+        metadata: Map<String, String>,
+        serviceName: String,
+        methodName: String
+    ) {
         val request = GrpcCallRequest(
             host = host,
             port = port,
-            serviceName = selectedServiceName,
-            methodName = selectedMethodName,
+            serviceName = serviceName,
+            methodName = methodName,
             requestBodyJson = bodyJson,
             metadata = metadata,
             useTls = useTlsCheckBox.isSelected,
@@ -436,7 +541,180 @@ class GrpcEditorPanel(private val project: Project) {
             val result = grpcService.call(serviceDesc, request)
             SwingUtilities.invokeLater {
                 sendButton.isEnabled = true
-                displayResult(result, selectedServiceName, selectedMethodName)
+                displayResult(result, serviceName, methodName)
+            }
+        }
+    }
+
+    private fun startServerStreaming(
+        serviceDesc: com.google.protobuf.Descriptors.ServiceDescriptor,
+        methodDesc: com.google.protobuf.Descriptors.MethodDescriptor,
+        host: String,
+        port: Int,
+        bodyJson: String,
+        metadata: Map<String, String>,
+        serviceName: String,
+        methodName: String
+    ) {
+        val request = GrpcStreamRequest(
+            host = host,
+            port = port,
+            serviceName = serviceName,
+            methodName = methodName,
+            metadata = metadata,
+            useTls = useTlsCheckBox.isSelected
+        )
+
+        messageList.clearMessages()
+        streamingService.clearHistory()
+
+        val started = streamingService.startServerStreaming(serviceDesc, methodDesc, request, bodyJson)
+        if (started) {
+            statusLabel.text = "Server streaming started…"
+            updateStreamingButtons(true)
+        } else {
+            statusLabel.text = "Failed to start server stream"
+        }
+    }
+
+    private fun startClientStreaming(
+        serviceDesc: com.google.protobuf.Descriptors.ServiceDescriptor,
+        methodDesc: com.google.protobuf.Descriptors.MethodDescriptor,
+        host: String,
+        port: Int,
+        bodyJson: String,
+        metadata: Map<String, String>,
+        serviceName: String,
+        methodName: String
+    ) {
+        val request = GrpcStreamRequest(
+            host = host,
+            port = port,
+            serviceName = serviceName,
+            methodName = methodName,
+            metadata = metadata,
+            useTls = useTlsCheckBox.isSelected
+        )
+
+        messageList.clearMessages()
+        streamingService.clearHistory()
+
+        val started = streamingService.startClientStreaming(serviceDesc, methodDesc, request)
+        if (started) {
+            // Send first message
+            if (bodyJson.isNotEmpty() && bodyJson != "{\n  \n}") {
+                streamingService.sendMessage(methodDesc, bodyJson)
+            }
+            statusLabel.text = "Client streaming started"
+            updateStreamingButtons(true)
+        } else {
+            statusLabel.text = "Failed to start client stream"
+        }
+    }
+
+    private fun startBidiStreaming(
+        serviceDesc: com.google.protobuf.Descriptors.ServiceDescriptor,
+        methodDesc: com.google.protobuf.Descriptors.MethodDescriptor,
+        host: String,
+        port: Int,
+        bodyJson: String,
+        metadata: Map<String, String>,
+        serviceName: String,
+        methodName: String
+    ) {
+        val request = GrpcStreamRequest(
+            host = host,
+            port = port,
+            serviceName = serviceName,
+            methodName = methodName,
+            metadata = metadata,
+            useTls = useTlsCheckBox.isSelected
+        )
+
+        messageList.clearMessages()
+        streamingService.clearHistory()
+
+        val started = streamingService.startBidiStreaming(serviceDesc, methodDesc, request)
+        if (started) {
+            // Send first message
+            if (bodyJson.isNotEmpty() && bodyJson != "{\n  \n}") {
+                streamingService.sendMessage(methodDesc, bodyJson)
+            }
+            statusLabel.text = "Bidirectional streaming started"
+            updateStreamingButtons(true)
+        } else {
+            statusLabel.text = "Failed to start bidi stream"
+        }
+    }
+
+    private fun sendStreamMessage() {
+        val selectedServiceName = serviceComboBox.selectedItem as? String ?: return
+        val selectedMethodDisplay = methodComboBox.selectedItem as? String ?: return
+        val selectedMethodName = selectedMethodDisplay.substringBefore(" (").trim()
+
+        val fileDesc = fileDescriptors.values.firstOrNull {
+            it.findServiceByName(selectedServiceName) != null
+        }
+        val serviceDesc = fileDesc?.findServiceByName(selectedServiceName)
+        val methodDesc = serviceDesc?.findMethodByName(selectedMethodName) ?: return
+
+        val rawBodyJson = bodyArea.text.trim()
+        if (rawBodyJson.isEmpty() || rawBodyJson == "{\n  \n}") {
+            statusLabel.text = "Please enter a message to send"
+            return
+        }
+
+        val sent = streamingService.sendMessage(methodDesc, rawBodyJson)
+        if (sent) {
+            statusLabel.text = "Message sent"
+            updateStreamCounts()
+        } else {
+            statusLabel.text = "Failed to send message"
+        }
+    }
+
+    private fun completeStream() {
+        streamingService.completeStream()
+        statusLabel.text = "Stream completed"
+        updateStreamingButtons(false)
+    }
+
+    private fun cancelStream() {
+        streamingService.cancelStream()
+        statusLabel.text = "Stream cancelled"
+        updateStreamingButtons(false)
+    }
+
+    private fun updateStreamingButtons(isStreaming: Boolean) {
+        sendButton.isEnabled = !isStreaming || currentMethodType == GrpcMethodType.CLIENT_STREAMING || currentMethodType == GrpcMethodType.BIDI_STREAMING
+        completeButton.isEnabled = isStreaming && (currentMethodType == GrpcMethodType.CLIENT_STREAMING || currentMethodType == GrpcMethodType.BIDI_STREAMING)
+        cancelButton.isEnabled = isStreaming
+    }
+
+    private fun updateStreamCounts() {
+        streamCountLabel.text = "Sent: ${streamingService.sentCount} | Received: ${streamingService.receivedCount}"
+    }
+
+    private fun setupStreamObservation() {
+        scope.launch {
+            streamingService.state.collect { state ->
+                SwingUtilities.invokeLater {
+                    streamStateLabel.text = state.name
+                    streamStateLabel.icon = StreamStateIcon(state)
+
+                    if (state == GrpcStreamState.COMPLETED || state == GrpcStreamState.ERROR) {
+                        updateStreamingButtons(false)
+                    }
+                }
+            }
+        }
+
+        scope.launch {
+            streamingService.messages.collect { message ->
+                messageList.addMessage(message)
+                SwingUtilities.invokeLater {
+                    updateStreamCounts()
+                }
             }
         }
     }
@@ -524,13 +802,27 @@ class GrpcEditorPanel(private val project: Project) {
         return resolved
     }
 
-    fun dispose() {
+    // Disposable implementation
+    override fun dispose() {
+        streamingService.dispose()
         grpcService.shutdown()
         scope.cancel()
     }
 
-    private fun CoroutineScope.cancel() {
-        // Cancel all coroutines in scope
-        coroutineContext[kotlinx.coroutines.Job]?.cancel()
+    // ─── Custom UI components ────────────────────────────────────────────────────
+
+    private class StreamStateIcon(private val state: GrpcStreamState) : javax.swing.Icon {
+        override fun paintIcon(c: java.awt.Component?, g: java.awt.Graphics?, x: Int, y: Int) {
+            g?.color = when (state) {
+                GrpcStreamState.STREAMING -> Color(0, 180, 0)
+                GrpcStreamState.IDLE -> Color(180, 180, 180)
+                GrpcStreamState.COMPLETED -> Color(100, 100, 180)
+                GrpcStreamState.ERROR -> Color(200, 0, 0)
+            }
+            g?.fillOval(x + 2, y + 2, 8, 8)
+        }
+
+        override fun getIconWidth(): Int = 12
+        override fun getIconHeight(): Int = 12
     }
 }
