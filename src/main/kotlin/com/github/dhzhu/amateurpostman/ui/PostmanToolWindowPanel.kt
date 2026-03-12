@@ -1,5 +1,6 @@
 package com.github.dhzhu.amateurpostman.ui
 
+import com.github.dhzhu.amateurpostman.models.ApiKeyAuth
 import com.github.dhzhu.amateurpostman.models.BodyType
 import com.github.dhzhu.amateurpostman.models.GraphQLRequest
 import com.github.dhzhu.amateurpostman.models.HttpBody
@@ -103,14 +104,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
     private lateinit var paramsTable: JBTable
     private lateinit var headersTable: JBTable
     private lateinit var requestBodyArea: JBTextArea
-    private lateinit var authPanel: JPanel
-
-    // Auth Components
-    private lateinit var authTypeComboBox: ComboBox<String>
-    private lateinit var authContentPanel: JPanel
-    private lateinit var basicAuthUserField: JBTextField
-    private lateinit var basicAuthPassField: JPasswordField
-    private lateinit var bearerTokenField: JBTextField
+    private lateinit var authPanelWrapper: AuthPanel
 
     // Response with syntax highlighting
     private lateinit var responseViewer: HighPerfResponseViewer
@@ -208,8 +202,8 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         tabbedPane.addTab("Params", paramsPanel)
 
         // Tab: Authorization
-        authPanel = createAuthPanel()
-        tabbedPane.addTab("Authorization", authPanel)
+        authPanelWrapper = AuthPanel(project)
+        tabbedPane.addTab("Authorization", authPanelWrapper)
 
         // Tab: Headers
         headersTable = JBTable(headersTableModel)
@@ -878,31 +872,18 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             }
         }
 
-        // Handle Auth
-        val authType = authTypeComboBox.selectedItem as String
-        when (authType) {
-            "Basic Auth" -> {
-                val username = basicAuthUserField.text.trim()
-                val password = String(basicAuthPassField.password)
-                if (username.isNotEmpty() || password.isNotEmpty()) {
-                    val credentials = "$username:$password"
-                    val encoded =
-                            java.util.Base64.getEncoder()
-                                    .encodeToString(credentials.toByteArray())
-                    headers["Authorization"] = "Basic $encoded"
-                }
-            }
-            "Bearer Token" -> {
-                val token = bearerTokenField.text.trim()
-                if (token.isNotEmpty()) {
-                    headers["Authorization"] = "Bearer $token"
-                }
-            }
-        }
+        // Handle Auth - get from AuthPanel
+        val authentication = authPanelWrapper.getAuthentication()
 
         // Handle Params (Append to URL)
         var url = urlText
         val params = mutableListOf<String>()
+
+        // Handle API Key query params
+        if (authentication is ApiKeyAuth && authentication.addTo == ApiKeyAuth.ApiKeyLocation.QUERY) {
+            params.add("${authentication.key}=${authentication.value}")
+        }
+
         for (i in 0 until paramsTableModel.rowCount) {
             val key = paramsTableModel.getValueAt(i, 0)?.toString()?.trim()
             val value = paramsTableModel.getValueAt(i, 1)?.toString()?.trim()
@@ -958,7 +939,8 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             url = url,
             method = selectedMethod,
             headers = headers,
-            body = requestBody
+            body = requestBody,
+            authentication = authentication
         )
     }
 
@@ -1032,83 +1014,6 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         return panel
     }
 
-    private fun createAuthPanel(): JPanel {
-        val panel = JPanel(GridBagLayout())
-        val c = GridBagConstraints()
-        c.insets = JBUI.insets(5)
-        c.anchor = GridBagConstraints.WEST
-        c.fill = GridBagConstraints.HORIZONTAL
-
-        // Auth Type Selector
-        c.gridx = 0
-        c.gridy = 0
-        panel.add(JLabel("Type:"), c)
-
-        val authTypes = arrayOf("No Auth", "Basic Auth", "Bearer Token")
-        authTypeComboBox = ComboBox(authTypes)
-        c.gridx = 1
-        c.weightx = 1.0
-        panel.add(authTypeComboBox, c)
-
-        // Dynamic Content Panel
-        authContentPanel = JPanel(GridBagLayout())
-        c.gridx = 0
-        c.gridy = 1
-        c.gridwidth = 2
-        c.weighty = 1.0
-        c.fill = GridBagConstraints.BOTH
-        panel.add(authContentPanel, c)
-
-        // Initialize Fields
-        basicAuthUserField = JBTextField()
-        basicAuthPassField = JPasswordField()
-        bearerTokenField = JBTextField()
-
-        authTypeComboBox.addActionListener { updateAuthPanel() }
-
-        updateAuthPanel() // Initial state
-
-        return panel
-    }
-
-    private fun updateAuthPanel() {
-        authContentPanel.removeAll()
-        val type = authTypeComboBox.selectedItem as String
-        val c = GridBagConstraints()
-        c.insets = JBUI.insets(5)
-        c.anchor = GridBagConstraints.WEST
-        c.fill = GridBagConstraints.HORIZONTAL
-
-        when (type) {
-            "Basic Auth" -> {
-                c.gridx = 0
-                c.gridy = 0
-                authContentPanel.add(JLabel("Username:"), c)
-                c.gridx = 1
-                c.weightx = 1.0
-                authContentPanel.add(basicAuthUserField, c)
-
-                c.gridx = 0
-                c.gridy = 1
-                c.weightx = 0.0
-                authContentPanel.add(JLabel("Password:"), c)
-                c.gridx = 1
-                c.weightx = 1.0
-                authContentPanel.add(basicAuthPassField, c)
-            }
-            "Bearer Token" -> {
-                c.gridx = 0
-                c.gridy = 0
-                authContentPanel.add(JLabel("Token:"), c)
-                c.gridx = 1
-                c.weightx = 1.0
-                authContentPanel.add(bearerTokenField, c)
-            }
-        }
-        authContentPanel.revalidate()
-        authContentPanel.repaint()
-    }
-
     private fun createTextArea(): JBTextArea {
         return JBTextArea().apply {
             lineWrap = true
@@ -1175,26 +1080,8 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             }
         }
 
-        // Handle Auth for export
-        val authType = authTypeComboBox.selectedItem as String
-        when (authType) {
-            "Basic Auth" -> {
-                val username = basicAuthUserField.text.trim()
-                val password = String(basicAuthPassField.password)
-                if (username.isNotEmpty() || password.isNotEmpty()) {
-                    val credentials = "$username:$password"
-                    val encoded =
-                            java.util.Base64.getEncoder().encodeToString(credentials.toByteArray())
-                    headers["Authorization"] = "Basic $encoded"
-                }
-            }
-            "Bearer Token" -> {
-                val token = bearerTokenField.text.trim()
-                if (token.isNotEmpty()) {
-                    headers["Authorization"] = "Bearer $token"
-                }
-            }
-        }
+        // Get authentication from AuthPanel
+        val authentication = authPanelWrapper.getAuthentication()
 
         val request =
                 HttpRequest(
@@ -1206,7 +1093,8 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                                 content = requestBodyArea.text,
                                 type = selectedBodyType
                             )
-                        } else null
+                        } else null,
+                        authentication = authentication
                 )
 
         val curlCommand = CurlExporter.exportWithOptions(request, multiLine = true)
@@ -1266,31 +1154,20 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                             }
                         }
 
-                        // Handle Auth
-                        val authType = authTypeComboBox.selectedItem as String
-                        when (authType) {
-                            "Basic Auth" -> {
-                                val username = basicAuthUserField.text.trim()
-                                val password = String(basicAuthPassField.password)
-                                if (username.isNotEmpty() || password.isNotEmpty()) {
-                                    val credentials = "$username:$password"
-                                    val encoded =
-                                            java.util.Base64.getEncoder()
-                                                    .encodeToString(credentials.toByteArray())
-                                    headers["Authorization"] = "Basic $encoded"
-                                }
-                            }
-                            "Bearer Token" -> {
-                                val token = bearerTokenField.text.trim()
-                                if (token.isNotEmpty()) {
-                                    headers["Authorization"] = "Bearer $token"
-                                }
-                            }
-                        }
+                        // Get authentication from AuthPanel
+                        val authentication = authPanelWrapper.getAuthentication()
+
+                        // Handle API Key query params
+                        val apiQueryParam = if (authentication is ApiKeyAuth && authentication.addTo == ApiKeyAuth.ApiKeyLocation.QUERY) {
+                            "${authentication.key}=${authentication.value}"
+                        } else null
 
                         // Handle Params (Append to URL)
                         var url = urlText
                         val params = mutableListOf<String>()
+                        if (apiQueryParam != null) {
+                            params.add(apiQueryParam)
+                        }
                         for (i in 0 until paramsTableModel.rowCount) {
                             val key = paramsTableModel.getValueAt(i, 0)?.toString()?.trim()
                             val value = paramsTableModel.getValueAt(i, 1)?.toString()?.trim()
@@ -1338,7 +1215,8 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                                         url = url,
                                         method = selectedMethod,
                                         headers = headers,
-                                        body = requestBody
+                                        body = requestBody,
+                                        authentication = authentication
                                 )
 
                         // Execute Pre-request script and send request
