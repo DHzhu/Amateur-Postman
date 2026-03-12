@@ -1,0 +1,21 @@
+## 审计记录
+
+**提交 SHA**: 9f16fb4
+**Track**: OpenAPI Deep Integration
+
+### 完成的任务
+- [x] Phase 1.1-1.3: 调研 swagger-parser、IntelliJ PSI 解析、映射逻辑
+- [x] Phase 2.1-2.4: 引入依赖、实现 Parser/Importer、单元测试
+- [x] Phase 3.1-3.3: 扩展元数据、增量同步、UI 导入入口
+- [x] Phase 4.1-4.3: LineMarkerProvider、Gutter Icon 跳转、plugin.xml 注册
+- [x] Phase 5.1-5.3: 全量测试、功能验证、文档更新
+
+### 验证结果
+- 单元测试: 13 个新增测试全部通过
+- 全量测试: 384 测试通过
+- 功能验证: OpenAPI 导入、同步、IDE 联动功能正常
+
+### 技术决策
+- 使用 swagger-parser v2.1.32 解析 OpenAPI 规范
+- 添加 Java 插件依赖以支持 PSI 注解解析
+- 通过 MessageBus 实现 Controller -> ToolWindow 通信
