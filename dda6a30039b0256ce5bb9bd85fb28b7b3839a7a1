@@ -1,0 +1,29 @@
+## 任务摘要
+- Task 6: Implement Authorization Code flow
+- Task 7: Implement Implicit flow
+
+## 变更内容
+1. 新增 OAuth2CallbackHandler 组件:
+   - OAuth2CallbackServer: 本地 HTTP 回调服务器
+   - OAuth2AuthorizationUrl: 授权 URL 生成工具
+   - OAuth2TokenParser: 令牌解析工具（URL Fragment）
+   - AuthCallbackResult: 回调结果密封类
+
+2. 扩展 OAuth2Service 授权流程:
+   - startAuthorizationCodeFlow(): 启动授权码流程
+   - waitForAuthCodeAndExchange(): 等待回调并交换令牌
+   - exchangeAuthorizationCode(): 授权码换令牌
+   - startImplicitFlow(): 启动 Implicit 流程
+   - parseAndStoreImplicitToken(): 解析 Implicit 令牌
+
+3. 新增 OAuth2AuthorizationFlowTest 测试:
+   - 授权 URL 生成测试
+   - 令牌解析测试（Fragment 解析）
+   - 回调服务器测试
+   - Authorization Code 流程测试
+   - Implicit 流程测试
+
+## 验证结果
+- 单元测试: 483 tests passed (24 新测试)
+- 覆盖范围: Authorization Code, Implicit, Token Parser, Callback Server
+- 构建状态: BUILD SUCCESSFUL
