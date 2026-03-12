@@ -1,12 +1,28 @@
 package com.github.dhzhu.amateurpostman.services
 
 import com.github.dhzhu.amateurpostman.models.*
+import com.google.gson.JsonParser
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.FormBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.util.Base64
+import java.util.concurrent.TimeUnit
+
+/**
+ * Result of a token exchange operation.
+ */
+sealed class TokenExchangeResult {
+    data class Success(val token: OAuth2Token) : TokenExchangeResult()
+    data class Error(val message: String, val statusCode: Int? = null) : TokenExchangeResult()
+}
 
 /**
  * Service for managing OAuth 2.0 configurations and tokens with persistent storage.
@@ -23,6 +39,14 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
     private val logger = thisLogger()
     private var state = OAuth2State()
     private val listeners = mutableListOf<OAuth2ConfigChangeListener>()
+
+    private val httpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
 
     override fun getState(): OAuth2State = state
 
@@ -154,6 +178,239 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
     fun hasValidToken(configId: String): Boolean {
         val token = getToken(configId) ?: return false
         return !token.isExpired()
+    }
+
+    // ========== Token Exchange Operations ==========
+
+    /**
+     * Exchanges credentials for a new token using Client Credentials flow.
+     *
+     * @param configId The configuration ID
+     * @return TokenExchangeResult containing the token or error
+     */
+    suspend fun exchangeClientCredentials(configId: String): TokenExchangeResult = withContext(Dispatchers.IO) {
+        val entry = getConfig(configId)
+        if (entry == null) {
+            return@withContext TokenExchangeResult.Error("Configuration not found: $configId")
+        }
+
+        val config = entry.config
+        if (config.grantType != OAuth2GrantType.CLIENT_CREDENTIALS) {
+            return@withContext TokenExchangeResult.Error("Invalid grant type: expected CLIENT_CREDENTIALS")
+        }
+
+        if (config.clientSecret.isNullOrBlank()) {
+            return@withContext TokenExchangeResult.Error("Client secret is required for Client Credentials flow")
+        }
+
+        try {
+            logger.info("Exchanging client credentials at ${config.tokenUrl}")
+
+            val formBody = FormBody.Builder()
+                .add("grant_type", "client_credentials")
+                .apply {
+                    config.scope?.let { add("scope", it) }
+                }
+                .build()
+
+            val request = Request.Builder()
+                .url(config.tokenUrl)
+                .header("Authorization", buildBasicAuth(config.clientId, config.clientSecret!!))
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .post(formBody)
+                .build()
+
+            httpClient.newCall(request).execute().use { response ->
+                val responseBody = response.body?.string() ?: ""
+
+                if (!response.isSuccessful) {
+                    logger.warn("Token exchange failed: ${response.code} - $responseBody")
+                    return@withContext TokenExchangeResult.Error(
+                        "Token exchange failed: ${response.code} ${response.message}",
+                        response.code
+                    )
+                }
+
+                parseTokenResponse(responseBody)
+            }
+        } catch (e: Exception) {
+            logger.error("Token exchange error", e)
+            TokenExchangeResult.Error("Token exchange failed: ${e.message}")
+        }
+    }
+
+    /**
+     * Exchanges credentials for a new token using Password flow.
+     *
+     * @param configId The configuration ID
+     * @return TokenExchangeResult containing the token or error
+     */
+    suspend fun exchangePassword(configId: String): TokenExchangeResult = withContext(Dispatchers.IO) {
+        val entry = getConfig(configId)
+        if (entry == null) {
+            return@withContext TokenExchangeResult.Error("Configuration not found: $configId")
+        }
+
+        val config = entry.config
+        if (config.grantType != OAuth2GrantType.PASSWORD) {
+            return@withContext TokenExchangeResult.Error("Invalid grant type: expected PASSWORD")
+        }
+
+        if (config.username.isNullOrBlank() || config.password.isNullOrBlank()) {
+            return@withContext TokenExchangeResult.Error("Username and password are required for Password flow")
+        }
+
+        try {
+            logger.info("Exchanging password credentials at ${config.tokenUrl}")
+
+            val formBodyBuilder = FormBody.Builder()
+                .add("grant_type", "password")
+                .add("username", config.username)
+                .add("password", config.password)
+
+            config.scope?.let { formBodyBuilder.add("scope", it) }
+
+            val requestBuilder = Request.Builder()
+                .url(config.tokenUrl)
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .post(formBodyBuilder.build())
+
+            // Add Basic Auth if client credentials are provided
+            if (!config.clientId.isNullOrBlank() && !config.clientSecret.isNullOrBlank()) {
+                requestBuilder.header("Authorization", buildBasicAuth(config.clientId, config.clientSecret))
+            }
+
+            httpClient.newCall(requestBuilder.build()).execute().use { response ->
+                val responseBody = response.body?.string() ?: ""
+
+                if (!response.isSuccessful) {
+                    logger.warn("Password token exchange failed: ${response.code} - $responseBody")
+                    return@withContext TokenExchangeResult.Error(
+                        "Token exchange failed: ${response.code} ${response.message}",
+                        response.code
+                    )
+                }
+
+                parseTokenResponse(responseBody)
+            }
+        } catch (e: Exception) {
+            logger.error("Password token exchange error", e)
+            TokenExchangeResult.Error("Token exchange failed: ${e.message}")
+        }
+    }
+
+    /**
+     * Refreshes an expired token using the refresh token.
+     *
+     * @param configId The configuration ID
+     * @return TokenExchangeResult containing the new token or error
+     */
+    suspend fun refreshToken(configId: String): TokenExchangeResult = withContext(Dispatchers.IO) {
+        val entry = getConfig(configId)
+        if (entry == null) {
+            return@withContext TokenExchangeResult.Error("Configuration not found: $configId")
+        }
+
+        val currentToken = entry.config.accessToken
+        if (currentToken?.refreshToken.isNullOrBlank()) {
+            return@withContext TokenExchangeResult.Error("No refresh token available")
+        }
+
+        val config = entry.config
+
+        try {
+            logger.info("Refreshing token at ${config.tokenUrl}")
+
+            val formBody = FormBody.Builder()
+                .add("grant_type", "refresh_token")
+                .add("refresh_token", currentToken!!.refreshToken!!)
+                .build()
+
+            val requestBuilder = Request.Builder()
+                .url(config.tokenUrl)
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .post(formBody)
+
+            // Add Basic Auth if client credentials are provided
+            if (!config.clientId.isNullOrBlank() && !config.clientSecret.isNullOrBlank()) {
+                requestBuilder.header("Authorization", buildBasicAuth(config.clientId, config.clientSecret))
+            }
+
+            httpClient.newCall(requestBuilder.build()).execute().use { response ->
+                val responseBody = response.body?.string() ?: ""
+
+                if (!response.isSuccessful) {
+                    logger.warn("Token refresh failed: ${response.code} - $responseBody")
+                    return@withContext TokenExchangeResult.Error(
+                        "Token refresh failed: ${response.code} ${response.message}",
+                        response.code
+                    )
+                }
+
+                parseTokenResponse(responseBody)
+            }
+        } catch (e: Exception) {
+            logger.error("Token refresh error", e)
+            TokenExchangeResult.Error("Token refresh failed: ${e.message}")
+        }
+    }
+
+    /**
+     * Fetches a new token and stores it.
+     * Automatically selects the appropriate flow based on configuration.
+     */
+    suspend fun fetchAndStoreToken(configId: String): TokenExchangeResult {
+        val entry = getConfig(configId) ?: return TokenExchangeResult.Error("Configuration not found")
+
+        val result = when (entry.config.grantType) {
+            OAuth2GrantType.CLIENT_CREDENTIALS -> exchangeClientCredentials(configId)
+            OAuth2GrantType.PASSWORD -> exchangePassword(configId)
+            else -> TokenExchangeResult.Error("Grant type ${entry.config.grantType} requires interactive authorization")
+        }
+
+        if (result is TokenExchangeResult.Success) {
+            setToken(configId, result.token)
+        }
+
+        return result
+    }
+
+    // ========== Helper Methods ==========
+
+    private fun buildBasicAuth(clientId: String, clientSecret: String): String {
+        val credentials = "$clientId:$clientSecret"
+        val encoded = Base64.getEncoder().encodeToString(credentials.toByteArray())
+        return "Basic $encoded"
+    }
+
+    private fun parseTokenResponse(responseBody: String): TokenExchangeResult {
+        return try {
+            val json = JsonParser.parseString(responseBody).asJsonObject
+
+            val accessToken = json.get("access_token")?.asString
+            if (accessToken.isNullOrBlank()) {
+                return TokenExchangeResult.Error("Invalid token response: missing access_token")
+            }
+
+            val tokenType = json.get("token_type")?.asString ?: "Bearer"
+            val expiresIn = json.get("expires_in")?.asLong
+            val refreshToken = json.get("refresh_token")?.asString
+            val scope = json.get("scope")?.asString
+
+            val token = OAuth2Token(
+                accessToken = accessToken,
+                tokenType = tokenType,
+                expiresIn = expiresIn,
+                refreshToken = refreshToken,
+                scope = scope
+            )
+
+            logger.info("Successfully parsed token response")
+            TokenExchangeResult.Success(token)
+        } catch (e: Exception) {
+            logger.error("Failed to parse token response", e)
+            TokenExchangeResult.Error("Failed to parse token response: ${e.message}")
+        }
     }
 
     // ========== Request-Config Mapping ==========
