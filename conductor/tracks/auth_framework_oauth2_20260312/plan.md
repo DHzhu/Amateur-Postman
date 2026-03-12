@@ -7,10 +7,10 @@
 ## Tasks
 
 ### Phase 1: Core Models & Interface Refactoring (Infrastructure)
-- [ ] **Task 1: Define Authentication Models**
+- [x] **Task 1: Define Authentication Models** (56bcbb4)
   - Add `Authentication` interface and implementations (`BasicAuth`, `BearerToken`, `OAuth2Auth`) to `HttpModels.kt`.
   - Update `HttpRequest` model to include an optional `Authentication` property.
-  - [ ] *Verification*: Unit tests for `Authentication` model and `HttpRequest` creation.
+  - [x] *Verification*: Unit tests for `Authentication` model and `HttpRequest` creation.
 - [ ] **Task 2: Refactor `HttpRequestService` to handle `Authentication`**
   - Update `HttpRequestServiceImpl` to resolve `Authentication` into headers before calling OkHttp.
   - Support Basic Auth and Bearer Token as the first step (migrating from UI-only logic).
