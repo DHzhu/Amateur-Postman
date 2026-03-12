@@ -11,10 +11,10 @@
   - Add `Authentication` interface and implementations (`BasicAuth`, `BearerToken`, `OAuth2Auth`) to `HttpModels.kt`.
   - Update `HttpRequest` model to include an optional `Authentication` property.
   - [x] *Verification*: Unit tests for `Authentication` model and `HttpRequest` creation.
-- [ ] **Task 2: Refactor `HttpRequestService` to handle `Authentication`**
+- [x] **Task 2: Refactor `HttpRequestService` to handle `Authentication`** (2134fe7)
   - Update `HttpRequestServiceImpl` to resolve `Authentication` into headers before calling OkHttp.
   - Support Basic Auth and Bearer Token as the first step (migrating from UI-only logic).
-  - [ ] *Verification*: Unit tests for `HttpRequestServiceImpl` with `BasicAuth` and `BearerToken`.
+  - [x] *Verification*: Unit tests for `HttpRequestServiceImpl` with `BasicAuth` and `BearerToken`.
 
 ### Phase 2: OAuth 2.0 Direct Flows (Non-Interactive)
 - [ ] **Task 3: Implement `OAuth2Token` and `OAuth2Config` storage**
