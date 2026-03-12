@@ -17,9 +17,9 @@
   - [x] *Verification*: Unit tests for `HttpRequestServiceImpl` with `BasicAuth` and `BearerToken`.
 
 ### Phase 2: OAuth 2.0 Direct Flows (Non-Interactive)
-- [ ] **Task 3: Implement `OAuth2Token` and `OAuth2Config` storage**
+- [x] **Task 3: Implement `OAuth2Token` and `OAuth2Config` storage** (fc86f5f)
   - Create `OAuth2Service` to manage token storage and lifecycle.
-  - [ ] *Verification*: Persistence tests for OAuth2 data.
+  - [x] *Verification*: Persistence tests for OAuth2 data.
 - [ ] **Task 4: Implement OAuth 2.0 "Client Credentials" flow**
   - Implement token exchange for Client Credentials.
   - [ ] *Verification*: Integration test with a mock server to exchange `client_id` for a token.
