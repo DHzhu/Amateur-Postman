@@ -144,8 +144,8 @@ class HttpRequestServiceImpl(private val project: Project) : HttpRequestService,
     private fun buildOkHttpRequest(request: HttpRequest): Request {
         val builder = Request.Builder().url(request.url)
 
-        // Add headers
-        request.headers.forEach { (key, value) -> builder.addHeader(key, value) }
+        // Add headers (merged with authentication headers if present)
+        request.getEffectiveHeaders().forEach { (key, value) -> builder.addHeader(key, value) }
 
         // Set method and body
         when (request.method) {
