@@ -30,6 +30,7 @@ import javax.swing.*
  */
 enum class AuthType(val displayName: String) {
     NO_AUTH("No Auth"),
+    INHERIT_AUTH("Inherit from Parent"),  // New option for inheritance
     BASIC_AUTH("Basic Auth"),
     BEARER_TOKEN("Bearer Token"),
     API_KEY("API Key"),
@@ -38,7 +39,7 @@ enum class AuthType(val displayName: String) {
 
 /**
  * Panel for configuring authentication settings.
- * Supports Basic Auth, Bearer Token, API Key, and OAuth 2.0.
+ * Supports Basic Auth, Bearer Token, API Key, OAuth 2.0, and Auth Inheritance.
  */
 class AuthPanel(private val project: Project) : JPanel(BorderLayout()) {
 
@@ -48,6 +49,12 @@ class AuthPanel(private val project: Project) : JPanel(BorderLayout()) {
     // Auth Type Selector
     private val authTypeComboBox = ComboBox(AuthType.entries.map { it.displayName }.toTypedArray())
     private val cardPanel = JPanel(CardLayout())
+
+    // Inheritance display
+    private var inheritedAuthSource: String? = null
+    private val inheritanceInfoLabel = JLabel().apply {
+        foreground = java.awt.Color.GRAY
+    }
 
     // Basic Auth Fields
     private val basicAuthUserField = JBTextField()
@@ -97,14 +104,22 @@ class AuthPanel(private val project: Project) : JPanel(BorderLayout()) {
         c.weightx = 1.0
         mainPanel.add(authTypeComboBox, c)
 
-        // Card Panel for different auth types
+        // Inheritance info label (shows where auth is inherited from)
         c.gridx = 0
         c.gridy = 1
+        c.gridwidth = 2
+        c.weightx = 1.0
+        mainPanel.add(inheritanceInfoLabel, c)
+
+        // Card Panel for different auth types
+        c.gridx = 0
+        c.gridy = 2
         c.gridwidth = 2
         c.weighty = 1.0
         c.fill = GridBagConstraints.BOTH
 
         cardPanel.add(createNoAuthPanel(), AuthType.NO_AUTH.displayName)
+        cardPanel.add(createInheritAuthPanel(), AuthType.INHERIT_AUTH.displayName)
         cardPanel.add(createBasicAuthPanel(), AuthType.BASIC_AUTH.displayName)
         cardPanel.add(createBearerTokenPanel(), AuthType.BEARER_TOKEN.displayName)
         cardPanel.add(createApiKeyPanel(), AuthType.API_KEY.displayName)
@@ -131,6 +146,7 @@ class AuthPanel(private val project: Project) : JPanel(BorderLayout()) {
     private fun updateCardPanel() {
         val selectedType = authTypeComboBox.selectedItem as String
         (cardPanel.layout as CardLayout).show(cardPanel, selectedType)
+        updateInheritanceLabel()
     }
 
     private fun updateOAuth2Fields() {
@@ -160,6 +176,25 @@ class AuthPanel(private val project: Project) : JPanel(BorderLayout()) {
     private fun createNoAuthPanel(): JPanel {
         return JPanel(BorderLayout()).apply {
             add(JLabel("No authentication required"), BorderLayout.CENTER)
+        }
+    }
+
+    private fun createInheritAuthPanel(): JPanel {
+        return JPanel(BorderLayout()).apply {
+            val infoPanel = JPanel(GridBagLayout())
+            val c = GridBagConstraints()
+            c.insets = JBUI.insets(5)
+            c.anchor = GridBagConstraints.WEST
+            c.fill = GridBagConstraints.HORIZONTAL
+
+            c.gridx = 0
+            c.gridy = 0
+            c.weightx = 1.0
+            infoPanel.add(JLabel("<html><b>Inherit from Parent</b><br/>" +
+                "This request will use authentication from its parent folder or collection.<br/>" +
+                "If no auth is configured at the parent level, no authentication will be used.</html>"), c)
+
+            add(infoPanel, BorderLayout.CENTER)
         }
     }
 
@@ -568,9 +603,15 @@ class AuthPanel(private val project: Project) : JPanel(BorderLayout()) {
 
     /**
      * Gets the current authentication configuration.
+     * Returns null for INHERIT_AUTH type (inheritance is handled at request execution time).
      */
     fun getAuthentication(): Authentication? {
         return when (authTypeComboBox.selectedItem as String) {
+            AuthType.INHERIT_AUTH.displayName -> {
+                // Return a marker that indicates inheritance should be used
+                // The actual auth resolution happens at request execution time
+                NoAuth  // Placeholder - actual auth resolved by AuthService
+            }
             AuthType.BASIC_AUTH.displayName -> {
                 val username = basicAuthUserField.text.trim()
                 val password = String(basicAuthPassField.password)
@@ -602,6 +643,42 @@ class AuthPanel(private val project: Project) : JPanel(BorderLayout()) {
                 }
             }
             else -> null
+        }
+    }
+
+    /**
+     * Checks if the current auth type is set to inherit from parent.
+     */
+    fun isInheritAuth(): Boolean {
+        return authTypeComboBox.selectedItem as String == AuthType.INHERIT_AUTH.displayName
+    }
+
+    /**
+     * Sets the inherited auth source description for display.
+     * Call this when loading a request to show where auth will be inherited from.
+     *
+     * @param source Description of the auth source (e.g., "Folder: API Tests" or "Collection: My API")
+     */
+    fun setInheritedAuthSource(source: String?) {
+        inheritedAuthSource = source
+        updateInheritanceLabel()
+    }
+
+    /**
+     * Updates the inheritance info label based on current auth type and inherited source.
+     */
+    private fun updateInheritanceLabel() {
+        val currentType = authTypeComboBox.selectedItem as String
+        if (currentType == AuthType.INHERIT_AUTH.displayName) {
+            inheritanceInfoLabel.text = inheritedAuthSource?.let {
+                "Will inherit auth from: $it"
+            } ?: "No auth configured at parent level"
+        } else {
+            inheritedAuthSource?.let {
+                inheritanceInfoLabel.text = "Inherited auth available from: $it"
+            } ?: run {
+                inheritanceInfoLabel.text = ""
+            }
         }
     }
 
@@ -641,8 +718,13 @@ class AuthPanel(private val project: Project) : JPanel(BorderLayout()) {
 
                 auth.token.let { updateTokenStatus(it) }
             }
+            is OAuth2ConfigRef -> {
+                // OAuth2 config reference - set to inherit or OAuth2 based on context
+                authTypeComboBox.selectedItem = AuthType.INHERIT_AUTH.displayName
+            }
         }
         updateCardPanel()
+        updateInheritanceLabel()
     }
 
     /**
@@ -656,6 +738,7 @@ class AuthPanel(private val project: Project) : JPanel(BorderLayout()) {
         apiKeyValueField.text = ""
         oauth2TokenStatusField.text = "No token"
         currentOAuth2ConfigId = null
+        inheritedAuthSource = null
         authTypeComboBox.selectedItem = AuthType.NO_AUTH.displayName
         updateCardPanel()
     }
