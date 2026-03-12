@@ -1,6 +1,102 @@
 package com.github.dhzhu.amateurpostman.models
 
 /**
+ * Serializable representation of Authentication for persistence.
+ * Supports all authentication types via a type discriminator.
+ */
+data class SerializableAuthentication(
+    val type: String,  // "NONE", "BASIC", "BEARER", "API_KEY", "OAUTH2_CONFIG"
+    val username: String? = null,      // For Basic Auth
+    val password: String? = null,      // For Basic Auth
+    val token: String? = null,         // For Bearer Token
+    val apiKey: String? = null,        // For API Key
+    val apiValue: String? = null,      // For API Key
+    val apiKeyLocation: String? = null, // For API Key: "HEADER" or "QUERY"
+    val oauth2ConfigId: String? = null // For OAuth2 (reference to OAuth2Service config)
+) {
+    /**
+     * Converts this serializable authentication to a domain Authentication object.
+     * Note: OAuth2 auth requires the OAuth2Service to resolve the config.
+     */
+    fun toAuthentication(): Authentication? {
+        return when (type) {
+            "NONE" -> NoAuth
+            "BASIC" -> {
+                if (username != null && password != null) {
+                    BasicAuth(username, password)
+                } else null
+            }
+            "BEARER" -> {
+                if (token != null) {
+                    BearerToken(token)
+                } else null
+            }
+            "API_KEY" -> {
+                if (apiKey != null && apiValue != null) {
+                    val location = when (apiKeyLocation) {
+                        "QUERY" -> ApiKeyAuth.ApiKeyLocation.QUERY
+                        else -> ApiKeyAuth.ApiKeyLocation.HEADER
+                    }
+                    ApiKeyAuth(apiKey, apiValue, location)
+                } else null
+            }
+            "OAUTH2_CONFIG" -> {
+                // OAuth2 requires runtime resolution via OAuth2Service
+                // Return a placeholder that indicates OAuth2 config ID
+                OAuth2ConfigRef(oauth2ConfigId ?: return null)
+            }
+            else -> null
+        }
+    }
+
+    companion object {
+        /**
+         * Creates a SerializableAuthentication from a domain Authentication object.
+         */
+        fun from(auth: Authentication?): SerializableAuthentication? {
+            return when (auth) {
+                null, NoAuth -> SerializableAuthentication(type = "NONE")
+                is BasicAuth -> SerializableAuthentication(
+                    type = "BASIC",
+                    username = auth.username,
+                    password = auth.password
+                )
+                is BearerToken -> SerializableAuthentication(
+                    type = "BEARER",
+                    token = auth.token
+                )
+                is ApiKeyAuth -> SerializableAuthentication(
+                    type = "API_KEY",
+                    apiKey = auth.key,
+                    apiValue = auth.value,
+                    apiKeyLocation = auth.addTo.name
+                )
+                is OAuth2ConfigRef -> SerializableAuthentication(
+                    type = "OAUTH2_CONFIG",
+                    oauth2ConfigId = auth.configId
+                )
+                is OAuth2Auth -> {
+                    // For OAuth2Auth with inline config, we can't persist directly
+                    // This should be converted to OAuth2ConfigRef before persistence
+                    null
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Reference to an OAuth2 configuration stored in OAuth2Service.
+ * Used for collection/folder-level OAuth2 authentication.
+ */
+data class OAuth2ConfigRef(
+    val configId: String
+) : Authentication {
+    // This is a placeholder - actual auth headers are resolved via OAuth2Service
+    override fun toHeaders(): Map<String, String> = emptyMap()
+}
+
+/**
  * Represents a request collection with folders and saved requests.
  *
  * Collections allow organizing API requests into hierarchical folders
@@ -13,6 +109,7 @@ package com.github.dhzhu.amateurpostman.models
  * @property createdAt Timestamp when the collection was created
  * @property modifiedAt Timestamp when the collection was last modified
  * @property variables List of collection-level variables
+ * @property auth Authentication configuration for this collection (inherited by children)
  */
 data class RequestCollection(
     val id: String,
@@ -22,7 +119,8 @@ data class RequestCollection(
     val createdAt: Long = System.currentTimeMillis(),
     val modifiedAt: Long = System.currentTimeMillis(),
     val variables: List<Variable> = emptyList(),
-    val openApiSource: String? = null  // URL or file path to the linked OpenAPI spec
+    val openApiSource: String? = null,  // URL or file path to the linked OpenAPI spec
+    val auth: SerializableAuthentication? = null  // Collection-level auth
 ) {
     companion object {
         /**
@@ -81,23 +179,26 @@ sealed class CollectionItem {
      * @property name Display name of the folder
      * @property children List of child items
      * @property parentId ID of parent folder (null for top-level)
+     * @property auth Authentication configuration for this folder (inherited by children)
      */
     data class Folder(
         override val id: String,
         override val name: String,
         val children: List<CollectionItem> = emptyList(),
-        override val parentId: String? = null
+        override val parentId: String? = null,
+        val auth: SerializableAuthentication? = null  // Folder-level auth
     ) : CollectionItem() {
         companion object {
             /**
              * Creates a new folder with a generated UUID.
              */
-            fun create(name: String, parentId: String? = null): Folder {
+            fun create(name: String, parentId: String? = null, auth: SerializableAuthentication? = null): Folder {
                 return Folder(
                     id = java.util.UUID.randomUUID().toString(),
                     name = name,
                     children = emptyList(),
-                    parentId = parentId
+                    parentId = parentId,
+                    auth = auth
                 )
             }
         }
@@ -194,6 +295,7 @@ data class CollectionState(
  * @property modifiedAt Last modification timestamp
  * @property variables List of collection-level variables
  * @property openApiSource URL or file path to the linked OpenAPI specification
+ * @property auth Collection-level authentication configuration
  */
 data class SerializableCollection(
     val id: String,
@@ -203,7 +305,8 @@ data class SerializableCollection(
     val createdAt: Long = System.currentTimeMillis(),
     val modifiedAt: Long = System.currentTimeMillis(),
     val variables: List<SerializableVariable> = emptyList(),
-    val openApiSource: String? = null
+    val openApiSource: String? = null,
+    val auth: SerializableAuthentication? = null
 ) {
     /**
      * Converts this serializable collection to a domain RequestCollection.
@@ -217,7 +320,8 @@ data class SerializableCollection(
             createdAt = createdAt,
             modifiedAt = modifiedAt,
             variables = variables.map { it.toVariable() },
-            openApiSource = openApiSource
+            openApiSource = openApiSource,
+            auth = auth
         )
     }
 
@@ -234,7 +338,8 @@ data class SerializableCollection(
                 createdAt = collection.createdAt,
                 modifiedAt = collection.modifiedAt,
                 variables = collection.variables.map { SerializableVariable.from(it) },
-                openApiSource = collection.openApiSource
+                openApiSource = collection.openApiSource,
+                auth = collection.auth
             )
         }
     }
@@ -252,6 +357,7 @@ data class SerializableCollection(
  * @property testScript Script to execute after the response (requests only)
  * @property children Child items (folders only)
  * @property parentId ID of parent folder
+ * @property auth Folder-level authentication configuration (folders only)
  */
 data class SerializableCollectionItem(
     val id: String,
@@ -262,7 +368,8 @@ data class SerializableCollectionItem(
     val preRequestScript: String = "",
     val testScript: String = "",
     val children: List<SerializableCollectionItem> = emptyList(),
-    val parentId: String? = null
+    val parentId: String? = null,
+    val auth: SerializableAuthentication? = null
 ) {
     /**
      * Converts this serializable item to a domain CollectionItem.
@@ -273,7 +380,8 @@ data class SerializableCollectionItem(
                 id = id,
                 name = name,
                 children = children.map { it.toCollectionItem() },
-                parentId = parentId
+                parentId = parentId,
+                auth = auth
             )
             "REQUEST" -> CollectionItem.Request(
                 id = id,
@@ -304,7 +412,8 @@ data class SerializableCollectionItem(
                     type = "FOLDER",
                     name = item.name,
                     children = item.children.map { from(it) },
-                    parentId = item.parentId
+                    parentId = item.parentId,
+                    auth = item.auth
                 )
                 is CollectionItem.Request -> SerializableCollectionItem(
                     id = item.id,

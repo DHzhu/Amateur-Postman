@@ -189,6 +189,27 @@ class CollectionService(private val project: Project) :
         return false
     }
 
+    /**
+     * Updates the authentication configuration for a folder.
+     *
+     * @param collectionId The collection ID
+     * @param folderId The folder ID
+     * @param auth The authentication configuration to set, or null to remove
+     * @return true if updated, false if not found
+     */
+    fun updateFolderAuth(collectionId: String, folderId: String, auth: SerializableAuthentication?): Boolean {
+        val collection = getCollection(collectionId) ?: return false
+
+        val updatedItems = updateFolderAuthRecursive(collection.items, folderId, auth)
+        if (updatedItems != null) {
+            val updatedCollection = collection.copy(items = updatedItems).withUpdatedTimestamp()
+            updateCollection(updatedCollection)
+            logger.info("Updated auth for folder: $folderId")
+            return true
+        }
+        return false
+    }
+
     // ========== Request Item Operations ==========
 
     /**
@@ -398,6 +419,32 @@ class CollectionService(private val project: Project) :
             } else if (item is CollectionItem.Folder) {
                 val updatedChildren = updateItemRequest(item.children, itemId, newRequest, preRequestScript, testScript)
                 if (updatedChildren != null && updatedChildren != item.children) {
+                    item.copy(children = updatedChildren)
+                } else {
+                    item
+                }
+            } else {
+                item
+            }
+        }
+
+        return if (found) result else null
+    }
+
+    private fun updateFolderAuthRecursive(
+        items: List<CollectionItem>,
+        folderId: String,
+        auth: SerializableAuthentication?
+    ): List<CollectionItem>? {
+        var found = false
+        val result = items.map { item ->
+            if (item.id == folderId && item is CollectionItem.Folder) {
+                found = true
+                item.copy(auth = auth)
+            } else if (item is CollectionItem.Folder) {
+                val updatedChildren = updateFolderAuthRecursive(item.children, folderId, auth)
+                if (updatedChildren != null && updatedChildren != item.children) {
+                    found = true
                     item.copy(children = updatedChildren)
                 } else {
                     item
