@@ -1,0 +1,22 @@
+## 任务摘要
+- Task 2: Refactor HttpRequestService to handle Authentication
+
+## 变更内容
+1. 重构 HttpRequestServiceImpl.buildOkHttpRequest():
+   - 使用 getEffectiveHeaders() 替代直接访问 headers
+   - 自动合并认证头与普通请求头
+   - 认证头优先级高于手动设置的 Authorization 头
+
+2. 新增 HttpRequestServiceAuthTest 测试类:
+   - BasicAuth 测试（含特殊字符）
+   - BearerToken 测试
+   - ApiKeyAuth 测试（Header/Query 位置）
+   - NoAuth 和 null 认证测试
+   - OAuth2Auth 测试（含过期、空令牌场景）
+   - 头合并与覆盖测试
+   - Mock Server 集成测试
+
+## 验证结果
+- 单元测试: 421 tests passed (18 新测试)
+- 覆盖范围: BasicAuth, BearerToken, ApiKeyAuth, OAuth2Auth, NoAuth
+- 构建状态: BUILD SUCCESSFUL
