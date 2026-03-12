@@ -377,6 +377,86 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
         return result
     }
 
+    // ========== Auto-Refresh Mechanism ==========
+
+    /**
+     * Gets a valid OAuth2Auth for a request, automatically refreshing the token if needed.
+     * This method checks if the token is expired and attempts to refresh it.
+     *
+     * @param configId The configuration ID
+     * @return OAuth2Auth with a valid token, or null if refresh failed or no token
+     */
+    suspend fun getValidAuth(configId: String): OAuth2Auth? {
+        val entry = getConfig(configId) ?: return null
+        var token = entry.config.accessToken
+
+        if (token == null) {
+            logger.debug("No token found for config: $configId")
+            return null
+        }
+
+        // Check if token is expired
+        if (token.isExpired()) {
+            logger.info("Token expired for config: $configId")
+
+            // Try to refresh the token
+            if (token.canRefresh()) {
+                logger.info("Attempting to refresh token for config: $configId")
+                val result = refreshToken(configId)
+
+                when (result) {
+                    is TokenExchangeResult.Success -> {
+                        setToken(configId, result.token)
+                        token = result.token
+                        logger.info("Token refreshed successfully for config: $configId")
+                    }
+                    is TokenExchangeResult.Error -> {
+                        logger.warn("Token refresh failed: ${result.message}")
+                        return null
+                    }
+                }
+            } else {
+                logger.warn("Token expired and no refresh token available for config: $configId")
+                return null
+            }
+        }
+
+        return OAuth2Auth(entry.config, token)
+    }
+
+    /**
+     * Gets a valid OAuth2Auth for a request by request ID, with auto-refresh.
+     *
+     * @param requestId The request ID
+     * @return OAuth2Auth with a valid token, or null if not configured or refresh failed
+     */
+    suspend fun getValidAuthForRequest(requestId: String): OAuth2Auth? {
+        val mapping = state.requestAuthMappings.find { it.requestId == requestId } ?: return null
+        return getValidAuth(mapping.configId)
+    }
+
+    /**
+     * Gets a valid OAuth2Auth for a collection by collection ID, with auto-refresh.
+     *
+     * @param collectionId The collection ID
+     * @return OAuth2Auth with a valid token, or null if not configured or refresh failed
+     */
+    suspend fun getValidAuthForCollection(collectionId: String): OAuth2Auth? {
+        val mapping = state.collectionAuthMappings.find { it.collectionId == collectionId } ?: return null
+        return getValidAuth(mapping.configId)
+    }
+
+    /**
+     * Ensures a valid token is available for the given configuration.
+     * This is a convenience method that returns true if a valid token exists or was successfully refreshed.
+     *
+     * @param configId The configuration ID
+     * @return true if a valid token is available, false otherwise
+     */
+    suspend fun ensureValidToken(configId: String): Boolean {
+        return getValidAuth(configId) != null
+    }
+
     // ========== Authorization Code Flow (Interactive) ==========
 
     /**
