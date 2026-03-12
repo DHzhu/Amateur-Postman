@@ -1,0 +1,25 @@
+## 任务摘要
+- Task 4: Implement OAuth 2.0 "Client Credentials" flow
+- Task 5: Implement OAuth 2.0 "Password" flow
+
+## 变更内容
+1. 扩展 OAuth2Service 添加令牌交换功能:
+   - TokenExchangeResult 密封类（Success/Error）
+   - exchangeClientCredentials(): Client Credentials 令牌交换
+   - exchangePassword(): Password 令牌交换
+   - refreshToken(): 使用 refresh_token 刷新令牌
+   - fetchAndStoreToken(): 自动选择流程并存储令牌
+   - buildBasicAuth(): 构建 Basic Auth 头
+   - parseTokenResponse(): 解析 JSON 令牌响应
+
+2. 新增 OAuth2TokenExchangeTest 集成测试:
+   - Client Credentials 流程测试（成功/错误/缺失密钥）
+   - Password 流程测试（成功/缺失凭证）
+   - Token 刷新测试（成功/无 refresh_token）
+   - fetchAndStoreToken 测试
+   - 令牌响应解析测试
+
+## 验证结果
+- 单元测试: 459 tests passed (20 新测试)
+- 覆盖范围: Client Credentials, Password, Refresh Token
+- 构建状态: BUILD SUCCESSFUL
