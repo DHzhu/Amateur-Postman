@@ -1,0 +1,18 @@
+Task: Task 10 - Collection Level Auth Inheritance
+Title: 实现集合级认证继承机制
+
+实现内容:
+- 添加 SerializableAuthentication 数据类，支持认证配置的序列化与持久化
+- 添加 OAuth2ConfigRef 类型，用于引用 OAuth2Service 中存储的配置
+- 新增 AuthService 服务，统一解析认证配置
+  - 认证继承优先级: 请求级 > 文件夹级 > 集合级 > 无认证
+  - 支持嵌套文件夹层级解析
+- RequestCollection 和 CollectionItem.Folder 模型添加 auth 属性
+- CollectionService 添加 updateFolderAuth 方法支持更新文件夹认证
+- AuthPanel UI 添加 "Inherit from Parent" 认证类型选项
+- 显示认证继承来源信息
+
+验证:
+- 新增 CollectionAuthInheritanceTest 单元测试
+- 测试认证优先级、嵌套文件夹继承、序列化/反序列化
+- 全部 521 个测试通过
