@@ -4,14 +4,18 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## Active Tracks
 
-- [ ] **Track: Authentication Framework & OAuth 2.0 Support** [IN PROGRESS]
-  *Link: [./tracks/auth_framework_oauth2_20260312/](./tracks/auth_framework_oauth2_20260312/)*
-  *Description: 引入统一的 HTTP 请求认证框架，实现 OAuth 2.0 各类授权流程（授权码、客户端凭据等）及令牌自动刷新机制。*
+(NONE)
 
 ## Next Up
-(Currently none)
+
+(To be planned)
 
 ## Archive
+
+- [x] **Track: Authentication Framework & OAuth 2.0 Support** [DONE]
+  *Link: [./archive/auth_framework_oauth2_20260312/](./archive/auth_framework_oauth2_20260312/)*
+  *Description: 引入统一的 HTTP 请求认证框架，实现 OAuth 2.0 各类授权流程（授权码、客户端凭据、密码、Implicit）及令牌自动刷新机制，支持集合级认证继承。*
+  *Completed: 2026-03-12*
 
 - [x] **Track: OpenAPI Deep Integration** [DONE]
   *Link: [./archive/openapi_integration_20260311/](./archive/openapi_integration_20260311/)*
