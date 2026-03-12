@@ -1,10 +1,6 @@
 package com.github.dhzhu.amateurpostman.services
 
-import com.github.dhzhu.amateurpostman.models.BodyType
-import com.github.dhzhu.amateurpostman.models.HttpMethod
-import com.github.dhzhu.amateurpostman.models.HttpRequest
-import com.github.dhzhu.amateurpostman.models.HttpResponse
-import com.github.dhzhu.amateurpostman.models.MultipartPart
+import com.github.dhzhu.amateurpostman.models.*
 import com.github.dhzhu.amateurpostman.utils.VariableResolver
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
@@ -57,13 +53,16 @@ class HttpRequestServiceImpl(private val project: Project) : HttpRequestService,
                 // Substitute variables from environment service
                 val environmentService = project.service<EnvironmentService>()
                 val variables = environmentService.getAllVariables()
-                val processedRequest = if (variables.isNotEmpty()) {
+                var processedRequest = if (variables.isNotEmpty()) {
                     logger.debug("Substituting ${variables.size} variables in request")
                     VariableResolver.substitute(request, variables)
                 } else {
                     logger.debug("No variables defined, using request as-is")
                     request
                 }
+
+                // Handle OAuth2 auto-refresh if present
+                processedRequest = handleOAuth2AutoRefresh(processedRequest)
 
                 logger.info("Executing ${processedRequest.method} request to ${processedRequest.url}")
 
@@ -241,5 +240,43 @@ class HttpRequestServiceImpl(private val project: Project) : HttpRequestService,
         "txt" -> "text/plain".toMediaTypeOrNull()
         "html" -> "text/html".toMediaTypeOrNull()
         else -> "application/octet-stream".toMediaTypeOrNull()
+    }
+
+    /**
+     * Handles OAuth2 auto-refresh for requests with OAuth2 authentication.
+     * If the token is expired and refreshable, attempts to refresh it.
+     */
+    private suspend fun handleOAuth2AutoRefresh(request: HttpRequest): HttpRequest {
+        val auth = request.authentication as? OAuth2Auth ?: return request
+
+        val token = auth.token ?: return request
+
+        // If token is expired and can be refreshed, attempt refresh
+        if (token.isExpired() && token.canRefresh()) {
+            logger.info("OAuth2 token expired, attempting auto-refresh")
+
+            val oauth2Service = project.service<OAuth2Service>()
+
+            // Find the config ID for this auth
+            val configs = oauth2Service.getAllConfigs()
+            val configEntry = configs.find {
+                it.config.clientId == auth.config.clientId &&
+                it.config.tokenUrl == auth.config.tokenUrl
+            }
+
+            if (configEntry != null) {
+                val validAuth = oauth2Service.getValidAuth(configEntry.id)
+                if (validAuth != null) {
+                    logger.info("OAuth2 token auto-refreshed successfully")
+                    return request.copy(authentication = validAuth)
+                } else {
+                    logger.warn("OAuth2 token auto-refresh failed")
+                }
+            } else {
+                logger.warn("OAuth2 config not found for auto-refresh")
+            }
+        }
+
+        return request
     }
 }
