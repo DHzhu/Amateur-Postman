@@ -1,5 +1,6 @@
 package com.github.dhzhu.amateurpostman.toolWindow
 
+import com.github.dhzhu.amateurpostman.codeinsight.ControllerRequestTopic
 import com.github.dhzhu.amateurpostman.ui.GrpcEditorPanel
 import com.github.dhzhu.amateurpostman.ui.PostmanToolWindowPanel
 import com.github.dhzhu.amateurpostman.ui.WebSocketPanel
@@ -34,6 +35,16 @@ class PostmanToolWindowFactory : ToolWindowFactory {
 
         val content = ContentFactory.getInstance().createContent(protocolTabs, "", false)
         toolWindow.contentManager.addContent(content)
+
+        // Subscribe to controller request events
+        project.messageBus.connect(toolWindow.disposable).subscribe(
+            ControllerRequestTopic.REQUEST,
+            object : ControllerRequestTopic.ControllerRequestListener {
+                override fun onRequestReady(request: com.github.dhzhu.amateurpostman.models.HttpRequest, name: String) {
+                    httpPanel.loadExternalRequest(request, name)
+                }
+            }
+        )
     }
 
     override fun shouldBeAvailable(project: Project): Boolean = true

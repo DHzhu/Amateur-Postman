@@ -21,7 +21,8 @@ data class RequestCollection(
     val items: List<CollectionItem> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
     val modifiedAt: Long = System.currentTimeMillis(),
-    val variables: List<Variable> = emptyList()
+    val variables: List<Variable> = emptyList(),
+    val openApiSource: String? = null  // URL or file path to the linked OpenAPI spec
 ) {
     companion object {
         /**
@@ -192,6 +193,7 @@ data class CollectionState(
  * @property createdAt Creation timestamp
  * @property modifiedAt Last modification timestamp
  * @property variables List of collection-level variables
+ * @property openApiSource URL or file path to the linked OpenAPI specification
  */
 data class SerializableCollection(
     val id: String,
@@ -200,7 +202,8 @@ data class SerializableCollection(
     val items: List<SerializableCollectionItem> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
     val modifiedAt: Long = System.currentTimeMillis(),
-    val variables: List<SerializableVariable> = emptyList()
+    val variables: List<SerializableVariable> = emptyList(),
+    val openApiSource: String? = null
 ) {
     /**
      * Converts this serializable collection to a domain RequestCollection.
@@ -213,7 +216,8 @@ data class SerializableCollection(
             items = items.map { it.toCollectionItem() },
             createdAt = createdAt,
             modifiedAt = modifiedAt,
-            variables = variables.map { it.toVariable() }
+            variables = variables.map { it.toVariable() },
+            openApiSource = openApiSource
         )
     }
 
@@ -229,7 +233,8 @@ data class SerializableCollection(
                 items = collection.items.map { SerializableCollectionItem.from(it) },
                 createdAt = collection.createdAt,
                 modifiedAt = collection.modifiedAt,
-                variables = collection.variables.map { SerializableVariable.from(it) }
+                variables = collection.variables.map { SerializableVariable.from(it) },
+                openApiSource = collection.openApiSource
             )
         }
     }
