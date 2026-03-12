@@ -41,17 +41,17 @@
   - Add logic to `OAuth2Service` to refresh tokens using `refresh_token` when access token expires.
   - Integrate refresh logic into `HttpRequestServiceImpl` pre-request interceptor.
   - [x] *Verification*: Test case where an expired token triggers a successful refresh.
-- [ ] **Task 9: UI Refactoring & Enhanced Auth Panel**
+- [x] **Task 9: UI Refactoring & Enhanced Auth Panel** (2966e6e)
   - Refactor `PostmanToolWindowPanel`'s auth section into a dedicated `AuthPanel`.
   - Implement complex UI for OAuth 2.0 configuration (scopes, auth/token URLs, etc.).
   - Add "Get New Access Token" button and token status display.
-  - [ ] *Verification*: Manual smoke test for UI components.
+  - [x] *Verification*: Manual smoke test for UI components.
 
 ### Phase 5: Advanced Features & Finalization
-- [ ] **Task 10: Collection Level Auth Inheritance**
+- [x] **Task 10: Collection Level Auth Inheritance** (2e9daa9)
   - Allow auth settings at the collection level.
   - Requests should inherit auth from parent folder/collection unless overridden.
-  - [ ] *Verification*: Test for auth inheritance across collection hierarchy.
+  - [x] *Verification*: Test for auth inheritance across collection hierarchy.
 - [ ] **Task 11: Final Integration & Regression Testing**
   - Full project build and test suite run.
   - [ ] *Verification*: `./gradlew check` and all tests passing.
