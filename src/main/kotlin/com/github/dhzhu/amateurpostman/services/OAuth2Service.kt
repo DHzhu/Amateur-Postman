@@ -2,6 +2,7 @@ package com.github.dhzhu.amateurpostman.services
 
 import com.github.dhzhu.amateurpostman.models.*
 import com.google.gson.JsonParser
+import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
@@ -13,6 +14,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.net.URI
 import java.util.Base64
 import java.util.concurrent.TimeUnit
 
@@ -373,6 +375,217 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
         }
 
         return result
+    }
+
+    // ========== Authorization Code Flow (Interactive) ==========
+
+    /**
+     * Starts the Authorization Code flow.
+     * Returns a pair of (authorization URL, callback server).
+     * The caller should open the URL in a browser and then call waitForAuthCode.
+     */
+    fun startAuthorizationCodeFlow(configId: String): Pair<String, OAuth2CallbackServer>? {
+        val entry = getConfig(configId) ?: return null
+        val config = entry.config
+
+        if (config.grantType != OAuth2GrantType.AUTHORIZATION_CODE) {
+            logger.warn("Invalid grant type for Authorization Code flow")
+            return null
+        }
+
+        if (config.authUrl.isNullOrBlank() || config.redirectUri.isNullOrBlank()) {
+            logger.warn("Authorization URL and Redirect URI are required for Authorization Code flow")
+            return null
+        }
+
+        // Parse redirect URI to determine if we need to start a local server
+        val redirectUriParsed = URI(config.redirectUri)
+        val callbackServer = if (redirectUriParsed.host == "localhost" || redirectUriParsed.host == "127.0.0.1") {
+            // Start local callback server
+            val port = redirectUriParsed.port.let { if (it > 0) it else 0 }
+            val server = OAuth2CallbackServer(port = port)
+            if (!server.start()) {
+                logger.error("Failed to start callback server")
+                return null
+            }
+            server
+        } else {
+            // Custom redirect URI (e.g., myapp://callback) - no local server needed
+            OAuth2CallbackServer(port = 0, timeoutSeconds = 300)
+        }
+
+        // Generate authorization URL
+        val authUrl = OAuth2AuthorizationUrl.generateAuthCodeUrl(
+            authUrl = config.authUrl,
+            clientId = config.clientId,
+            redirectUri = callbackServer.redirectUri,
+            scope = config.scope
+        )
+
+        logger.info("Generated authorization URL: $authUrl")
+        return authUrl to callbackServer
+    }
+
+    /**
+     * Waits for the authorization code callback and exchanges it for a token.
+     */
+    suspend fun waitForAuthCodeAndExchange(
+        configId: String,
+        callbackServer: OAuth2CallbackServer
+    ): TokenExchangeResult = withContext(Dispatchers.IO) {
+        try {
+            val callbackResult = callbackServer.waitForCallback()
+
+            val result = when (callbackResult) {
+                is AuthCallbackResult.Success -> {
+                    logger.info("Received authorization code, exchanging for token")
+                    exchangeAuthorizationCode(configId, callbackResult.code)
+                }
+                is AuthCallbackResult.Error -> {
+                    logger.warn("Authorization error: ${callbackResult.error}")
+                    TokenExchangeResult.Error(
+                        "Authorization failed: ${callbackResult.error}" +
+                                (callbackResult.description?.let { " - $it" } ?: "")
+                    )
+                }
+                is AuthCallbackResult.Timeout -> {
+                    logger.warn("Authorization timed out")
+                    TokenExchangeResult.Error(callbackResult.message)
+                }
+            }
+
+            result
+        } catch (e: Exception) {
+            logger.error("Error during authorization code flow", e)
+            TokenExchangeResult.Error("Authorization failed: ${e.message}")
+        } finally {
+            callbackServer.stop()
+        }
+    }
+
+    /**
+     * Exchanges an authorization code for a token.
+     */
+    suspend fun exchangeAuthorizationCode(configId: String, code: String): TokenExchangeResult = withContext(Dispatchers.IO) {
+        val entry = getConfig(configId)
+        if (entry == null) {
+            return@withContext TokenExchangeResult.Error("Configuration not found: $configId")
+        }
+
+        val config = entry.config
+        if (config.redirectUri.isNullOrBlank()) {
+            return@withContext TokenExchangeResult.Error("Redirect URI is required")
+        }
+
+        try {
+            logger.info("Exchanging authorization code at ${config.tokenUrl}")
+
+            val formBodyBuilder = FormBody.Builder()
+                .add("grant_type", "authorization_code")
+                .add("code", code)
+                .add("redirect_uri", config.redirectUri)
+                .add("client_id", config.clientId)
+
+            val requestBuilder = Request.Builder()
+                .url(config.tokenUrl)
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .post(formBodyBuilder.build())
+
+            // Add client secret if available (confidential client)
+            if (!config.clientSecret.isNullOrBlank()) {
+                requestBuilder.header("Authorization", buildBasicAuth(config.clientId, config.clientSecret))
+            }
+
+            httpClient.newCall(requestBuilder.build()).execute().use { response ->
+                val responseBody = response.body?.string() ?: ""
+
+                if (!response.isSuccessful) {
+                    logger.warn("Authorization code exchange failed: ${response.code} - $responseBody")
+                    return@withContext TokenExchangeResult.Error(
+                        "Token exchange failed: ${response.code} ${response.message}",
+                        response.code
+                    )
+                }
+
+                parseTokenResponse(responseBody)
+            }
+        } catch (e: Exception) {
+            logger.error("Authorization code exchange error", e)
+            TokenExchangeResult.Error("Token exchange failed: ${e.message}")
+        }
+    }
+
+    // ========== Implicit Flow (Interactive) ==========
+
+    /**
+     * Starts the Implicit flow.
+     * Returns the authorization URL to open in browser.
+     * Note: Implicit flow returns the token directly in the URL fragment.
+     */
+    fun startImplicitFlow(configId: String): String? {
+        val entry = getConfig(configId) ?: return null
+        val config = entry.config
+
+        if (config.grantType != OAuth2GrantType.IMPLICIT) {
+            logger.warn("Invalid grant type for Implicit flow")
+            return null
+        }
+
+        if (config.authUrl.isNullOrBlank() || config.redirectUri.isNullOrBlank()) {
+            logger.warn("Authorization URL and Redirect URI are required for Implicit flow")
+            return null
+        }
+
+        val authUrl = OAuth2AuthorizationUrl.generateImplicitUrl(
+            authUrl = config.authUrl,
+            clientId = config.clientId,
+            redirectUri = config.redirectUri,
+            scope = config.scope
+        )
+
+        logger.info("Generated implicit authorization URL: $authUrl")
+        return authUrl
+    }
+
+    /**
+     * Parses and stores a token from an Implicit flow callback URL.
+     * The token is in the URL fragment (#access_token=...).
+     */
+    fun parseAndStoreImplicitToken(configId: String, callbackUrl: String): TokenExchangeResult {
+        val entry = getConfig(configId)
+            ?: return TokenExchangeResult.Error("Configuration not found")
+
+        try {
+            val uri = URI(callbackUrl)
+            val fragment = uri.fragment ?: ""
+
+            if (fragment.isBlank()) {
+                return TokenExchangeResult.Error("No token in callback URL")
+            }
+
+            // Check for error
+            val errorInfo = OAuth2TokenParser.extractError(fragment)
+            if (errorInfo != null) {
+                return TokenExchangeResult.Error("Authorization error: ${errorInfo.first}${errorInfo.second?.let { " - $it" } ?: ""}")
+            }
+
+            val params = OAuth2TokenParser.parseFromFragment(fragment)
+            val accessToken = params["access_token"]
+                ?: return TokenExchangeResult.Error("No access_token in callback")
+
+            val token = OAuth2Token(
+                accessToken = accessToken,
+                tokenType = params["token_type"] ?: "Bearer",
+                expiresIn = params["expires_in"]?.toLongOrNull(),
+                scope = params["scope"]
+            )
+
+            setToken(configId, token)
+            return TokenExchangeResult.Success(token)
+        } catch (e: Exception) {
+            logger.error("Failed to parse implicit token", e)
+            return TokenExchangeResult.Error("Failed to parse token: ${e.message}")
+        }
     }
 
     // ========== Helper Methods ==========
