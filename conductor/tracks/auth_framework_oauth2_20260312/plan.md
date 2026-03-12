@@ -37,10 +37,10 @@
   - [x] *Verification*: Test for Implicit flow logic.
 
 ### Phase 4: Auto-refresh & UI Integration
-- [ ] **Task 8: Implement Auto-Refresh mechanism**
+- [x] **Task 8: Implement Auto-Refresh mechanism** (d477e48)
   - Add logic to `OAuth2Service` to refresh tokens using `refresh_token` when access token expires.
   - Integrate refresh logic into `HttpRequestServiceImpl` pre-request interceptor.
-  - [ ] *Verification*: Test case where an expired token triggers a successful refresh.
+  - [x] *Verification*: Test case where an expired token triggers a successful refresh.
 - [ ] **Task 9: UI Refactoring & Enhanced Auth Panel**
   - Refactor `PostmanToolWindowPanel`'s auth section into a dedicated `AuthPanel`.
   - Implement complex UI for OAuth 2.0 configuration (scopes, auth/token URLs, etc.).
