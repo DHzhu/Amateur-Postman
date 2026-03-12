@@ -52,9 +52,9 @@
   - Allow auth settings at the collection level.
   - Requests should inherit auth from parent folder/collection unless overridden.
   - [x] *Verification*: Test for auth inheritance across collection hierarchy.
-- [ ] **Task 11: Final Integration & Regression Testing**
+- [x] **Task 11: Final Integration & Regression Testing**
   - Full project build and test suite run.
-  - [ ] *Verification*: `./gradlew check` and all tests passing.
+  - [x] *Verification*: `./gradlew check` and all tests passing.
 
 ## Verification Protocol
 - **Unit Tests**: Mandatory for all new models and logic.
