@@ -28,13 +28,13 @@
   - [x] *Verification*: Integration test for Password flow token exchange.
 
 ### Phase 3: Interactive OAuth 2.0 Flows (Browser-based)
-- [ ] **Task 6: Implement "Authorization Code" flow**
+- [x] **Task 6: Implement "Authorization Code" flow** (dda6a30)
   - Implement a temporary local Netty server to capture the redirect `code`.
   - Handle browser redirect logic and token exchange.
-  - [ ] *Verification*: Mocked browser interaction test for Auth Code flow.
-- [ ] **Task 7: Implement "Implicit" flow**
+  - [x] *Verification*: Mocked browser interaction test for Auth Code flow.
+- [x] **Task 7: Implement "Implicit" flow** (dda6a30)
   - (Optional but recommended) Handle implicit flow token capture.
-  - [ ] *Verification*: Test for Implicit flow logic.
+  - [x] *Verification*: Test for Implicit flow logic.
 
 ### Phase 4: Auto-refresh & UI Integration
 - [ ] **Task 8: Implement Auto-Refresh mechanism**
