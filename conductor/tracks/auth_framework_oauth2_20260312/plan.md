@@ -20,12 +20,12 @@
 - [x] **Task 3: Implement `OAuth2Token` and `OAuth2Config` storage** (fc86f5f)
   - Create `OAuth2Service` to manage token storage and lifecycle.
   - [x] *Verification*: Persistence tests for OAuth2 data.
-- [ ] **Task 4: Implement OAuth 2.0 "Client Credentials" flow**
+- [x] **Task 4: Implement OAuth 2.0 "Client Credentials" flow** (9256805)
   - Implement token exchange for Client Credentials.
-  - [ ] *Verification*: Integration test with a mock server to exchange `client_id` for a token.
-- [ ] **Task 5: Implement OAuth 2.0 "Password" flow**
+  - [x] *Verification*: Integration test with a mock server to exchange `client_id` for a token.
+- [x] **Task 5: Implement OAuth 2.0 "Password" flow** (9256805)
   - Implement token exchange for Password flow.
-  - [ ] *Verification*: Integration test for Password flow token exchange.
+  - [x] *Verification*: Integration test for Password flow token exchange.
 
 ### Phase 3: Interactive OAuth 2.0 Flows (Browser-based)
 - [ ] **Task 6: Implement "Authorization Code" flow**
