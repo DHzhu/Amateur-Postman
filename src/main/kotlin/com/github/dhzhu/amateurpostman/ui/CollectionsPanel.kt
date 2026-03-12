@@ -459,6 +459,24 @@ class CollectionsPanel(
     }
 
     private fun importCollection() {
+        // Choose import type
+        val importOptions = arrayOf("Postman Collection", "OpenAPI Specification", "Cancel")
+        val importChoice = Messages.showChooseDialog(
+            project,
+            "Select import format:",
+            "Import Collection",
+            null,
+            importOptions,
+            importOptions[0]
+        )
+
+        when (importChoice) {
+            0 -> importPostmanCollection()
+            1 -> importOpenApiCollection()
+        }
+    }
+
+    private fun importPostmanCollection() {
         // Choose file to import
         val fileChooser = javax.swing.JFileChooser()
         fileChooser.dialogTitle = "Import Postman Collection"
@@ -511,6 +529,46 @@ class CollectionsPanel(
                     "Import Success"
                 )
             }
+        }
+    }
+
+    private fun importOpenApiCollection() {
+        val dialog = OpenApiImportDialog(project)
+        val importResult = dialog.showAndGet()
+
+        if (importResult == null) return
+
+        // Save to service
+        val importedCollection = importResult.collection
+        collectionService.createCollection(
+            importedCollection.name,
+            importedCollection.description
+        )
+
+        // Get the created collection and add items
+        val collections = collectionService.getCollections()
+        val createdCollection = collections.find { it.name == importedCollection.name }
+        if (createdCollection != null) {
+            // Add all items recursively
+            importItemsRecursively(createdCollection.id, importedCollection.items)
+
+            // Bind OpenAPI source for future sync
+            // Note: We'd need to update CollectionService to support this
+        }
+
+        // Show warnings if any
+        if (importResult.warnings.isNotEmpty()) {
+            Messages.showWarningDialog(
+                project,
+                "OpenAPI imported with ${importResult.warnings.size} warning(s):\n\n${importResult.warnings.take(5).joinToString("\n")}${if (importResult.warnings.size > 5) "\n..." else ""}",
+                "Import Warnings"
+            )
+        } else {
+            Messages.showInfoMessage(
+                project,
+                "OpenAPI '${importedCollection.name}' imported successfully!\n\nSource: ${importResult.sourcePath}",
+                "Import Success"
+            )
         }
     }
 

@@ -1509,6 +1509,20 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         currentActiveCollectionId = collectionId
     }
 
+    /**
+     * Loads a request from an external source (e.g., controller gutter icon).
+     * This is called when clicking the gutter icon on a controller method.
+     *
+     * @param request The HTTP request to load
+     * @param name Optional name for the request
+     */
+    fun loadExternalRequest(request: HttpRequest, name: String? = null) {
+        SwingUtilities.invokeLater {
+            loadRequest(request)
+            statusLabel.text = if (name != null) "Loaded: $name" else "Loaded from controller"
+        }
+    }
+
     override fun dispose() {
         scope.cancel()
     }

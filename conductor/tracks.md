@@ -3,7 +3,13 @@
 This file tracks all major tracks for the project. Each track has its own detailed plan in its respective folder.
 
 ## Active Tracks
-(Currently none)
+
+- [x] **Track: OpenAPI Deep Integration** [DONE]
+  *Link: [./tracks/openapi_integration_20260311/](./tracks/openapi_integration_20260311/)*
+  *Description: 实现 OpenAPI 规范导入、实时同步以及 IDE 代码与请求的深度联动。*
+  *Started: 2026-03-11*
+  *Completed: 2026-03-11*
+  *All 5 phases completed.*
 
 ## Next Up
 (Currently none)

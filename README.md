@@ -18,7 +18,10 @@
 - 🔥 **高性能表现**: 深度优化的 **High-Perf Response Viewer**，支持 10MB+ 超大响应流畅预览与主题感知高亮。
 - 📊 **性能分析**: 详细的请求耗时分解，提供 DNS、TCP、SSL、TTFB 等关键节点的时序瀑布流视图。
 - 🔌 **gRPC 支持**: 动态加载 `.proto` 文件，无需代码生成，支持 Unary 调用、Metadata 注入与变量解析。
-- ✅ **稳健性保障**: 拥有 **330+** 核心单元测试（基于 JUnit 5），确保在高性能场景下的稳定性。
+- 🌐 **WebSocket & gRPC Streaming**: 支持 WebSocket 长连接调试和 gRPC Server/Client/Bi-Di 流式调用。
+- 📋 **OpenAPI 集成**: 支持 OpenAPI 3.x/Swagger 2.0 规范导入，自动生成请求集合，支持增量同步。
+- 🔗 **IDE 代码联动**: Spring Boot / JAX-RS 控制器方法旁显示 Gutter Icon，一键跳转发起请求。
+- ✅ **稳健性保障**: 拥有 **384+** 核心单元测试（基于 JUnit 5），确保在高性能场景下的稳定性。
 
 ## 📸 快速上手
 
@@ -36,9 +39,10 @@
 - [x] **Phase 4: 内置 Mock Server 与规则引擎** (Completed)
 - [x] **Phase 5: UI/UX 性能优化与虚拟滚动** (Completed)
 - [x] **Phase 6: 性能分析与时序瀑布流** (Completed)
-- [ ] **Phase 7: 协议扩展 — gRPC Unary Call** (✅ Completed)
-- [ ] **Phase 8: 协议扩展 — WebSocket & gRPC Streaming** (Upcoming)
-- [ ] **Phase 9: 外部脚本库动态加载支持** (Upcoming)
+- [x] **Phase 7: 协议扩展 — gRPC Unary Call** (Completed)
+- [x] **Phase 8: 协议扩展 — WebSocket & gRPC Streaming** (Completed)
+- [x] **Phase 9: OpenAPI 深度集成** (Completed)
+- [ ] **Phase 10: 企业级测试与生态** — OAuth 2.0、HAR 导入、API 文档导出 (Upcoming)
 
 ## 🤝 参与贡献
 

@@ -5,6 +5,7 @@
     <vendor>dhzhu</vendor>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.java</depends>
 
     <resource-bundle>messages.MyBundle</resource-bundle>
 
@@ -26,5 +27,10 @@
 
         <!-- Script Execution Service -->
         <projectService serviceImplementation="com.github.dhzhu.amateurpostman.services.ScriptExecutionService"/>
+
+        <!-- Controller Line Marker Provider for Spring Boot / JAX-RS -->
+        <codeInsight.lineMarkerProvider
+            language="JAVA"
+            implementationClass="com.github.dhzhu.amateurpostman.codeinsight.AmControllerLineMarkerProvider"/>
     </extensions>
 </idea-plugin>

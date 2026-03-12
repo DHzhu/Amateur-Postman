@@ -60,6 +60,9 @@ dependencies {
     implementation(libs.protobuf.java)
     implementation(libs.protobuf.java.util)
 
+    // OpenAPI Parser (swagger-parser)
+    implementation("io.swagger.parser.v3:swagger-parser:2.1.32")
+
     // Test dependencies
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation(libs.mockito.core)
