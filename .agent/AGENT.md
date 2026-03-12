@@ -1,32 +1,21 @@
-# Agent Master Protocol (AMP) - Version 2.0 (Universal)
+# Agent Master Protocol (AMP)
 
-## 1. Bootstrap & Identity
-- **Immediate Action**: On session start, the Agent **MUST** first locate and read **`conductor/index.md`**.
-- **Context Discovery**: Use the "Universal File Resolution Protocol" (defined in `index.md`) to resolve project-specific documents.
-- **Precedence**: This `AGENT.md` defines the **HOW** (Global Principles), while the files resolved via `index.md` define the **WHAT** (Project Context) and **CLI** (Concrete Commands).
+## 1. Identity & Context
+- **Bootstrap**: Agent **MUST** locate `conductor/index.md` on session start. Use "Universal File Resolution Protocol" to resolve project docs.
+- **Precedence**: `AGENT.md` defines **HOW** (Principles); `index.md` defines **WHAT** (Context/CLI).
 
 ## 2. Core Mandates
-- **Security**: NEVER log/print/commit secrets. Protect sensitive system/config folders.
-- **Language**: **Simplified Chinese** for user interactions, reports, and audit notes. **English** for technical metadata and rules.
-- **Workflow Integrity**: All progress MUST be tracked in `plan.md` via the Conductor tracks system.
+- **Security**: **NEVER** log/commit secrets. Protect config/system folders.
+- **Language**: Agent **MUST** use **Chinese** for user interactions/audit notes and **English** for technical rules/metadata.
+- **Integrity**: All progress **MUST** be tracked in `plan.md`. Agent **MUST STOP** and wait for Directive after Track initialization.
 
-## 3. Governance (Conductor Mode)
-- **Lifecycle (Tier A)**: Track/Status changes **MUST** use `activate_skill("sync-mem")` for state synchronization.
-- **Tasks (Tier B)**: Follow the workflow defined in the project's **`workflow.md`**.
-  - **Batching**: Group 2-3 logically related sub-tasks into one `git-commit` cycle.
-  - **Architecture Mapping**: Map complex features in the Knowledge Graph before coding. Use prefix `Component:`, `Service:`, or `LogicFlow:`.
-- **Commits**: Code changes **MUST** use `activate_skill("git-commit")`.
+## 3. Governance & Workflow
+- **Lifecycle**: Agent **MUST** use `sync-mem` for state sync. Follow `workflow.md` for tasks.
+- **Prep**: Perform "pre-flight" check (read_file/grep_search) before any modifications.
+- **Commits**: Code changes **MUST** use `activate_skill("git-commit")`. Format **MUST** be: `<type>(<scope>): <Chinese description>`. Body text, `Co-Authored-By`, or feature lists are **STRICTLY FORBIDDEN**.
 
-## 4. Engineering Standards (Quality Gates)
-A task is only eligible for completion if it satisfies these universal criteria (concrete commands are retrieved from `workflow.md`):
-- **Verification**: Must pass all **Project Verification Commands** (e.g., Linting, Static Analysis, Type Checking).
-- **Testing**: Must follow TDD (Red-Green-Refactor). All unit/integration tests must pass.
-- **Coverage**: New code coverage must meet the **Project Coverage Target** (Default: >80%).
-- **Safety**: Perform a "pre-flight" check (`read_file` or high-context `grep_search`) before any modification.
-
-## 5. Definition of Done (DoD)
-A task is DONE when:
-1. It meets all criteria in Section 4.
-2. It is committed with an audit note (Git Notes).
-3. The `plan.md` is updated with the associated SHA.
-4. The Knowledge Graph is synchronized via `sync-mem`.
+## 4. Quality Gates (DoD)
+A task is **DONE** ONLY when:
+1. **Standards**: **MUST** pass project verification, TDD verified, and Coverage >80%.
+2. **Audit**: **MUST** be committed with Git Notes and SHA synchronized in `plan.md`.
+3. **Graph**: Knowledge Graph **MUST** be synchronized via `sync-mem` to reflect track/task status.

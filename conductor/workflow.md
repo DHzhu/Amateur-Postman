@@ -7,9 +7,9 @@
 
 ## 2. Standard Task Workflow
 
-1. **Select & Probe Task:** 
+1. **Select & Research:** 
    - Choose the next available task from `plan.md`.
-   - **Architectural Mapping:** For complex features, manually map the impacted architecture in the Knowledge Graph before coding (see `.agent/AGENT.md` section 2). Use prefix `Component:`, `Service:`, or `LogicFlow:`.
+   - Use `grep_search` and `read_file` to understand the codebase structure and dependencies.
 
 2. **Mark In Progress:** Edit `plan.md` (change `[ ]` to `[~]`).
 
@@ -22,18 +22,26 @@
 5. **Refactor (Optional):** Improve quality without changing behavior.
 
 6. **Verify Coverage & Security:** 
-   - Target: **>80% coverage** for new code.
-   - Run: `./gradlew koverHtmlReport`.
+   - Target: **Coverage >80%** for new code.
+   - Command: `./gradlew koverHtmlReport`.
 
 7. **Code Commit (Skill-based):**
-   - **Batching**: Support grouping 2-3 logical sub-tasks.
+   - **Trigger**: Agent **MUST** trigger this step when a **logical milestone** is reached (e.g., a Service layer verified) OR a maximum of **3 sub-tasks** are completed but not yet committed.
    - **Action**: Invoke `activate_skill("git-commit")`.
 
 8. **Update Plan & Sync:**
    - **Action**: Invoke `activate_skill("sync-mem")`.
 
-## 3. Checkpointing Protocol
-Follow Tiered Verification (Milestone vs. Iterative) as defined in `.agent/AGENT.md`.
+## 3. Track Completion & Archiving
+
+9. **Track Archive (Required):**
+   - **Trigger**: All tasks in `plan.md` are marked as `[x]`.
+   - **Actions**:
+     1. **Validation**: Run `./gradlew build` to ensure project-wide integrity.
+     2. **Registry**: Move track entry from `Active` to `Archive` in `conductor/tracks.md`.
+     3. **Relocate**: Move track folder from `conductor/tracks/` to `conductor/archive/`.
+     4. **Cleanup Commit**: One final `git commit -m "chore(archiving): 归档已完成的任务轨道 <track_id>"` (Strict single-line).
+     5. **Final Sync**: Run `activate_skill("sync-mem")` to prune session memory and finalize the track status.
 
 ## 4. Quality Gates
 - [ ] Tests pass
