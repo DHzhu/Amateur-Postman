@@ -51,6 +51,7 @@ object VariableResolver {
             headers = substitutedHeaders,
             body = substitutedBody
         )
+        // Note: authentication is preserved through copy() as it's not modified
     }
 
     /**

@@ -2,6 +2,7 @@ package com.github.dhzhu.amateurpostman.models
 
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import java.util.Base64
 
 /** Unit tests for HTTP Models */
 class HttpModelsTest {
@@ -292,5 +293,258 @@ class HttpModelsTest {
 
         val nonEmptyBody = HttpBody.of("""{"key": "value"}""", BodyType.JSON)
         assertFalse(nonEmptyBody.isEmpty)
+    }
+
+    // ============================================================
+    // Authentication Model Tests
+    // ============================================================
+
+    @Test
+    fun testNoAuthToHeaders() {
+        val auth = NoAuth
+        assertTrue(auth.toHeaders().isEmpty())
+    }
+
+    @Test
+    fun testBasicAuthToHeaders() {
+        val auth = BasicAuth(username = "user", password = "pass")
+        val headers = auth.toHeaders()
+
+        assertEquals(1, headers.size)
+        assertTrue(headers.containsKey("Authorization"))
+        assertTrue(headers["Authorization"]!!.startsWith("Basic "))
+
+        // Verify the Base64 encoded credentials
+        val encodedCredentials = headers["Authorization"]!!.removePrefix("Basic ")
+        val decoded = String(Base64.getDecoder().decode(encodedCredentials))
+        assertEquals("user:pass", decoded)
+    }
+
+    @Test
+    fun testBasicAuthWithSpecialCharacters() {
+        val auth = BasicAuth(username = "user@domain", password = "p@ss:word")
+        val headers = auth.toHeaders()
+
+        val encodedCredentials = headers["Authorization"]!!.removePrefix("Basic ")
+        val decoded = String(Base64.getDecoder().decode(encodedCredentials))
+        assertEquals("user@domain:p@ss:word", decoded)
+    }
+
+    @Test
+    fun testBearerTokenToHeaders() {
+        val token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test"
+        val auth = BearerToken(token)
+        val headers = auth.toHeaders()
+
+        assertEquals(1, headers.size)
+        assertEquals("Bearer $token", headers["Authorization"])
+    }
+
+    @Test
+    fun testApiKeyAuthToHeaders() {
+        val auth = ApiKeyAuth(key = "X-API-Key", value = "abc123")
+        val headers = auth.toHeaders()
+
+        assertEquals(1, headers.size)
+        assertEquals("abc123", headers["X-API-Key"])
+    }
+
+    @Test
+    fun testApiKeyAuthQueryParams() {
+        val auth = ApiKeyAuth(
+            key = "api_key",
+            value = "abc123",
+            addTo = ApiKeyAuth.ApiKeyLocation.QUERY
+        )
+        val headers = auth.toHeaders()
+
+        // Query params are not added to headers
+        assertTrue(headers.isEmpty())
+    }
+
+    @Test
+    fun testOAuth2TokenNotExpired() {
+        val token = OAuth2Token(
+            accessToken = "test-token",
+            expiresIn = 3600 // 1 hour
+        )
+        assertFalse(token.isExpired())
+    }
+
+    @Test
+    fun testOAuth2TokenExpired() {
+        val token = OAuth2Token(
+            accessToken = "test-token",
+            expiresIn = 0,
+            createdAt = 0 // Very old
+        )
+        assertTrue(token.isExpired())
+    }
+
+    @Test
+    fun testOAuth2TokenCanRefresh() {
+        val tokenWithRefresh = OAuth2Token(
+            accessToken = "test-token",
+            refreshToken = "refresh-token"
+        )
+        assertTrue(tokenWithRefresh.canRefresh())
+
+        val tokenWithoutRefresh = OAuth2Token(
+            accessToken = "test-token"
+        )
+        assertFalse(tokenWithoutRefresh.canRefresh())
+    }
+
+    @Test
+    fun testOAuth2AuthWithValidToken() {
+        val token = OAuth2Token(
+            accessToken = "test-access-token",
+            tokenType = "Bearer",
+            expiresIn = 3600
+        )
+        val auth = OAuth2Auth(
+            config = OAuth2Config(
+                grantType = OAuth2GrantType.CLIENT_CREDENTIALS,
+                tokenUrl = "https://auth.example.com/token",
+                clientId = "test-client"
+            ),
+            token = token
+        )
+        val headers = auth.toHeaders()
+
+        assertEquals(1, headers.size)
+        assertEquals("Bearer test-access-token", headers["Authorization"])
+    }
+
+    @Test
+    fun testOAuth2AuthWithExpiredToken() {
+        val token = OAuth2Token(
+            accessToken = "test-access-token",
+            expiresIn = 0,
+            createdAt = 0
+        )
+        val auth = OAuth2Auth(
+            config = OAuth2Config(
+                grantType = OAuth2GrantType.CLIENT_CREDENTIALS,
+                tokenUrl = "https://auth.example.com/token",
+                clientId = "test-client"
+            ),
+            token = token
+        )
+        val headers = auth.toHeaders()
+
+        // Expired token should not produce headers
+        assertTrue(headers.isEmpty())
+    }
+
+    @Test
+    fun testOAuth2AuthWithNullToken() {
+        val auth = OAuth2Auth(
+            config = OAuth2Config(
+                grantType = OAuth2GrantType.CLIENT_CREDENTIALS,
+                tokenUrl = "https://auth.example.com/token",
+                clientId = "test-client"
+            ),
+            token = null
+        )
+        val headers = auth.toHeaders()
+
+        assertTrue(headers.isEmpty())
+    }
+
+    @Test
+    fun testOAuth2ConfigCreation() {
+        val config = OAuth2Config(
+            grantType = OAuth2GrantType.AUTHORIZATION_CODE,
+            authUrl = "https://auth.example.com/authorize",
+            tokenUrl = "https://auth.example.com/token",
+            clientId = "test-client",
+            clientSecret = "test-secret",
+            scope = "read write",
+            redirectUri = "http://localhost:8080/callback"
+        )
+
+        assertEquals(OAuth2GrantType.AUTHORIZATION_CODE, config.grantType)
+        assertEquals("https://auth.example.com/authorize", config.authUrl)
+        assertEquals("https://auth.example.com/token", config.tokenUrl)
+        assertEquals("test-client", config.clientId)
+        assertEquals("test-secret", config.clientSecret)
+        assertEquals("read write", config.scope)
+        assertEquals("http://localhost:8080/callback", config.redirectUri)
+    }
+
+    @Test
+    fun testOAuth2GrantTypes() {
+        assertEquals("Authorization Code", OAuth2GrantType.AUTHORIZATION_CODE.displayName)
+        assertEquals("Client Credentials", OAuth2GrantType.CLIENT_CREDENTIALS.displayName)
+        assertEquals("Password", OAuth2GrantType.PASSWORD.displayName)
+        assertEquals("Implicit", OAuth2GrantType.IMPLICIT.displayName)
+    }
+
+    @Test
+    fun testHttpRequestWithBasicAuth() {
+        val request = HttpRequest(
+            url = "https://api.example.com/users",
+            method = HttpMethod.GET,
+            authentication = BasicAuth("user", "pass")
+        )
+
+        assertNotNull(request.authentication)
+        assertTrue(request.authentication is BasicAuth)
+
+        val effectiveHeaders = request.getEffectiveHeaders()
+        assertTrue(effectiveHeaders.containsKey("Authorization"))
+        assertTrue(effectiveHeaders["Authorization"]!!.startsWith("Basic "))
+    }
+
+    @Test
+    fun testHttpRequestWithBearerToken() {
+        val request = HttpRequest(
+            url = "https://api.example.com/users",
+            method = HttpMethod.GET,
+            authentication = BearerToken("my-token")
+        )
+
+        val effectiveHeaders = request.getEffectiveHeaders()
+        assertEquals("Bearer my-token", effectiveHeaders["Authorization"])
+    }
+
+    @Test
+    fun testHttpRequestEffectiveHeadersMergesAuth() {
+        val request = HttpRequest(
+            url = "https://api.example.com/users",
+            method = HttpMethod.GET,
+            headers = mapOf("Content-Type" to "application/json"),
+            authentication = BearerToken("my-token")
+        )
+
+        val effectiveHeaders = request.getEffectiveHeaders()
+        assertEquals("application/json", effectiveHeaders["Content-Type"])
+        assertEquals("Bearer my-token", effectiveHeaders["Authorization"])
+        assertEquals(2, effectiveHeaders.size)
+    }
+
+    @Test
+    fun testHttpRequestAuthOverridesExistingHeader() {
+        val request = HttpRequest(
+            url = "https://api.example.com/users",
+            method = HttpMethod.GET,
+            headers = mapOf("Authorization" to "Basic old-credentials"),
+            authentication = BearerToken("new-token")
+        )
+
+        val effectiveHeaders = request.getEffectiveHeaders()
+        assertEquals("Bearer new-token", effectiveHeaders["Authorization"])
+    }
+
+    @Test
+    fun testHttpRequestWithoutAuth() {
+        val request = HttpRequest(
+            url = "https://api.example.com/users",
+            method = HttpMethod.GET
+        )
+
+        assertNull(request.authentication)
+        assertEquals(emptyMap<String, String>(), request.getEffectiveHeaders())
     }
 }

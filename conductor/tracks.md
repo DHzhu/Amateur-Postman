@@ -4,7 +4,9 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## Active Tracks
 
-(Currently none)
+- [ ] **Track: Authentication Framework & OAuth 2.0 Support** [IN PROGRESS]
+  *Link: [./tracks/auth_framework_oauth2_20260312/](./tracks/auth_framework_oauth2_20260312/)*
+  *Description: 引入统一的 HTTP 请求认证框架，实现 OAuth 2.0 各类授权流程（授权码、客户端凭据等）及令牌自动刷新机制。*
 
 ## Next Up
 (Currently none)
