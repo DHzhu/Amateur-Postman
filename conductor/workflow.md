@@ -43,13 +43,14 @@
    - **Trigger**: All tasks in `plan.md` are marked as `[x]`.
    - **Actions**:
      1. **Validation**: Run `./gradlew build` to ensure project-wide integrity.
-     2. **Metadata Update**: Update `metadata.json` in the track folder:
+     2. **Documentation**: Update **`CHANGELOG.md`** with the significant changes from this track, following the [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
+     3. **Metadata Update**: Update `metadata.json` in the track folder:
         - Set `"status": "done"`.
         - Ensure fields follow the **Standard Metadata Template** (see below).
         - Update `id` to include the date suffix (e.g., `track_id_YYYYMMDD`).
-     3. **Registry**: Move track entry from `Active` to `Archive` in `conductor/tracks.md`.
-     4. **Relocate**: Move track folder from `conductor/tracks/` to `conductor/archive/`.
-     5. **Cleanup Commit**: One final `git commit -m "chore(archiving): 归档已完成的任务轨道 <track_id>"` (Strict single-line).
+     4. **Registry**: Move track entry from `Active` to `Archive` in `conductor/tracks.md`.
+     5. **Relocate**: Move track folder from `conductor/tracks/` to `conductor/archive/`.
+     6. **Cleanup Commit**: One final `git commit -m "chore(archiving): 归档已完成的任务轨道 <track_id>"` (Strict single-line).
 
 ### Standard Metadata Template
 ```json
