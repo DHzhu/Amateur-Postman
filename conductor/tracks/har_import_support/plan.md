@@ -18,4 +18,4 @@
 ## Phase 4: Validation & Cleanup (Validate)
 - [x] 4.1 验证复杂 Body 类型（Multipart, URL-encoded）的解析准确性 (c92540b)
 - [x] 4.2 执行全量测试用例，确保无回归 (c92540b)
-- [~] 4.3 更新 README.md 特性说明
+- [x] 4.3 更新 README.md 特性说明 (fe86a5c)
