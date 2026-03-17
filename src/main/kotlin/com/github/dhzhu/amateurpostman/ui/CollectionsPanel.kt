@@ -4,6 +4,7 @@ import com.github.dhzhu.amateurpostman.models.*
 import com.github.dhzhu.amateurpostman.services.CollectionChangeListener
 import com.github.dhzhu.amateurpostman.services.CollectionService
 import com.github.dhzhu.amateurpostman.services.MockServerManager
+import com.github.dhzhu.amateurpostman.utils.OpenApiExporter
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
@@ -115,9 +116,9 @@ class CollectionsPanel(
         importButton.addActionListener { importCollection() }
         buttonPanel.add(importButton)
 
-        // Export button
+        // Export button (offers Postman JSON or OpenAPI)
         val exportButton = JButton("Export")
-        exportButton.addActionListener { exportCollection() }
+        exportButton.addActionListener { chooseExportFormat() }
         buttonPanel.add(exportButton)
 
         toolbar.add(buttonPanel, BorderLayout.EAST)
@@ -201,6 +202,8 @@ class CollectionsPanel(
                 menu.addSeparator()
                 menu.add(MenuItem("Rename") { renameCollection(node.collection) })
                 menu.add(MenuItem("Delete") { deleteCollection(node.collection.id) })
+                menu.addSeparator()
+                menu.add(MenuItem("Export as OpenAPI") { exportCollectionAsOpenApi(node.collection) })
             }
             is FolderNode -> {
                 menu.add(MenuItem("New Folder") { createNewFolder(node.collectionId, node.folder.id) })
@@ -635,6 +638,82 @@ class CollectionsPanel(
                     )
                 }
             }
+        }
+    }
+
+    private fun chooseExportFormat() {
+        val options = arrayOf("Postman Collection (JSON)", "OpenAPI 3.0 (YAML/JSON)", "Cancel")
+        val choice = Messages.showChooseDialog(
+            project,
+            "Select export format:",
+            "Export Collection",
+            null,
+            options,
+            options[0]
+        )
+        when (choice) {
+            0 -> exportCollection()
+            1 -> exportCollectionAsOpenApiWithPicker()
+        }
+    }
+
+    private fun exportCollectionAsOpenApiWithPicker() {
+        val collections = collectionService.getCollections()
+        if (collections.isEmpty()) {
+            Messages.showWarningDialog(project, "No collections to export.", "Export Warning")
+            return
+        }
+        val collectionNames = collections.map { it.name }.toTypedArray()
+        val selectedIndex = Messages.showChooseDialog(
+            project,
+            "Select collection to export:",
+            "Export as OpenAPI",
+            null,
+            collectionNames,
+            collectionNames.firstOrNull()
+        )
+        if (selectedIndex < 0) return
+        exportCollectionAsOpenApi(collections[selectedIndex])
+    }
+
+    private fun exportCollectionAsOpenApi(collection: RequestCollection) {
+        val dialog = OpenApiExportDialog(project, collection.name)
+        if (!dialog.showAndGet()) return
+        val format = dialog.getSelectedFormat()
+
+        val fileChooser = javax.swing.JFileChooser()
+        fileChooser.dialogTitle = "Export OpenAPI Document"
+        fileChooser.selectedFile = java.io.File("${collection.name}.${format.extension}")
+        fileChooser.fileFilter = javax.swing.filechooser.FileNameExtensionFilter(
+            "OpenAPI ${format.displayName} (*.${format.extension})", format.extension
+        )
+
+        if (fileChooser.showSaveDialog(this) != javax.swing.JFileChooser.APPROVE_OPTION) return
+
+        val file = fileChooser.selectedFile.let { chosen ->
+            // Ensure correct extension
+            if (chosen.name.endsWith(".${format.extension}")) chosen
+            else java.io.File(chosen.absolutePath + ".${format.extension}")
+        }
+
+        val result = OpenApiExporter.exportToFile(collection, file, format)
+
+        if (!result.isSuccess) {
+            Messages.showErrorDialog(project, "Export failed: ${result.error}", "Export Error")
+            return
+        }
+        if (result.warnings.isNotEmpty()) {
+            Messages.showWarningDialog(
+                project,
+                "Exported with ${result.warnings.size} warning(s):\n\n${result.warnings.joinToString("\n")}",
+                "Export Warnings"
+            )
+        } else {
+            Messages.showInfoMessage(
+                project,
+                "Collection '${collection.name}' exported successfully to:\n${file.absolutePath}",
+                "Export Success"
+            )
         }
     }
 
