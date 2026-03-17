@@ -17,6 +17,6 @@
 - [x] 3.3 实现文件保存对话框集成 (95a324f)
 
 ## Phase 4: Validation & Cleanup (Validate)
-- [ ] 4.1 验证导出的文档在外部工具（如 Swagger Editor）中的兼容性
-- [ ] 4.2 执行全量测试用例
-- [ ] 4.3 更新 README.md 及文档
+- [~] 4.1 验证导出的文档在外部工具（如 Swagger Editor）中的兼容性
+- [~] 4.2 执行全量测试用例
+- [~] 4.3 更新 README.md 及文档

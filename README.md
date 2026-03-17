@@ -22,7 +22,8 @@
 - 📋 **OpenAPI 集成**: 支持 OpenAPI 3.x/Swagger 2.0 规范导入，自动生成请求集合，支持增量同步。
 - 🔗 **IDE 代码联动**: Spring Boot / JAX-RS 控制器方法旁显示 Gutter Icon，一键跳转发起请求。
 - 📂 **HAR 文件导入**: 支持从 Chrome DevTools、Firefox、Fiddler 等工具导出的 `.har` 文件导入 HTTP 请求，自动按 Host 分组、过滤静态资源，并提供树形 Checkbox 预览界面进行选择性导入。
-- ✅ **稳健性保障**: 拥有 **400+** 核心单元测试（基于 JUnit 5），确保在高性能场景下的稳定性。
+- 📄 **OpenAPI 3.0 导出**: 支持将集合导出为标准 OpenAPI 3.0.3 规范（YAML 或 JSON），文件夹层级自动映射为 Tags，`{{变量}}` 自动转换为路径参数，可从右键菜单或工具栏触发。
+- ✅ **稳健性保障**: 拥有 **420+** 核心单元测试（基于 JUnit 5），确保在高性能场景下的稳定性。
 
 ## 📸 快速上手
 
@@ -45,7 +46,7 @@
 - [x] **Phase 9: OpenAPI 深度集成** (Completed)
 - [x] **Phase 10: 认证框架与 OAuth 2.0** (Completed)
 - [x] **Phase 11: HAR 文件导入** (Completed)
-- [ ] **Phase 12: API 文档导出 (OpenAPI)** (Upcoming)
+- [x] **Phase 12: API 文档导出 (OpenAPI 3.0)** (Completed)
 
 ## 🤝 参与贡献
 
