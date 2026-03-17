@@ -21,7 +21,8 @@
 - 🌐 **WebSocket & gRPC Streaming**: 支持 WebSocket 长连接调试和 gRPC Server/Client/Bi-Di 流式调用。
 - 📋 **OpenAPI 集成**: 支持 OpenAPI 3.x/Swagger 2.0 规范导入，自动生成请求集合，支持增量同步。
 - 🔗 **IDE 代码联动**: Spring Boot / JAX-RS 控制器方法旁显示 Gutter Icon，一键跳转发起请求。
-- ✅ **稳健性保障**: 拥有 **384+** 核心单元测试（基于 JUnit 5），确保在高性能场景下的稳定性。
+- 📂 **HAR 文件导入**: 支持从 Chrome DevTools、Firefox、Fiddler 等工具导出的 `.har` 文件导入 HTTP 请求，自动按 Host 分组、过滤静态资源，并提供树形 Checkbox 预览界面进行选择性导入。
+- ✅ **稳健性保障**: 拥有 **400+** 核心单元测试（基于 JUnit 5），确保在高性能场景下的稳定性。
 
 ## 📸 快速上手
 
@@ -42,7 +43,9 @@
 - [x] **Phase 7: 协议扩展 — gRPC Unary Call** (Completed)
 - [x] **Phase 8: 协议扩展 — WebSocket & gRPC Streaming** (Completed)
 - [x] **Phase 9: OpenAPI 深度集成** (Completed)
-- [ ] **Phase 10: 企业级测试与生态** — OAuth 2.0、HAR 导入、API 文档导出 (Upcoming)
+- [x] **Phase 10: 认证框架与 OAuth 2.0** (Completed)
+- [x] **Phase 11: HAR 文件导入** (Completed)
+- [ ] **Phase 12: API 文档导出 (OpenAPI)** (Upcoming)
 
 ## 🤝 参与贡献
 
