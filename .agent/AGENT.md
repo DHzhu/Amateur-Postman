@@ -10,7 +10,7 @@
 - **Integrity**: All progress **MUST** be tracked in `plan.md`. Agent **MUST STOP** and wait for Directive after Track initialization.
 
 ## 3. Governance & Workflow
-- **Lifecycle**: Agent **MUST** use `sync-mem` for state sync. Follow `workflow.md` for tasks.
+- **Lifecycle**: Agent **MUST** follow `workflow.md` for all tasks. All progress and state tracking **MUST** be maintained in physical files (`tracks.md`, `plan.md`, `metadata.json`).
 - **Prep**: Perform "pre-flight" check (read_file/grep_search) before any modifications.
 - **Commits**: Code changes **MUST** use `activate_skill("git-commit")`. Format **MUST** be: `<type>(<scope>): <Chinese description>`. Body text, `Co-Authored-By`, or feature lists are **STRICTLY FORBIDDEN**.
 
@@ -18,4 +18,4 @@
 A task is **DONE** ONLY when:
 1. **Standards**: **MUST** pass project verification, TDD verified, and Coverage >80%.
 2. **Audit**: **MUST** be committed with Git Notes and SHA synchronized in `plan.md`.
-3. **Graph**: Knowledge Graph **MUST** be synchronized via `sync-mem` to reflect track/task status.
+3. **Integrity**: Physical files (`tracks.md` and `plan.md`) must accurately reflect the final state of the track and its tasks.

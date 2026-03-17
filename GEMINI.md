@@ -10,7 +10,7 @@
 
 ### 3. Project-Specific Protocol
 - **Conductor**: When a `conductor/` directory is present, follow the workflow defined in `.agent/AGENT.md` and `conductor/workflow.md`.
-- **Execution**: Strictly enforce `sync-mem` and `git-commit` skills as specified in the Master Rulebook.
+- **Execution**: Strictly enforce the `git-commit` skill as specified in the Master Rulebook. All state tracking must be managed via physical files.
 
 ### 4. Safety First
 - **Pre-flight Check**: Always perform a `read_file` or a high-context `grep_search` before modification.
