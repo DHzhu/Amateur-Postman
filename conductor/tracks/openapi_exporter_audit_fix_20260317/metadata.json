@@ -1,0 +1,9 @@
+{
+  "id": "openapi_exporter_audit_fix_20260317",
+  "title": "OpenAPI Exporter Audit & Fix",
+  "description": "修复 OpenAPI 导出功能的技术偏差（自定义 POJO vs swagger-models）与功能缺失（缺失 Headers 导出、未实现敏感头过滤）。",
+  "status": "planned",
+  "created_at": "2026-03-17",
+  "priority": "high",
+  "tags": ["bugfix", "feature", "openapi", "audit"]
+}
