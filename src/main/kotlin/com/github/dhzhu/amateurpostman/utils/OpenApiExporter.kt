@@ -1,17 +1,34 @@
 package com.github.dhzhu.amateurpostman.utils
 
 import com.github.dhzhu.amateurpostman.models.*
-import com.google.gson.GsonBuilder
-import com.google.gson.annotations.SerializedName
-import org.yaml.snakeyaml.DumperOptions
-import org.yaml.snakeyaml.Yaml
+import com.github.dhzhu.amateurpostman.services.RequestHistoryService
+import io.swagger.v3.core.util.Json
+import io.swagger.v3.core.util.Yaml
+import io.swagger.v3.oas.models.OpenAPI
+import io.swagger.v3.oas.models.Operation
+import io.swagger.v3.oas.models.PathItem
+import io.swagger.v3.oas.models.Paths
+import io.swagger.v3.oas.models.info.Info
+import io.swagger.v3.oas.models.media.ArraySchema
+import io.swagger.v3.oas.models.media.Content
+import io.swagger.v3.oas.models.media.MediaType
+import io.swagger.v3.oas.models.media.Schema
+import io.swagger.v3.oas.models.parameters.HeaderParameter
+import io.swagger.v3.oas.models.parameters.Parameter
+import io.swagger.v3.oas.models.parameters.PathParameter
+import io.swagger.v3.oas.models.parameters.QueryParameter
+import io.swagger.v3.oas.models.parameters.RequestBody
+import io.swagger.v3.oas.models.responses.ApiResponse
+import io.swagger.v3.oas.models.responses.ApiResponses
+import io.swagger.v3.oas.models.tags.Tag
 import java.io.File
 import java.net.URI
 
 /**
  * Exporter for OpenAPI 3.0.3 format.
  *
- * Converts internal collections to OpenAPI 3.0.3 YAML or JSON format.
+ * Converts internal collections to OpenAPI 3.0.3 YAML or JSON format using
+ * the official swagger-models library for standards compliance.
  * Mapping rules:
  * - Collection name  → info.title
  * - Collection desc  → info.description
@@ -19,6 +36,7 @@ import java.net.URI
  * - Top-level reqs   → tagged with the collection name
  * - {{variable}}     → {variable} path parameters
  * - Same path + diff method → merged PathItem
+ * - Request headers  → HeaderParameter (sensitive ones filtered by default)
  */
 object OpenApiExporter {
 
@@ -42,26 +60,22 @@ object OpenApiExporter {
         val isSuccess: Boolean get() = content != null
     }
 
-    private val gson = GsonBuilder().setPrettyPrinting().create()
-
-    private val yaml: Yaml by lazy {
-        val options = DumperOptions().apply {
-            defaultFlowStyle = DumperOptions.FlowStyle.BLOCK
-            indent = 2
-            isPrettyFlow = true
-        }
-        Yaml(options)
-    }
+    private val SENSITIVE_HEADERS = setOf("authorization", "cookie", "set-cookie")
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-    fun exportCollection(collection: RequestCollection, format: ExportFormat): ExportResult {
+    fun exportCollection(
+        collection: RequestCollection,
+        format: ExportFormat,
+        includeSensitiveHeaders: Boolean = false,
+        historyService: RequestHistoryService? = null
+    ): ExportResult {
         val warnings = mutableListOf<String>()
         return try {
-            val doc = buildOpenApiDoc(collection, warnings)
+            val doc = buildOpenApiDoc(collection, warnings, includeSensitiveHeaders, historyService)
             val content = when (format) {
-                ExportFormat.JSON -> serializeToJson(doc)
-                ExportFormat.YAML -> serializeToYaml(doc)
+                ExportFormat.JSON -> Json.pretty(doc)
+                ExportFormat.YAML -> Yaml.pretty(doc)
             }
             ExportResult.success(content, warnings)
         } catch (e: Exception) {
@@ -69,8 +83,14 @@ object OpenApiExporter {
         }
     }
 
-    fun exportToFile(collection: RequestCollection, file: File, format: ExportFormat): ExportResult {
-        val result = exportCollection(collection, format)
+    fun exportToFile(
+        collection: RequestCollection,
+        file: File,
+        format: ExportFormat,
+        includeSensitiveHeaders: Boolean = false,
+        historyService: RequestHistoryService? = null
+    ): ExportResult {
+        val result = exportCollection(collection, format, includeSensitiveHeaders, historyService)
         if (!result.isSuccess) return result
         return try {
             file.writeText(result.content ?: "")
@@ -82,40 +102,55 @@ object OpenApiExporter {
 
     // ── Build ─────────────────────────────────────────────────────────────────
 
-    private fun buildOpenApiDoc(collection: RequestCollection, warnings: MutableList<String>): OpenApiDoc {
-        // paths: url-path → (method → Operation)
-        val paths = linkedMapOf<String, MutableMap<String, Operation>>()
+    private fun buildOpenApiDoc(
+        collection: RequestCollection,
+        warnings: MutableList<String>,
+        includeSensitiveHeaders: Boolean,
+        historyService: RequestHistoryService?
+    ): OpenAPI {
+        val paths = Paths()
         val tags = linkedSetOf<String>()
         val usedOperationIds = mutableSetOf<String>()
 
         collection.items.forEach { item ->
-            processItem(item, "", collection.name, paths, tags, warnings, usedOperationIds)
+            processItem(
+                item, "", collection.name, paths, tags,
+                warnings, usedOperationIds, includeSensitiveHeaders, historyService
+            )
         }
 
-        return OpenApiDoc(
-            info = Info(
-                title = collection.name,
-                description = collection.description.ifEmpty { null }
-            ),
-            tags = if (tags.isEmpty()) null else tags.map { TagObject(name = it) },
-            paths = if (paths.isEmpty()) null else paths
-        )
+        val openAPI = OpenAPI()
+        openAPI.openapi = "3.0.3"
+        openAPI.info = Info()
+            .title(collection.name)
+            .description(collection.description.ifEmpty { null })
+            .version("1.0.0")
+
+        if (tags.isNotEmpty()) openAPI.tags = tags.map { Tag().name(it) }
+        if (paths.isNotEmpty()) openAPI.paths = paths
+
+        return openAPI
     }
 
     private fun processItem(
         item: CollectionItem,
         tagPath: String,
         defaultTag: String,
-        paths: MutableMap<String, MutableMap<String, Operation>>,
+        paths: Paths,
         tags: MutableSet<String>,
         warnings: MutableList<String>,
-        usedOperationIds: MutableSet<String>
+        usedOperationIds: MutableSet<String>,
+        includeSensitiveHeaders: Boolean,
+        historyService: RequestHistoryService?
     ) {
         when (item) {
             is CollectionItem.Folder -> {
                 val newTagPath = if (tagPath.isEmpty()) item.name else "$tagPath/${item.name}"
                 item.children.forEach { child ->
-                    processItem(child, newTagPath, defaultTag, paths, tags, warnings, usedOperationIds)
+                    processItem(
+                        child, newTagPath, defaultTag, paths, tags,
+                        warnings, usedOperationIds, includeSensitiveHeaders, historyService
+                    )
                 }
             }
             is CollectionItem.Request -> {
@@ -123,16 +158,21 @@ object OpenApiExporter {
                 tags.add(tag)
 
                 val openApiPath = extractOpenApiPath(item.request.url)
-                val method = item.request.method.name.lowercase()
+                val httpMethod = PathItem.HttpMethod.valueOf(item.request.method.name)
 
-                val existingEntry = paths[openApiPath]
-                if (existingEntry != null && existingEntry.containsKey(method)) {
-                    warnings.add("Duplicate $method $openApiPath — skipping '${item.name}'")
+                val existingPathItem = paths[openApiPath]
+                if (existingPathItem?.readOperationsMap()?.containsKey(httpMethod) == true) {
+                    warnings.add("Duplicate ${item.request.method.name} $openApiPath — skipping '${item.name}'")
                     return
                 }
 
-                val operation = buildOperation(item, tag, openApiPath, warnings, usedOperationIds)
-                paths.getOrPut(openApiPath) { linkedMapOf() }[method] = operation
+                val operation = buildOperation(
+                    item, tag, openApiPath, warnings, usedOperationIds,
+                    includeSensitiveHeaders, historyService
+                )
+                val pathItem = existingPathItem ?: PathItem()
+                pathItem.operation(httpMethod, operation)
+                paths.addPathItem(openApiPath, pathItem)
             }
         }
     }
@@ -142,12 +182,15 @@ object OpenApiExporter {
         tag: String,
         openApiPath: String,
         warnings: MutableList<String>,
-        usedOperationIds: MutableSet<String>
+        usedOperationIds: MutableSet<String>,
+        includeSensitiveHeaders: Boolean,
+        historyService: RequestHistoryService?
     ): Operation {
         val request = item.request
-        val pathParams = extractPathParams(openApiPath)
-        val queryParams = extractQueryParams(request.url)
-        val parameters = (pathParams + queryParams).ifEmpty { null }
+        val parameters = mutableListOf<Parameter>()
+        parameters.addAll(extractPathParams(openApiPath))
+        parameters.addAll(extractQueryParams(request.url))
+        parameters.addAll(extractHeaderParams(request.headers, includeSensitiveHeaders))
 
         val requestBody = if (request.method == HttpMethod.GET || request.method == HttpMethod.HEAD) {
             null
@@ -160,70 +203,120 @@ object OpenApiExporter {
             usedOperationIds
         )
 
-        return Operation(
-            summary = item.name,
-            operationId = operationId,
-            tags = listOf(tag),
-            parameters = parameters,
-            requestBody = requestBody,
-            responses = linkedMapOf("200" to mapOf("description" to "OK"))
-        )
+        val responses = buildResponses(item, historyService)
+
+        val operation = Operation()
+            .summary(item.name)
+            .operationId(operationId)
+            .addTagsItem(tag)
+            .responses(responses)
+
+        if (parameters.isNotEmpty()) operation.parameters = parameters
+        if (requestBody != null) operation.requestBody = requestBody
+
+        return operation
     }
+
+    // ── Header helpers ────────────────────────────────────────────────────────
+
+    private fun extractHeaderParams(
+        headers: Map<String, String>,
+        includeSensitive: Boolean
+    ): List<Parameter> = headers.mapNotNull { (name, _) ->
+        if (!includeSensitive && name.lowercase() in SENSITIVE_HEADERS) return@mapNotNull null
+        HeaderParameter()
+            .name(name)
+            .required(false)
+            .schema(Schema<String>().type("string"))
+    }
+
+    // ── Response helpers ──────────────────────────────────────────────────────
+
+    private fun buildResponses(
+        item: CollectionItem.Request,
+        historyService: RequestHistoryService?
+    ): ApiResponses {
+        val responses = ApiResponses()
+
+        if (historyService != null) {
+            val matchingResponse = historyService.getHistory().firstOrNull { entry ->
+                entry.request.url == item.request.url &&
+                    entry.request.method == item.request.method &&
+                    entry.response?.isSuccessful == true
+            }?.response
+
+            if (matchingResponse != null) {
+                val statusCode = matchingResponse.statusCode.toString()
+                val description = matchingResponse.statusMessage.ifEmpty { "OK" }
+                val apiResponse = ApiResponse().description(description)
+                val schema = JsonToSchemaConverter.convert(matchingResponse.body)
+                if (schema != null) {
+                    val content = Content()
+                    content.addMediaType("application/json", MediaType().schema(schema))
+                    apiResponse.content = content
+                }
+                responses.addApiResponse(statusCode, apiResponse)
+                return responses
+            }
+        }
+
+        responses.addApiResponse("200", ApiResponse().description("OK"))
+        return responses
+    }
+
+    // ── Request body helpers ──────────────────────────────────────────────────
 
     private fun buildRequestBody(body: HttpBody?, warnings: MutableList<String>): RequestBody? {
         if (body == null || body.isEmpty) return null
 
-        val content: Map<String, Any> = when (body.type) {
+        val content = Content()
+        when (body.type) {
             BodyType.FORM_URLENCODED -> {
-                val properties = parseUrlencodedBody(body.content)
-                mapOf("application/x-www-form-urlencoded" to schemaWithProperties(properties))
+                val props = parseUrlencodedBody(body.content)
+                val schema = Schema<Any>().type("object")
+                if (props.isNotEmpty()) schema.properties = props.mapValues { Schema<String>().type("string") }
+                content.addMediaType("application/x-www-form-urlencoded", MediaType().schema(schema))
             }
             BodyType.MULTIPART -> {
-                val properties = buildMultipartProperties(body.multipartData)
-                mapOf("multipart/form-data" to schemaWithProperties(properties))
+                val schema = Schema<Any>().type("object")
+                val props = buildMultipartProperties(body.multipartData)
+                if (props.isNotEmpty()) schema.properties = props
+                content.addMediaType("multipart/form-data", MediaType().schema(schema))
             }
             else -> {
                 val mimeType = body.type.mimeType.ifEmpty { "application/octet-stream" }
-                mapOf(mimeType to mapOf("schema" to mapOf("type" to "object")))
+                content.addMediaType(mimeType, MediaType().schema(Schema<Any>().type("object")))
             }
         }
 
-        return RequestBody(required = true, content = content)
+        return RequestBody().required(true).content(content)
     }
 
-    private fun parseUrlencodedBody(content: String): Map<String, Map<String, String>> {
+    private fun parseUrlencodedBody(content: String): Map<String, String> {
         if (content.isBlank()) return emptyMap()
         return content.split('&').mapNotNull { part ->
             val key = java.net.URLDecoder.decode(
                 part.substringBefore('=').trim(), "UTF-8"
             ).trim()
-            if (key.isEmpty()) null else key to mapOf("type" to "string")
+            if (key.isEmpty()) null else key to "string"
         }.toMap()
     }
 
-    private fun buildMultipartProperties(parts: List<MultipartPart>?): Map<String, Map<String, String>> {
+    private fun buildMultipartProperties(parts: List<MultipartPart>?): Map<String, Schema<*>> {
         if (parts.isNullOrEmpty()) return emptyMap()
         return parts.associate { part ->
             when (part) {
-                is MultipartPart.TextField -> part.key to mapOf("type" to "string")
-                is MultipartPart.FileField -> part.key to mapOf("type" to "string", "format" to "binary")
+                is MultipartPart.TextField -> part.key to Schema<String>().type("string")
+                is MultipartPart.FileField -> part.key to Schema<String>().type("string").format("binary")
             }
         }
-    }
-
-    private fun schemaWithProperties(properties: Map<String, Any>): Map<String, Any> {
-        val schema: MutableMap<String, Any> = linkedMapOf("type" to "object")
-        if (properties.isNotEmpty()) schema["properties"] = properties
-        return mapOf("schema" to schema)
     }
 
     // ── URL helpers ───────────────────────────────────────────────────────────
 
     internal fun extractOpenApiPath(rawUrl: String): String {
-        // Convert {{varName}} → {varName} first
         val stdUrl = rawUrl.replace(Regex("\\{\\{([^}]+)}}"), "{$1}")
         return try {
-            // Temporarily encode braces so URI can parse
             val encoded = stdUrl
                 .replace("{", "%7B")
                 .replace("}", "%7D")
@@ -233,7 +326,6 @@ object OpenApiExporter {
                 .substringBefore("?")
             if (path.isEmpty()) "/" else path
         } catch (e: Exception) {
-            // Fallback manual extraction
             val withoutProto = stdUrl.substringAfter("://", stdUrl)
             val slashIdx = withoutProto.indexOf('/')
             if (slashIdx < 0) "/" else withoutProto.substring(slashIdx).substringBefore("?")
@@ -243,7 +335,12 @@ object OpenApiExporter {
     private fun extractPathParams(openApiPath: String): List<Parameter> =
         Regex("\\{([^}]+)}")
             .findAll(openApiPath)
-            .map { Parameter(name = it.groupValues[1], location = "path", required = true) }
+            .map {
+                PathParameter()
+                    .name(it.groupValues[1])
+                    .required(true)
+                    .schema(Schema<String>().type("string"))
+            }
             .toList()
 
     private fun extractQueryParams(rawUrl: String): List<Parameter> {
@@ -252,7 +349,10 @@ object OpenApiExporter {
         return rawUrl.substring(qIdx + 1).split('&').mapNotNull { part ->
             val name = part.substringBefore('=').trim()
             if (name.isEmpty() || name.startsWith("{{")) null
-            else Parameter(name = name, location = "query", required = false)
+            else QueryParameter()
+                .name(name)
+                .required(false)
+                .schema(Schema<String>().type("string"))
         }
     }
 
@@ -271,52 +371,4 @@ object OpenApiExporter {
             counter++
         }
     }
-
-    // ── Serialization ─────────────────────────────────────────────────────────
-
-    private fun serializeToJson(doc: OpenApiDoc): String = gson.toJson(doc)
-
-    private fun serializeToYaml(doc: OpenApiDoc): String {
-        // Convert via JSON so Gson handles field naming / null exclusion
-        val map = gson.fromJson(gson.toJson(doc), Any::class.java)
-        return yaml.dump(map)
-    }
-
-    // ── Private data classes (OpenAPI 3.0.3 structure) ────────────────────────
-
-    private data class OpenApiDoc(
-        val openapi: String = "3.0.3",
-        val info: Info,
-        val tags: List<TagObject>? = null,
-        val paths: Map<String, Any>? = null
-    )
-
-    private data class Info(
-        val title: String,
-        val description: String? = null,
-        val version: String = "1.0.0"
-    )
-
-    private data class TagObject(val name: String)
-
-    private data class Operation(
-        val summary: String,
-        val operationId: String,
-        val tags: List<String>,
-        val parameters: List<Parameter>? = null,
-        val requestBody: RequestBody? = null,
-        val responses: Map<String, Any>
-    )
-
-    private data class Parameter(
-        val name: String,
-        @SerializedName("in") val location: String,
-        val required: Boolean,
-        val schema: Map<String, String> = mapOf("type" to "string")
-    )
-
-    private data class RequestBody(
-        val required: Boolean,
-        val content: Map<String, Any>
-    )
 }

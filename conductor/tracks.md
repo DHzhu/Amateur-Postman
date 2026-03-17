@@ -4,7 +4,10 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## Active Tracks
 
-(NONE)
+- [ ] **Track: OpenAPI Exporter Audit & Fix** [PLANNED]
+  *Link: [./tracks/openapi_exporter_audit_fix_20260317/](./tracks/openapi_exporter_audit_fix_20260317/)*
+  *Description: 修复 OpenAPI 导出功能的技术偏差与功能缺失（补齐 Headers 导出、敏感头过滤及改用 swagger-models 模型库）。*
+  *Status: Planned*
 
 ## Next Up
 
