@@ -1,0 +1,9 @@
+{
+  "id": "api_doc_export_openapi",
+  "name": "API Documentation Export (OpenAPI)",
+  "description": "支持将 Amateur-Postman 的 Collection 导出为标准 OpenAPI 3.0 规范文档，便于团队共享与协作。",
+  "status": "todo",
+  "created_at": "2026-03-16T14:00:00Z",
+  "category": "feature",
+  "milestone": "Phase 10"
+}

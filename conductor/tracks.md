@@ -4,15 +4,18 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## Active Tracks
 
-- [ ] **Track: API Documentation Export (OpenAPI)** [TODO]
-  *Link: [./tracks/api_doc_export_openapi/](./tracks/api_doc_export_openapi/)*
-  *Description: 支持将 Amateur-Postman 的 Collection 导出为标准 OpenAPI 3.0 规范文档，便于团队共享与协作。*
+(NONE)
 
 ## Next Up
 
 (To be planned)
 
 ## Archive
+
+- [x] **Track: API Documentation Export (OpenAPI)** [DONE]
+  *Link: [./archive/api_doc_export_openapi_20260317/](./archive/api_doc_export_openapi_20260317/)*
+  *Description: 支持将 Amateur-Postman 的 Collection 导出为标准 OpenAPI 3.0 规范文档，支持 YAML/JSON 双格式，文件夹层级映射 Tags，变量转换路径参数。*
+  *Completed: 2026-03-17*
 
 - [x] **Track: HAR (HTTP Archive) Import Support** [DONE]
   *Link: [./archive/har_import_support_20260317/](./archive/har_import_support_20260317/)*
