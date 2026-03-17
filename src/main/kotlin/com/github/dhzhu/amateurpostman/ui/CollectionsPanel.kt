@@ -460,7 +460,7 @@ class CollectionsPanel(
 
     private fun importCollection() {
         // Choose import type
-        val importOptions = arrayOf("Postman Collection", "OpenAPI Specification", "Cancel")
+        val importOptions = arrayOf("Postman Collection", "OpenAPI Specification", "HAR File", "Cancel")
         val importChoice = Messages.showChooseDialog(
             project,
             "Select import format:",
@@ -473,6 +473,48 @@ class CollectionsPanel(
         when (importChoice) {
             0 -> importPostmanCollection()
             1 -> importOpenApiCollection()
+            2 -> importHarCollection()
+        }
+    }
+
+    private fun importHarCollection() {
+        val dialog = HarImportDialog(project)
+        if (!dialog.showAndGet()) return
+
+        val dialogResult = dialog.getDialogResult() ?: return
+        val importResult = com.github.dhzhu.amateurpostman.utils.HarConverter.toCollection(
+            dialogResult.collectionName,
+            dialogResult.selectedEntries
+        )
+
+        if (!importResult.isSuccess) {
+            Messages.showErrorDialog(
+                project,
+                "Failed to import HAR: ${importResult.error}",
+                "Import Error"
+            )
+            return
+        }
+
+        val importedCollection = importResult.collection ?: return
+        val createdCollection = collectionService.createCollection(
+            importedCollection.name,
+            importedCollection.description
+        )
+        importItemsRecursively(createdCollection.id, importedCollection.items)
+
+        if (importResult.warnings.isNotEmpty()) {
+            Messages.showWarningDialog(
+                project,
+                "HAR imported with ${importResult.warnings.size} warning(s):\n\n${importResult.warnings.joinToString("\n")}",
+                "Import Warnings"
+            )
+        } else {
+            Messages.showInfoMessage(
+                project,
+                "HAR '${importedCollection.name}' imported successfully with ${dialogResult.selectedEntries.size} request(s)!",
+                "Import Success"
+            )
         }
     }
 
