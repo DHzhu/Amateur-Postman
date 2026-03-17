@@ -1,9 +1,9 @@
 {
-  "id": "api_doc_export_openapi",
-  "name": "API Documentation Export (OpenAPI)",
-  "description": "支持将 Amateur-Postman 的 Collection 导出为标准 OpenAPI 3.0 规范文档，便于团队共享与协作。",
-  "status": "todo",
-  "created_at": "2026-03-16T14:00:00Z",
-  "category": "feature",
-  "milestone": "Phase 10"
+  "id": "api_doc_export_openapi_20260317",
+  "title": "API Documentation Export (OpenAPI)",
+  "description": "支持将 Amateur-Postman 的 Collection 导出为标准 OpenAPI 3.0 规范文档，支持 YAML/JSON 双格式，文件夹层级映射 Tags，变量转换路径参数。",
+  "status": "done",
+  "created_at": "2026-03-17",
+  "priority": "medium",
+  "tags": ["feature", "openapi", "export"]
 }

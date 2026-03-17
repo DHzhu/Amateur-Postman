@@ -11,6 +11,11 @@
    - Choose the next available task from `plan.md`.
    - Use `grep_search` and `read_file` to understand the codebase structure and dependencies.
 
+1.5 **Research Sync & Plan Alignment (Critical):**
+   - **Direct Sync**: Findings from any **Research Phase** MUST be directly integrated into **`spec.md`** (updating Technical Strategy or Constraints) and **`plan.md`** (refining or adding sub-tasks).
+   - **No Extra Files**: Do NOT create separate `research.md` files unless explicitly requested. The `spec.md` and `plan.md` are the living documentation.
+   - **Confirmation**: For major architectural shifts discovered during research, the Agent MUST stop and inform the user before proceeding to implementation.
+
 2. **Mark In Progress:** Edit `plan.md` (change `[ ]` to `[~]`).
 
 3. **Write Failing Tests (Red Phase):**
@@ -29,8 +34,8 @@
    - **Trigger**: Agent **MUST** trigger this step when a **logical milestone** is reached (e.g., a Service layer verified) OR a maximum of **3 sub-tasks** are completed but not yet committed.
    - **Action**: Invoke `activate_skill("git-commit")`.
 
-8. **Update Plan & Sync:**
-   - **Action**: Invoke `activate_skill("sync-mem")`.
+8. **Finalize Task in Plan:**
+   - **Action**: Ensure `plan.md` reflects the completion of the task with the correct SHA. No graph synchronization is required.
 
 ## 3. Track Completion & Archiving
 
@@ -38,10 +43,26 @@
    - **Trigger**: All tasks in `plan.md` are marked as `[x]`.
    - **Actions**:
      1. **Validation**: Run `./gradlew build` to ensure project-wide integrity.
-     2. **Registry**: Move track entry from `Active` to `Archive` in `conductor/tracks.md`.
-     3. **Relocate**: Move track folder from `conductor/tracks/` to `conductor/archive/`.
-     4. **Cleanup Commit**: One final `git commit -m "chore(archiving): 归档已完成的任务轨道 <track_id>"` (Strict single-line).
-     5. **Final Sync**: Run `activate_skill("sync-mem")` to prune session memory and finalize the track status.
+     2. **Metadata Update**: Update `metadata.json` in the track folder:
+        - Set `"status": "done"`.
+        - Ensure fields follow the **Standard Metadata Template** (see below).
+        - Update `id` to include the date suffix (e.g., `track_id_YYYYMMDD`).
+     3. **Registry**: Move track entry from `Active` to `Archive` in `conductor/tracks.md`.
+     4. **Relocate**: Move track folder from `conductor/tracks/` to `conductor/archive/`.
+     5. **Cleanup Commit**: One final `git commit -m "chore(archiving): 归档已完成的任务轨道 <track_id>"` (Strict single-line).
+
+### Standard Metadata Template
+```json
+{
+  "id": "track_id_YYYYMMDD",
+  "title": "Human-readable Title",
+  "description": "Short description of the track goal.",
+  "status": "done",
+  "created_at": "YYYY-MM-DD",
+  "priority": "high|medium|low",
+  "tags": ["feature", "refactor", "etc"]
+}
+```
 
 ## 4. Quality Gates
 - [ ] Tests pass
