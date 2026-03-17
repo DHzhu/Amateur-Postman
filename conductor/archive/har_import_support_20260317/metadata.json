@@ -1,0 +1,9 @@
+{
+  "id": "har_import_support",
+  "name": "HAR (HTTP Archive) Import Support",
+  "description": "支持从浏览器或其他抓包工具导出的 .har 文件导入 HTTP 请求历史及集合。",
+  "status": "todo",
+  "created_at": "2026-03-16T14:00:00Z",
+  "category": "feature",
+  "milestone": "Phase 10"
+}

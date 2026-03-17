@@ -4,13 +4,20 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## Active Tracks
 
-(NONE)
+- [ ] **Track: API Documentation Export (OpenAPI)** [TODO]
+  *Link: [./tracks/api_doc_export_openapi/](./tracks/api_doc_export_openapi/)*
+  *Description: 支持将 Amateur-Postman 的 Collection 导出为标准 OpenAPI 3.0 规范文档，便于团队共享与协作。*
 
 ## Next Up
 
 (To be planned)
 
 ## Archive
+
+- [x] **Track: HAR (HTTP Archive) Import Support** [DONE]
+  *Link: [./archive/har_import_support_20260317/](./archive/har_import_support_20260317/)*
+  *Description: 支持从浏览器或其他抓包工具导出的 .har 文件导入 HTTP 请求历史及集合。*
+  *Completed: 2026-03-17*
 
 - [x] **Track: Authentication Framework & OAuth 2.0 Support** [DONE]
   *Link: [./archive/auth_framework_oauth2_20260312/](./archive/auth_framework_oauth2_20260312/)*
