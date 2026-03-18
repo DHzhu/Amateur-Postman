@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -21,6 +23,7 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import java.util.Base64
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Implementation of WebSocketService using OkHttp.
@@ -35,6 +38,7 @@ class WebSocketServiceImpl : WebSocketService {
         .build()
 
     private var webSocket: WebSocket? = null
+    private val stateMutex = Mutex()
 
     // State management
     private val _state = MutableStateFlow(WebSocketState.DISCONNECTED)
@@ -44,13 +48,13 @@ class WebSocketServiceImpl : WebSocketService {
     override val messages: SharedFlow<WebSocketMessage> = _messages.asSharedFlow()
 
     private val _messageHistory = mutableListOf<WebSocketMessage>()
-    override val messageHistory: List<WebSocketMessage> get() = _messageHistory.toList()
+    override val messageHistory: List<WebSocketMessage> get() = synchronized(_messageHistory) { _messageHistory.toList() }
 
-    private var _sentCount = 0
-    override val sentCount: Int get() = _sentCount
+    private val _sentCount = AtomicInteger(0)
+    override val sentCount: Int get() = _sentCount.get()
 
-    private var _receivedCount = 0
-    override val receivedCount: Int get() = _receivedCount
+    private val _receivedCount = AtomicInteger(0)
+    override val receivedCount: Int get() = _receivedCount.get()
 
     private val listener = object : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -60,27 +64,31 @@ class WebSocketServiceImpl : WebSocketService {
         }
 
         override fun onMessage(webSocket: WebSocket, text: String) {
-            scope.launch {
-                val message = WebSocketMessage(
-                    content = text,
-                    type = WebSocketMessageType.TEXT,
-                    isOutgoing = false
-                )
-                _receivedCount++
+            val message = WebSocketMessage(
+                content = text,
+                type = WebSocketMessageType.TEXT,
+                isOutgoing = false
+            )
+            _receivedCount.incrementAndGet()
+            synchronized(_messageHistory) {
                 _messageHistory.add(message)
+            }
+            scope.launch {
                 _messages.emit(message)
             }
         }
 
         override fun onMessage(webSocket: WebSocket, bytes: okio.ByteString) {
-            scope.launch {
-                val message = WebSocketMessage(
-                    content = Base64.getEncoder().encodeToString(bytes.toByteArray()),
-                    type = WebSocketMessageType.BINARY,
-                    isOutgoing = false
-                )
-                _receivedCount++
+            val message = WebSocketMessage(
+                content = Base64.getEncoder().encodeToString(bytes.toByteArray()),
+                type = WebSocketMessageType.BINARY,
+                isOutgoing = false
+            )
+            _receivedCount.incrementAndGet()
+            synchronized(_messageHistory) {
                 _messageHistory.add(message)
+            }
+            scope.launch {
                 _messages.emit(message)
             }
         }
@@ -100,16 +108,18 @@ class WebSocketServiceImpl : WebSocketService {
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-            scope.launch {
-                _state.value = WebSocketState.DISCONNECTED
-                this@WebSocketServiceImpl.webSocket = null
-                // Emit error as a system message (could be handled differently)
-                val errorMessage = WebSocketMessage(
-                    content = "Connection error: ${t.message}",
-                    type = WebSocketMessageType.TEXT,
-                    isOutgoing = false
-                )
+            _state.value = WebSocketState.DISCONNECTED
+            this@WebSocketServiceImpl.webSocket = null
+            // Emit error as a system message (could be handled differently)
+            val errorMessage = WebSocketMessage(
+                content = "Connection error: ${t.message}",
+                type = WebSocketMessageType.TEXT,
+                isOutgoing = false
+            )
+            synchronized(_messageHistory) {
                 _messageHistory.add(errorMessage)
+            }
+            scope.launch {
                 _messages.emit(errorMessage)
             }
         }
@@ -140,8 +150,10 @@ class WebSocketServiceImpl : WebSocketService {
             type = WebSocketMessageType.TEXT,
             isOutgoing = true
         )
-        _sentCount++
-        _messageHistory.add(wsMessage)
+        _sentCount.incrementAndGet()
+        synchronized(_messageHistory) {
+            _messageHistory.add(wsMessage)
+        }
         scope.launch {
             _messages.emit(wsMessage)
         }
@@ -158,8 +170,10 @@ class WebSocketServiceImpl : WebSocketService {
             type = WebSocketMessageType.BINARY,
             isOutgoing = true
         )
-        _sentCount++
-        _messageHistory.add(wsMessage)
+        _sentCount.incrementAndGet()
+        synchronized(_messageHistory) {
+            _messageHistory.add(wsMessage)
+        }
         scope.launch {
             _messages.emit(wsMessage)
         }
@@ -178,9 +192,11 @@ class WebSocketServiceImpl : WebSocketService {
     }
 
     override fun clearHistory() {
-        _messageHistory.clear()
-        _sentCount = 0
-        _receivedCount = 0
+        synchronized(_messageHistory) {
+            _messageHistory.clear()
+        }
+        _sentCount.set(0)
+        _receivedCount.set(0)
     }
 
     /**
