@@ -6,6 +6,7 @@ graaljs = "24.1.2"
 mockito = "5.11.0"
 grpc = "1.65.1"
 protobuf = "4.27.2"
+jackson = "2.18.2"
 
 # plugins
 changelog = "2.4.0"
@@ -25,6 +26,8 @@ graaljs = { group = "org.graalvm.polyglot", name = "js", version.ref = "graaljs"
 graaljs-scriptengine = { group = "org.graalvm.js", name = "js-scriptengine", version.ref = "graaljs" }
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }
 mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version = "5.3.1" }
+jackson-databind = { group = "com.fasterxml.jackson.core", name = "jackson-databind", version.ref = "jackson" }
+jackson-module-kotlin = { group = "com.fasterxml.jackson.module", name = "jackson-module-kotlin", version.ref = "jackson" }
 
 # gRPC & Protobuf
 grpc-netty-shaded = { group = "io.grpc", name = "grpc-netty-shaded", version.ref = "grpc" }
