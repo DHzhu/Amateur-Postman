@@ -1,8 +1,8 @@
 {
   "id": "ui_performance_editor_upgrade",
   "title": "UI Performance - Migration to IntelliJ Editor",
-  "status": "PLANNED",
-  "progress": 0,
+  "status": "done",
+  "progress": 100,
   "description": "将响应查看器从 JTextPane 迁移至 IntelliJ 原生 Editor 组件，支持虚拟滚动、异步高亮及超大响应（100MB+）的高性能渲染。",
   "created_at": "2026-03-18",
   "updated_at": "2026-03-18"
