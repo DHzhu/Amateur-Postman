@@ -1,0 +1,15 @@
+Track: UI Performance - Migration to IntelliJ Editor
+Commit: 462151c
+任务列表:
+  - [Phase1] 原型验证 EditorFactory.createViewer，确认在 ToolWindow 中可用
+  - [Phase1] 新增 ResponseEditorComponent.kt，封装 IntelliJ Editor，支持 Disposable 生命周期
+  - [Phase2] HighPerfResponseViewer 完全替换 JTextPane，使用原生 Editor 渲染
+  - [Phase2] Content-Type 自动检测文件类型（json/xml/html/txt），驱动语法高亮
+  - [Phase2] JSON 响应自动美化输出（Jackson pretty-print）
+  - [Phase3] 超 10MB 响应截断显示，Banner 提示原始大小
+  - [Phase3] 折叠（isFoldingOutlineShown=true）内置支持；搜索由 IntelliJ 内置 Ctrl+F 提供
+  - [Phase4] 主题随 IntelliJ 全局 Dark/Light 自动适配（EditorEx 原生能力）
+  - [Phase4] PostmanToolWindowPanel 新增 Save to File 按钮
+  - [Phase4] SyntaxHighlighter.highlightJson(JTextPane) 标记 @Deprecated
+  - [Phase5] 15 个单元测试全通过（ResponseEditorComponentTest 覆盖 detectFileExtension/truncateForDisplay/formatSize）
+验证: BUILD SUCCESSFUL, 所有测试通过
