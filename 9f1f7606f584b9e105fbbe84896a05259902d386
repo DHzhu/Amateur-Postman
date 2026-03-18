@@ -1,0 +1,8 @@
+关联任务: Variable Resolver Logic Optimization 全量完成
+提交 SHA: 9f1f760
+变更摘要:
+- 将 substituteVariables 的 O(n*m) replace() 链替换为单次 StringBuilder 扫描（singlePassSubstitute）
+- 消除每次替换产生的中间 String 对象，解决大 Body 场景下的内存抖动
+- 完整保留递归解析逻辑（MAX_RECURSION_PASSES=10）及内置函数支持
+- 新增 4 个测试：1MB 性能基准 + 3 个边界用例
+验证结果: 40/40 VariableResolverTest 通过；全量 624 测试通过（1 预存失败 MockServerOomTest 与本次无关）
