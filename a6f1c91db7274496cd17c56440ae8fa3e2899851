@@ -1,0 +1,1 @@
+轨道: json_infra_jackson_migration | 阶段: Phase 1 | 任务: 添加 Jackson 依赖 / 创建 JsonService 单例 / 编写单元测试 | 验证: JsonServiceTest 10项测试全部通过 | SHA: a6f1c91
