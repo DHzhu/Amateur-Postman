@@ -6,6 +6,16 @@
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-03-18
+### Changed
+- **JSON 基础设施迁移**: 彻底移除 `com.google.gson:gson` 依赖，全线迁移至 `jackson-databind 2.18.2` + `jackson-module-kotlin`，统一由 `JsonService` 单例管理 `ObjectMapper`。
+- **Kotlin 类型安全**: Jackson 反序列化现严格遵守 Kotlin 非空约束与默认参数，不再绕过构造函数（Gson 的 `Unsafe` 行为已消除）。
+- **JsonToSchemaConverter**: 将 Gson `JsonElement` 树 API 替换为 Jackson `JsonNode`，保持功能等价。
+- **ScriptExecutionService**: `PmResponseBinding.json()` 及 `sendRequest` 序列化均迁移至 Jackson；JS 侧 `pm.response.json()` 依然使用 `JSON.parse` 确保原生 JS 类型。
+
+### Added
+- **JsonService**: 新增应用级 JSON 服务单例，提供 `mapper`（美化输出）与 `compactMapper`（紧凑）两个预配置 `ObjectMapper` 实例。
+
 ## [0.4.1] - 2026-03-17
 ### Changed
 - **OpenAPI 导出器重构**: 弃用自定义 POJO 拼装，改用 `io.swagger.v3.oas.models` 官方模型库，序列化由 `swagger-core` 的 `Yaml/Json.pretty()` 接管，与导入器保持技术一致性。
