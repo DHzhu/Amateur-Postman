@@ -369,4 +369,67 @@ class VariableResolverTest {
         val result = VariableResolver.substituteVariables(text, variables)
         assertEquals("inner_123", result)
     }
+
+    // ── Edge cases ──────────────────────────────────────────────────────────
+
+    @Test
+    fun testEmptyVariableName() {
+        val text = "before {{}} after"
+        val result = VariableResolver.substituteVariables(text, emptyMap())
+        assertEquals("before {{}} after", result)
+    }
+
+    @Test
+    fun testMissingClosingBraces() {
+        val text = "before {{ unclosed"
+        val result = VariableResolver.substituteVariables(text, mapOf("unclosed" to "x"))
+        assertEquals("before {{ unclosed", result)
+    }
+
+    @Test
+    fun testExtremelyLongVariableName() {
+        val longName = "a".repeat(1000)
+        val text = "{{${longName}}}"
+        val variables = mapOf(longName to "found")
+        val result = VariableResolver.substituteVariables(text, variables)
+        assertEquals("found", result)
+    }
+
+    @Test
+    fun testSyntaxNestedVariables() {
+        // {{outer_{{inner}}}} — the greedy regex matches "outer_{{inner" as the variable name
+        // (since [^}]+ allows '{' chars). That variable is not found, so the text is preserved.
+        // This is the correct graceful-degradation behavior for embedded braces.
+        val text = "{{outer_{{inner}}}}"
+        val variables = mapOf(
+            "inner" to "value",
+            "outer_value" to "final"
+        )
+        val result = VariableResolver.substituteVariables(text, variables)
+        assertEquals("{{outer_{{inner}}}}", result)
+    }
+
+    // ── Performance benchmark ────────────────────────────────────────────────
+
+    @Test
+    fun testLargeBodyPerformance() {
+        val variableCount = 500
+        val variables = (1..variableCount).associate { "var$it" to "value_$it" }
+
+        // Build a ~1MB body with 500+ variable placeholders repeated
+        val singleChunk = (1..variableCount).joinToString(" ") { "{{var$it}}" }
+        val body = buildString {
+            while (length < 1_000_000) append(singleChunk).append(' ')
+        }
+        assertTrue(body.length >= 1_000_000, "Body should be at least 1MB")
+
+        val startNs = System.nanoTime()
+        val result = VariableResolver.substituteVariables(body, variables)
+        val elapsedMs = (System.nanoTime() - startNs) / 1_000_000
+
+        assertFalse(result.contains("{{var1}}"), "All variables should be resolved")
+        assertTrue(result.contains("value_1"), "Values should be substituted")
+        // Sanity-check: single-pass should complete well under 5 seconds on any CI machine
+        assertTrue(elapsedMs < 5_000, "substituteVariables took ${elapsedMs}ms — expected < 5000ms")
+    }
 }

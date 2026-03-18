@@ -74,38 +74,41 @@ object VariableResolver {
             return text
         }
 
-        var result = text
-        var hasSubstitutions = false
+        val result = singlePassSubstitute(text, variables)
+
+        return if (result !== text && variableRegex.containsMatchIn(result)) {
+            substituteVariables(result, variables, recursionDepth + 1)
+        } else {
+            result
+        }
+    }
+
+    private fun singlePassSubstitute(text: String, variables: Map<String, String>): String {
+        val sb = StringBuilder(text.length)
+        var lastEnd = 0
+        var hasSubstitution = false
 
         variableRegex.findAll(text).forEach { match ->
-            val fullMatch = match.groupValues[0] // {{variableName}}
-            val content = match.groupValues[1].trim()    // variableName or $function
-
+            val content = match.groupValues[1].trim()
             val replacement = when {
-                // Built-in functions
                 content.startsWith("$") -> resolveBuiltinFunction(content)
-
-                // Regular variables
-                else -> {
-                    val normalizedName = content.lowercase()
-                    variables[normalizedName]
-                }
+                content.isNotEmpty() -> variables[content.lowercase()]
+                else -> null
             }
 
             if (replacement != null) {
-                result = result.replace(fullMatch, replacement)
-                hasSubstitutions = true
+                sb.append(text, lastEnd, match.range.first)
+                sb.append(replacement)
+                lastEnd = match.range.last + 1
+                hasSubstitution = true
             } else {
                 logger.debug("Variable not found: $content")
             }
         }
 
-        // Recursively resolve if we made substitutions and still have variables
-        return if (hasSubstitutions && variableRegex.containsMatchIn(result)) {
-            substituteVariables(result, variables, recursionDepth + 1)
-        } else {
-            result
-        }
+        if (!hasSubstitution) return text
+        if (lastEnd < text.length) sb.append(text, lastEnd, text.length)
+        return sb.toString()
     }
 
     /**
