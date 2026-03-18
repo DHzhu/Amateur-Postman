@@ -4,15 +4,18 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## Active Tracks
 
-- [ ] **Track: Variable Resolver Logic Optimization**
-  *Link: [./tracks/variable_resolver_optimization/](./tracks/variable_resolver_optimization/)*
-  *Description: 重构变量解析算法，从正则表达式替换优化为单次扫描 StringBuilder 替换，解决在大 Body 场景下的内存抖动与性能瓶颈。*
+(暂无)
 
 ## Next Up
 
 (To be planned)
 
 ## Archive
+
+- [x] **Track: Variable Resolver Logic Optimization** [DONE]
+  *Link: [./archive/variable_resolver_optimization_20260318/](./archive/variable_resolver_optimization_20260318/)*
+  *Description: 重构变量解析算法，从正则表达式替换优化为单次 StringBuilder 扫描，消除大 Body 场景下的内存抖动与性能瓶颈。新增 1MB 性能基准测试及边界用例。*
+  *Completed: 2026-03-18*
 
 - [x] **Track: UI Performance - Migration to IntelliJ Editor** [DONE]
   *Link: [./archive/ui_performance_editor_upgrade_20260318/](./archive/ui_performance_editor_upgrade_20260318/)*
