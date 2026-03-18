@@ -1,0 +1,1 @@
+轨道: json_infra_jackson_migration | 阶段: Phase 2-5 | 任务: 全量迁移 Gson → Jackson | 涉及文件: PostmanImporter/Exporter、HarParser、HarConverter、OpenApiImporter、SyntaxHighlighter、ScriptExecutionService、OAuth2Service、JsonToSchemaConverter、HttpModels、GrpcEditorPanel、PostmanToolWindowPanel | 验证: 602项测试全部通过，Gson import 零残留 | SHA: c94a331
