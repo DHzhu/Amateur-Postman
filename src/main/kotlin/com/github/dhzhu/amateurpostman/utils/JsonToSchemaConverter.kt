@@ -1,9 +1,7 @@
 package com.github.dhzhu.amateurpostman.utils
 
-import com.google.gson.JsonArray
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
-import com.google.gson.JsonPrimitive
+import com.fasterxml.jackson.databind.JsonNode
+import com.github.dhzhu.amateurpostman.services.JsonService
 import io.swagger.v3.oas.models.media.ArraySchema
 import io.swagger.v3.oas.models.media.Schema
 
@@ -21,26 +19,26 @@ object JsonToSchemaConverter {
     fun convert(json: String?): Schema<*>? {
         if (json.isNullOrBlank()) return null
         return try {
-            val element = JsonParser.parseString(json)
-            inferSchema(element)
+            val node = JsonService.mapper.readTree(json)
+            inferSchema(node)
         } catch (e: Exception) {
             null
         }
     }
 
-    private fun inferSchema(element: com.google.gson.JsonElement): Schema<*>? = when {
-        element.isJsonObject -> inferObjectSchema(element.asJsonObject)
-        element.isJsonArray -> inferArraySchema(element.asJsonArray)
-        element.isJsonPrimitive -> inferPrimitiveSchema(element.asJsonPrimitive)
-        element.isJsonNull -> Schema<Any>().type("string").nullable(true)
+    private fun inferSchema(node: JsonNode): Schema<*>? = when {
+        node.isObject -> inferObjectSchema(node)
+        node.isArray -> inferArraySchema(node)
+        node.isValueNode && !node.isNull -> inferPrimitiveSchema(node)
+        node.isNull -> Schema<Any>().type("string").nullable(true)
         else -> null
     }
 
-    private fun inferObjectSchema(obj: JsonObject): Schema<*> {
+    private fun inferObjectSchema(node: JsonNode): Schema<*> {
         val schema = Schema<Any>().type("object")
-        if (obj.size() > 0) {
+        if (node.size() > 0) {
             val properties = linkedMapOf<String, Schema<*>>()
-            obj.entrySet().forEach { (key, value) ->
+            node.fields().forEach { (key, value) ->
                 inferSchema(value)?.let { properties[key] = it }
             }
             if (properties.isNotEmpty()) schema.properties = properties
@@ -48,20 +46,19 @@ object JsonToSchemaConverter {
         return schema
     }
 
-    private fun inferArraySchema(arr: JsonArray): Schema<*> {
+    private fun inferArraySchema(node: JsonNode): Schema<*> {
         val arraySchema = ArraySchema()
-        val firstElement = arr.firstOrNull()
-        if (firstElement != null) {
-            inferSchema(firstElement)?.let { arraySchema.items = it }
+        val first = node.firstOrNull()
+        if (first != null) {
+            inferSchema(first)?.let { arraySchema.items = it }
         }
         return arraySchema
     }
 
-    private fun inferPrimitiveSchema(primitive: JsonPrimitive): Schema<*> = when {
-        primitive.isBoolean -> Schema<Boolean>().type("boolean")
-        primitive.isNumber -> {
-            val number = primitive.asNumber
-            if (number.toDouble() == number.toLong().toDouble()) {
+    private fun inferPrimitiveSchema(node: JsonNode): Schema<*> = when {
+        node.isBoolean -> Schema<Boolean>().type("boolean")
+        node.isNumber -> {
+            if (node.isIntegralNumber) {
                 Schema<Long>().type("integer").format("int64")
             } else {
                 Schema<Double>().type("number").format("double")

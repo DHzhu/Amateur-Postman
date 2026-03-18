@@ -451,9 +451,8 @@ class GrpcEditorPanel(private val project: Project) : Disposable {
         val text = bodyArea.text.trim()
         if (text.isEmpty()) return
         try {
-            val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
-            val element = com.google.gson.JsonParser.parseString(text)
-            bodyArea.text = gson.toJson(element)
+            val node = com.github.dhzhu.amateurpostman.services.JsonService.mapper.readTree(text)
+            bodyArea.text = com.github.dhzhu.amateurpostman.services.JsonService.mapper.writeValueAsString(node)
         } catch (_: Exception) {
             statusLabel.text = "Invalid JSON — cannot format"
         }
@@ -726,9 +725,8 @@ class GrpcEditorPanel(private val project: Project) : Disposable {
             is GrpcCallResult.Success -> {
                 responseStatusLabel.text = "✅ ${result.statusCode}  ·  $serviceName/$methodName"
                 try {
-                    val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
-                    val element = com.google.gson.JsonParser.parseString(result.responseJson)
-                    responseBodyArea.text = gson.toJson(element)
+                    val node = com.github.dhzhu.amateurpostman.services.JsonService.mapper.readTree(result.responseJson)
+                    responseBodyArea.text = com.github.dhzhu.amateurpostman.services.JsonService.mapper.writeValueAsString(node)
                 } catch (_: Exception) {
                     responseBodyArea.text = result.responseJson
                 }

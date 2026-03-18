@@ -1,8 +1,7 @@
 package com.github.dhzhu.amateurpostman.utils
 
 import com.github.dhzhu.amateurpostman.models.*
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
+import com.github.dhzhu.amateurpostman.services.JsonService
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.Operation
 import io.swagger.v3.oas.models.PathItem
@@ -34,8 +33,6 @@ private data class OperationInfo(
  * Supports automatic grouping by tags and generation of example request bodies.
  */
 object OpenApiImporter {
-
-    private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
 
     /**
      * Result of importing an OpenAPI specification.
@@ -357,8 +354,8 @@ object OpenApiImporter {
             return when (example) {
                 is String -> if (schema is StringSchema) "\"$example\"" else example.toString()
                 is Number, is Boolean -> example.toString()
-                is Map<*, *> -> gson.toJson(example)
-                is List<*> -> gson.toJson(example)
+                is Map<*, *> -> JsonService.mapper.writeValueAsString(example)
+                is List<*> -> JsonService.mapper.writeValueAsString(example)
                 else -> example.toString()
             }
         }
@@ -405,7 +402,7 @@ object OpenApiImporter {
             example[name] = value
         }
 
-        return gson.toJson(example)
+        return JsonService.mapper.writeValueAsString(example)
     }
 
     /**
@@ -413,7 +410,7 @@ object OpenApiImporter {
      */
     private fun parseJsonToObject(json: String): Any? {
         return try {
-            gson.fromJson(json, Any::class.java)
+            JsonService.mapper.readValue(json, Any::class.java)
         } catch (e: Exception) {
             json
         }

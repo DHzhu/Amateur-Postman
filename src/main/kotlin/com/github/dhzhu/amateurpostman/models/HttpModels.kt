@@ -159,22 +159,18 @@ data class GraphQLRequest(
      * Returns a JSON string like: {"query":"...","variables":{...}}
      */
     fun toJson(): String {
-        val gson = com.google.gson.Gson()
         val map = mutableMapOf<String, Any?>("query" to query)
         if (operationName != null) {
             map["operationName"] = operationName
         }
         if (variables != null && variables.isNotBlank()) {
             try {
-                // Parse variables as JSON to validate it
-                val varsJson = com.google.gson.JsonParser.parseString(variables)
-                map["variables"] = varsJson
+                map["variables"] = com.github.dhzhu.amateurpostman.services.JsonService.mapper.readTree(variables)
             } catch (e: Exception) {
-                // If variables is not valid JSON, include as string
                 map["variables"] = variables
             }
         }
-        return gson.toJson(map)
+        return com.github.dhzhu.amateurpostman.services.JsonService.compactMapper.writeValueAsString(map)
     }
 
     companion object {
@@ -184,12 +180,11 @@ data class GraphQLRequest(
          */
         fun fromJson(jsonBody: String): GraphQLRequest? {
             return try {
-                val element = com.google.gson.JsonParser.parseString(jsonBody)
-                if (element.isJsonObject) {
-                    val obj = element.asJsonObject
-                    val query = obj.get("query")?.asString ?: return null
-                    val operationName = obj.get("operationName")?.asString
-                    val variables = obj.get("variables")?.toString()
+                val node = com.github.dhzhu.amateurpostman.services.JsonService.mapper.readTree(jsonBody)
+                if (node.isObject) {
+                    val query = node.get("query")?.asText() ?: return null
+                    val operationName = node.get("operationName")?.takeIf { !it.isNull }?.asText()
+                    val variables = node.get("variables")?.takeIf { !it.isNull }?.toString()
                     GraphQLRequest(query, operationName, variables)
                 } else null
             } catch (e: Exception) {

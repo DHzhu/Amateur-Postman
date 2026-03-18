@@ -47,7 +47,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
     
     // JSON Processing
-    implementation("com.google.code.gson:gson:2.11.0")
     implementation(libs.jackson.databind)
     implementation(libs.jackson.module.kotlin)
     

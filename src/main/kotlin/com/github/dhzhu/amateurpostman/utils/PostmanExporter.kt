@@ -1,8 +1,8 @@
 package com.github.dhzhu.amateurpostman.utils
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.github.dhzhu.amateurpostman.models.*
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
+import com.github.dhzhu.amateurpostman.services.JsonService
 import java.io.File
 
 /**
@@ -15,10 +15,6 @@ import java.io.File
  * https://schema.getpostman.com/json/collection/v2.1.0/collection-v2.1.0.json
  */
 object PostmanExporter {
-
-    private val gson: Gson = GsonBuilder()
-        .setPrettyPrinting()
-        .create()
 
     /**
      * Export result containing either the JSON string or error information.
@@ -50,7 +46,7 @@ object PostmanExporter {
 
         try {
             val postmanCollection = convertToPostmanCollection(collection, warnings)
-            val json = gson.toJson(postmanCollection)
+            val json = JsonService.mapper.writeValueAsString(postmanCollection)
             return ExportResult.success(json, warnings)
         } catch (e: Exception) {
             return ExportResult.error("Failed to export collection: ${e.message}")
@@ -94,7 +90,7 @@ object PostmanExporter {
             info = PostmanInfo(
                 name = collection.name,
                 description = collection.description.ifEmpty { null },
-                _postman_id = collection.id
+                postmanId = collection.id
             ),
             item = if (items.isEmpty()) null else items
         )
@@ -314,7 +310,7 @@ object PostmanExporter {
     private data class PostmanInfo(
         val name: String,
         val description: String? = null,
-        val _postman_id: String? = null
+        @JsonProperty("_postman_id") val postmanId: String? = null
     )
 
     private data class PostmanItem(

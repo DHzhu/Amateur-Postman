@@ -131,8 +131,8 @@ class HarParserTest {
 
         val log = parseSuccess(json)
         assertEquals(2, log.entries.size)
-        assertEquals("xhr", log.entries[0]._resourceType)
-        assertEquals("image", log.entries[1]._resourceType)
+        assertEquals("xhr", log.entries[0].resourceType)
+        assertEquals("image", log.entries[1].resourceType)
     }
 
     @Test

@@ -1,8 +1,9 @@
 package com.github.dhzhu.amateurpostman.utils
 
+import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.core.JsonProcessingException
 import com.github.dhzhu.amateurpostman.models.*
-import com.google.gson.Gson
-import com.google.gson.JsonSyntaxException
+import com.github.dhzhu.amateurpostman.services.JsonService
 import java.io.File
 import java.io.IOException
 
@@ -17,8 +18,6 @@ import java.io.IOException
  */
 object PostmanImporter {
 
-    private val gson = Gson()
-
     /**
      * Data class representing Postman Collection v2.1 JSON structure.
      */
@@ -30,7 +29,7 @@ object PostmanImporter {
     private data class PostmanInfo(
         val name: String,
         val description: String? = null,
-        val _postman_id: String? = null
+        @JsonProperty("_postman_id") val postmanId: String? = null
     )
 
     private data class PostmanItem(
@@ -142,8 +141,8 @@ object PostmanImporter {
 
         try {
             val postmanCollection = try {
-                gson.fromJson(jsonContent, PostmanCollection::class.java)
-            } catch (e: JsonSyntaxException) {
+                JsonService.mapper.readValue(jsonContent, PostmanCollection::class.java)
+            } catch (e: JsonProcessingException) {
                 return ImportResult.error("Invalid JSON format: ${e.message}")
             }
 
@@ -355,7 +354,7 @@ object PostmanImporter {
     fun isValidCollection(file: File): Boolean {
         return try {
             val jsonContent = file.readText()
-            val collection = gson.fromJson(jsonContent, PostmanCollection::class.java)
+            val collection = JsonService.mapper.readValue(jsonContent, PostmanCollection::class.java)
             collection.info.name.isNotBlank()
         } catch (e: Exception) {
             false

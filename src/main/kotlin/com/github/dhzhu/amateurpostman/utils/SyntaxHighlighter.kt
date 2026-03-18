@@ -260,9 +260,8 @@ object SyntaxHighlighter {
     /** Format JSON with proper indentation (pretty print) */
     fun formatJson(json: String): String {
         return try {
-            val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
-            val jsonElement = com.google.gson.JsonParser.parseString(json)
-            gson.toJson(jsonElement)
+            val node = com.github.dhzhu.amateurpostman.services.JsonService.mapper.readTree(json)
+            com.github.dhzhu.amateurpostman.services.JsonService.mapper.writeValueAsString(node)
         } catch (e: Exception) {
             json
         }

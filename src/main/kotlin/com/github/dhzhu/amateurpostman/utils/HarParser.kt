@@ -1,7 +1,8 @@
 package com.github.dhzhu.amateurpostman.utils
 
-import com.google.gson.Gson
-import com.google.gson.JsonSyntaxException
+import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.core.JsonProcessingException
+import com.github.dhzhu.amateurpostman.services.JsonService
 import java.io.File
 import java.io.IOException
 
@@ -14,8 +15,6 @@ import java.io.IOException
  * HAR 1.2 spec: http://www.softwareishard.com/blog/har-12-spec/
  */
 object HarParser {
-
-    private val gson = Gson()
 
     // ── HAR 1.2 data classes ─────────────────────────────────────────────────
 
@@ -38,7 +37,7 @@ object HarParser {
         val request: HarRequest,
         val response: HarResponse = HarResponse(),
         /** Chrome DevTools extension field — identifies resource type */
-        val _resourceType: String? = null
+        @JsonProperty("_resourceType") val resourceType: String? = null
     )
 
     data class HarRequest(
@@ -103,20 +102,16 @@ object HarParser {
 
     fun parseFromJson(json: String): HarParseResult {
         return try {
-            val harFile = gson.fromJson(json, HarFile::class.java)
-                ?: return HarParseResult.Failure("Empty or null HAR content")
+            val harFile = JsonService.mapper.readValue(json, HarFile::class.java)
 
-            // Gson ignores Kotlin non-null contracts; filter malformed entries defensively
-            @Suppress("SENSELESS_COMPARISON")
+            // Filter malformed entries defensively (e.g. missing required fields)
             val validEntries = harFile.log.entries.filter { entry ->
-                entry.request != null &&
-                entry.request.method != null &&
-                entry.request.url != null
+                entry.request.method.isNotBlank() && entry.request.url.isNotBlank()
             }
             val cleanLog = harFile.log.copy(entries = validEntries)
 
             HarParseResult.Success(cleanLog)
-        } catch (e: JsonSyntaxException) {
+        } catch (e: JsonProcessingException) {
             HarParseResult.Failure("Invalid JSON format: ${e.message}")
         } catch (e: Exception) {
             HarParseResult.Failure("Failed to parse HAR: ${e.message}")

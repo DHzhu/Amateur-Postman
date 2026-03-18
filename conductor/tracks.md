@@ -4,7 +4,17 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## Active Tracks
 
-(NONE)
+- [ ] **Track: UI Performance - Migration to IntelliJ Editor**
+  *Link: [./tracks/ui_performance_editor_upgrade/](./tracks/ui_performance_editor_upgrade/)*
+  *Description: 将响应查看器从 JTextPane 迁移至 IntelliJ 原生 Editor 组件，支持虚拟滚动、异步高亮及超大响应（100MB+）的高性能渲染。*
+
+- [ ] **Track: JSON Infrastructure - Full Migration to Jackson**
+  *Link: [./tracks/json_infra_jackson_migration/](./tracks/json_infra_jackson_migration/)*
+  *Description: 彻底移除项目中的 Gson 依赖，全线迁移至 Jackson (with Kotlin Module)，实现统一的 JsonService 单例管理，提升大数据量下的序列化性能与 Kotlin 类型安全性。*
+
+- [ ] **Track: Variable Resolver Logic Optimization**
+  *Link: [./tracks/variable_resolver_optimization/](./tracks/variable_resolver_optimization/)*
+  *Description: 重构变量解析算法，从正则表达式替换优化为单次扫描 StringBuilder 替换，解决在大 Body 场景下的内存抖动与性能瓶颈。*
 
 ## Next Up
 

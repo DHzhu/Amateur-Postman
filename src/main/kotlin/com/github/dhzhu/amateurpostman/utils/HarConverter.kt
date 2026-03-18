@@ -52,7 +52,7 @@ object HarConverter {
      * Returns true if [entry] is a static resource (image, font, CSS, JS, media).
      */
     fun isStaticResource(entry: HarParser.HarEntry): Boolean {
-        val resourceType = entry._resourceType?.lowercase()
+        val resourceType = entry.resourceType?.lowercase()
         if (resourceType != null && resourceType in STATIC_RESOURCE_TYPES) return true
 
         val mimeType = entry.response.content.mimeType.lowercase()
