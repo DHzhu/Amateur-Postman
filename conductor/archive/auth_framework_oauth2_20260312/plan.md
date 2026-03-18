@@ -64,4 +64,4 @@
 
 ## Audit Traceability
 - **Commits**: Each task completion MUST be committed via `git-commit`.
-- **Sync**: State tracking via `sync-mem` after each task.
+- **Sync**: State tracking via physical file updates (`plan.md`).

@@ -5,7 +5,7 @@
 - **Bootstrapping**: Upon session start, follow the "Universal File Resolution Protocol" through `conductor/index.md`.
 
 ## 2. Governance
-- **Lifecycle**: For all track-level changes, invoke `activate_skill("sync-mem")`.
+- **Lifecycle**: For all track-level changes, maintain state in physical files (`tracks.md`, `plan.md`).
 - **Tasks**: Follow the workflow defined in `.agent/AGENT.md` and `conductor/workflow.md`.
 - **Commits**: For code changes, invoke `activate_skill("git-commit")`.
 
