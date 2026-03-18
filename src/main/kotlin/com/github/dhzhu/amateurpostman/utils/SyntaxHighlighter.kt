@@ -22,10 +22,12 @@ object SyntaxHighlighter {
     const val SIZE_THRESHOLD_FOR_SIMPLIFIED = 500_000 // 500KB
 
     /**
-     * Apply JSON syntax highlighting to a JTextPane
-     * @param textPane The JTextPane to apply highlighting to
-     * @param json The JSON string to highlight
+     * Apply JSON syntax highlighting to a JTextPane.
+     *
+     * @deprecated Use [com.github.dhzhu.amateurpostman.ui.ResponseEditorComponent] instead,
+     * which leverages the IntelliJ native Editor for better performance on large responses.
      */
+    @Deprecated("Use ResponseEditorComponent with IntelliJ Editor instead")
     fun highlightJson(textPane: JTextPane, json: String) {
         val doc = textPane.styledDocument
 

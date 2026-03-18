@@ -11,7 +11,6 @@ import com.github.dhzhu.amateurpostman.models.MultipartPart
 import com.github.dhzhu.amateurpostman.services.HttpRequestService
 import com.github.dhzhu.amateurpostman.utils.CurlExporter
 import com.github.dhzhu.amateurpostman.utils.CurlParser
-import com.github.dhzhu.amateurpostman.utils.SyntaxHighlighter
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
@@ -48,7 +47,6 @@ import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JPasswordField
 import javax.swing.JTextField
-import javax.swing.JTextPane
 import javax.swing.KeyStroke
 import javax.swing.table.DefaultTableModel
 import javax.swing.text.SimpleAttributeSet
@@ -306,12 +304,16 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         val copyResponseButton = JButton("Copy")
         copyResponseButton.addActionListener { copyResponse() }
 
+        val saveResponseButton = JButton("Save")
+        saveResponseButton.addActionListener { saveResponseToFile() }
+
         val clearResponseButton = JButton("Clear")
         clearResponseButton.addActionListener { clearResponse() }
 
         val responseButtonPanel = JPanel(FlowLayout(FlowLayout.RIGHT, 5, 0))
         responseButtonPanel.add(responseSizeLabel)
         responseButtonPanel.add(copyResponseButton)
+        responseButtonPanel.add(saveResponseButton)
         responseButtonPanel.add(clearResponseButton)
 
         statusPanel.add(statusLabel, BorderLayout.WEST)
@@ -321,7 +323,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         responseTabbedPane = JBTabbedPane()
 
         // Body tab with high-performance viewer
-        responseViewer = HighPerfResponseViewer()
+        responseViewer = HighPerfResponseViewer(project, this)
         responseTabbedPane.addTab("Body", responseViewer)
 
         // Headers tab
@@ -647,6 +649,29 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             val clipboard = Toolkit.getDefaultToolkit().systemClipboard
             clipboard.setContents(StringSelection(text), null)
             statusLabel.text = "Response copied to clipboard"
+        }
+    }
+
+    private fun saveResponseToFile() {
+        val text = responseViewer.getText()
+        if (text.isEmpty()) return
+
+        val chooser = JFileChooser()
+        chooser.dialogTitle = "Save Response"
+        val ext = when {
+            responseViewer.currentContentType.contains("application/json", ignoreCase = true) -> "json"
+            responseViewer.currentContentType.contains("xml", ignoreCase = true) -> "xml"
+            responseViewer.currentContentType.contains("html", ignoreCase = true) -> "html"
+            else -> "txt"
+        }
+        chooser.selectedFile = java.io.File("response.$ext")
+        if (chooser.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
+            try {
+                chooser.selectedFile.writeText(text, Charsets.UTF_8)
+                statusLabel.text = "Response saved to ${chooser.selectedFile.name}"
+            } catch (e: Exception) {
+                statusLabel.text = "Save failed: ${e.message}"
+            }
         }
     }
 
