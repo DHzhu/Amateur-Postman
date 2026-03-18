@@ -6,6 +6,16 @@
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-03-18
+### Changed
+- **响应查看器升级**: 将 `HighPerfResponseViewer` 从 `JTextPane` 迁移至 IntelliJ 原生 `EditorFactory.createViewer`，获得虚拟滚动、内置折叠、内置 Ctrl+F 搜索及主题自动适配能力。
+- **语法高亮优化**: 基于响应 `Content-Type` 自动选择文件类型驱动原生语法高亮（JSON/XML/HTML/纯文本），JSON 响应自动美化输出。
+
+### Added
+- **ResponseEditorComponent**: 新增 IntelliJ Editor 封装组件，实现 `Disposable` 生命周期管理，确保编辑器实例正确释放。
+- **大响应截断**: 超过 10MB 的响应体自动截断显示，并在顶部提示原始大小。
+- **Save to File 按钮**: 响应区新增「Save」按钮，可将响应体保存为本地文件（自动推断扩展名）。
+
 ## [0.4.2] - 2026-03-18
 ### Changed
 - **JSON 基础设施迁移**: 彻底移除 `com.google.gson:gson` 依赖，全线迁移至 `jackson-databind 2.18.2` + `jackson-module-kotlin`，统一由 `JsonService` 单例管理 `ObjectMapper`。
