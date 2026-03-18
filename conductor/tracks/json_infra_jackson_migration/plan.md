@@ -1,9 +1,9 @@
 # Implementation Plan - JSON Infrastructure - Full Migration to Jackson
 
 ## Phase 1: Infrastructure & Dependencies ✅ DONE
-- [x] Task: Add `jackson-databind` and `jackson-module-kotlin` dependencies to `build.gradle.kts`.
-- [x] Task: Create `JsonService.kt` (Project Service) that initializes a singleton `ObjectMapper` with Kotlin support and indentation.
-- [x] Task: Add basic unit tests for `JsonService` to verify Kotlin's null-safety handling and default values.
+- [x] Task: Add `jackson-databind` and `jackson-module-kotlin` dependencies to `build.gradle.kts`. <!-- a6f1c91 -->
+- [x] Task: Create `JsonService.kt` (Project Service) that initializes a singleton `ObjectMapper` with Kotlin support and indentation. <!-- a6f1c91 -->
+- [x] Task: Add basic unit tests for `JsonService` to verify Kotlin's null-safety handling and default values. <!-- a6f1c91 -->
 
 ## Phase 2: Serialization/Deserialization Refactoring ✅ PLANNED
 - [ ] Task: Refactor `HttpModels.kt`, `CollectionModels.kt`, and `EnvironmentModels.kt` to use Jackson annotations where needed (e.g., `@JsonProperty`).
