@@ -428,9 +428,8 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                     val variables = graphqlPanel.getVariables()
                     if (variables.isNotBlank()) {
                         try {
-                            val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
-                            val jsonElement = com.google.gson.JsonParser.parseString(variables)
-                            graphqlPanel.setVariables(gson.toJson(jsonElement))
+                            val node = com.github.dhzhu.amateurpostman.services.JsonService.mapper.readTree(variables)
+                            graphqlPanel.setVariables(com.github.dhzhu.amateurpostman.services.JsonService.mapper.writeValueAsString(node))
                         } catch (e: Exception) {
                             // Variables may not be valid JSON yet, skip formatting
                         }
@@ -442,9 +441,8 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
                     when (selectedBodyType) {
                         BodyType.JSON -> {
-                            val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
-                            val jsonElement = com.google.gson.JsonParser.parseString(content)
-                            requestBodyArea.text = gson.toJson(jsonElement)
+                            val node = com.github.dhzhu.amateurpostman.services.JsonService.mapper.readTree(content)
+                            requestBodyArea.text = com.github.dhzhu.amateurpostman.services.JsonService.mapper.writeValueAsString(node)
                         }
                         BodyType.XML -> {
                             requestBodyArea.text = formatXml(content)
@@ -1347,9 +1345,8 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
     private fun formatJson(json: String): String {
         return try {
-            val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
-            val jsonElement = com.google.gson.JsonParser.parseString(json)
-            gson.toJson(jsonElement)
+            val node = com.github.dhzhu.amateurpostman.services.JsonService.mapper.readTree(json)
+            com.github.dhzhu.amateurpostman.services.JsonService.mapper.writeValueAsString(node)
         } catch (e: Exception) {
             json
         }

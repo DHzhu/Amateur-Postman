@@ -1,7 +1,6 @@
 package com.github.dhzhu.amateurpostman.services
 
 import com.github.dhzhu.amateurpostman.models.*
-import com.google.gson.JsonParser
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
@@ -678,17 +677,17 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
 
     private fun parseTokenResponse(responseBody: String): TokenExchangeResult {
         return try {
-            val json = JsonParser.parseString(responseBody).asJsonObject
+            val json = JsonService.mapper.readTree(responseBody)
 
-            val accessToken = json.get("access_token")?.asString
+            val accessToken = json.get("access_token")?.takeIf { !it.isNull }?.asText()
             if (accessToken.isNullOrBlank()) {
                 return TokenExchangeResult.Error("Invalid token response: missing access_token")
             }
 
-            val tokenType = json.get("token_type")?.asString ?: "Bearer"
-            val expiresIn = json.get("expires_in")?.asLong
-            val refreshToken = json.get("refresh_token")?.asString
-            val scope = json.get("scope")?.asString
+            val tokenType = json.get("token_type")?.takeIf { !it.isNull }?.asText() ?: "Bearer"
+            val expiresIn = json.get("expires_in")?.takeIf { !it.isNull }?.asLong()
+            val refreshToken = json.get("refresh_token")?.takeIf { !it.isNull }?.asText()
+            val scope = json.get("scope")?.takeIf { !it.isNull }?.asText()
 
             val token = OAuth2Token(
                 accessToken = accessToken,

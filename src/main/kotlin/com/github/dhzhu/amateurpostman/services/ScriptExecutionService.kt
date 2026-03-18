@@ -6,8 +6,6 @@ import com.github.dhzhu.amateurpostman.models.HttpMethod
 import com.github.dhzhu.amateurpostman.models.HttpRequest
 import com.github.dhzhu.amateurpostman.models.HttpResponse
 import com.github.dhzhu.amateurpostman.models.Variable
-import com.google.gson.Gson
-import com.google.gson.JsonParser
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
@@ -245,26 +243,19 @@ class PmResponseBinding(private val response: HttpResponse) {
     // Use profiling total time if available, otherwise use duration
     @JvmField val responseTime: Long = response.profilingData?.totalDuration ?: response.duration
 
-    private val gson = Gson()
-
     /**
      * Parse response body as JSON.
      * @return Parsed JSON object (can be Object, Array, or primitive)
      * @throws Exception if JSON is invalid
      */
     fun json(): Any {
-        val parsed = JsonParser.parseString(response.body)
+        val node = JsonService.mapper.readTree(response.body)
         return when {
-            parsed.isJsonObject -> gson.fromJson(parsed, Map::class.java)
-            parsed.isJsonArray -> gson.fromJson(parsed, List::class.java)
-            parsed.isJsonPrimitive -> {
-                val prim = parsed.asJsonPrimitive
-                when {
-                    prim.isBoolean -> prim.asBoolean
-                    prim.isNumber -> prim.asNumber
-                    else -> prim.asString
-                }
-            }
+            node.isObject -> JsonService.mapper.convertValue(node, Map::class.java)
+            node.isArray -> JsonService.mapper.convertValue(node, List::class.java)
+            node.isBoolean -> node.booleanValue()
+            node.isNumber -> node.numberValue()
+            node.isTextual -> node.textValue()
             else -> response.body
         }
     }
@@ -333,14 +324,13 @@ class PmBinding(
     fun sendRequest(requestJson: String): String {
         val svc =
                 httpRequestService
-                        ?: return Gson().toJson(
-                                        mapOf("_error" to "pm.sendRequest is not available")
-                                )
-        val gson = Gson()
+                        ?: return JsonService.compactMapper.writeValueAsString(
+                                mapOf("_error" to "pm.sendRequest is not available")
+                        )
         return try {
             val req = parseSendRequest(requestJson)
             val resp = runBlocking { svc.executeRequest(req) }
-            gson.toJson(
+            JsonService.compactMapper.writeValueAsString(
                     mapOf(
                             "code" to resp.statusCode,
                             "body" to resp.body,
@@ -348,13 +338,13 @@ class PmBinding(
                     )
             )
         } catch (e: Exception) {
-            gson.toJson(mapOf("_error" to (e.message ?: "sendRequest failed")))
+            JsonService.compactMapper.writeValueAsString(mapOf("_error" to (e.message ?: "sendRequest failed")))
         }
     }
 
     @Suppress("UNCHECKED_CAST")
     private fun parseSendRequest(requestJson: String): HttpRequest {
-        val map = Gson().fromJson(requestJson, Map::class.java) as Map<String, Any?>
+        val map = JsonService.mapper.readValue(requestJson, Map::class.java) as Map<String, Any?>
         val url =
                 map["url"] as? String
                         ?: throw IllegalArgumentException("pm.sendRequest: url is required")

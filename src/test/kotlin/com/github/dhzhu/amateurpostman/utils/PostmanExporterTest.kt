@@ -1,16 +1,15 @@
 package com.github.dhzhu.amateurpostman.utils
 
+import com.fasterxml.jackson.module.kotlin.readValue
 import com.github.dhzhu.amateurpostman.models.*
 import com.github.dhzhu.amateurpostman.models.HttpBody
 import com.github.dhzhu.amateurpostman.models.BodyType
-import com.google.gson.Gson
+import com.github.dhzhu.amateurpostman.services.JsonService
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.io.File
 
 class PostmanExporterTest {
-
-    private val gson = Gson()
 
     @Test
     fun `export simple collection with one request`() {
@@ -42,7 +41,7 @@ class PostmanExporterTest {
         assertTrue(result.warnings.isEmpty())
 
         // Verify JSON structure
-        val jsonCollection = gson.fromJson(result.json, Map::class.java) as Map<*, *>
+        val jsonCollection = JsonService.mapper.readValue<Map<String, Any?>>(result.json!!)
         assertEquals("Test Collection", (jsonCollection["info"] as Map<*, *>)["name"])
         assertEquals("A test collection", (jsonCollection["info"] as Map<*, *>)["description"])
 
@@ -93,7 +92,7 @@ class PostmanExporterTest {
 
         assertTrue(result.isSuccess)
 
-        val jsonCollection = gson.fromJson(result.json, Map::class.java) as Map<*, *>
+        val jsonCollection = JsonService.mapper.readValue<Map<String, Any?>>(result.json!!)
         val items = jsonCollection["item"] as List<*>
         assertEquals(1, items.size)
 
@@ -132,7 +131,7 @@ class PostmanExporterTest {
 
         assertTrue(result.isSuccess)
 
-        val jsonCollection = gson.fromJson(result.json, Map::class.java) as Map<*, *>
+        val jsonCollection = JsonService.mapper.readValue<Map<String, Any?>>(result.json!!)
         val item = (jsonCollection["item"] as List<*>)[0] as Map<*, *>
         val request = item["request"] as Map<*, *>
 
@@ -167,7 +166,7 @@ class PostmanExporterTest {
 
         assertTrue(result.isSuccess)
 
-        val jsonCollection = gson.fromJson(result.json, Map::class.java) as Map<*, *>
+        val jsonCollection = JsonService.mapper.readValue<Map<String, Any?>>(result.json!!)
         val item = (jsonCollection["item"] as List<*>)[0] as Map<*, *>
         val request = item["request"] as Map<*, *>
         val url = request["url"] as Map<*, *>
@@ -201,7 +200,7 @@ class PostmanExporterTest {
 
         assertTrue(result.isSuccess)
 
-        val jsonCollection = gson.fromJson(result.json, Map::class.java) as Map<*, *>
+        val jsonCollection = JsonService.mapper.readValue<Map<String, Any?>>(result.json!!)
         val item = (jsonCollection["item"] as List<*>)[0] as Map<*, *>
         val request = item["request"] as Map<*, *>
         val body = request["body"] as Map<*, *>
@@ -234,7 +233,7 @@ class PostmanExporterTest {
 
         assertTrue(result.isSuccess)
 
-        val jsonCollection = gson.fromJson(result.json, Map::class.java) as Map<*, *>
+        val jsonCollection = JsonService.mapper.readValue<Map<String, Any?>>(result.json!!)
         val item = (jsonCollection["item"] as List<*>)[0] as Map<*, *>
         val request = item["request"] as Map<*, *>
         val body = request["body"] as Map<*, *>
@@ -257,7 +256,7 @@ class PostmanExporterTest {
 
         assertTrue(result.isSuccess)
 
-        val jsonCollection = gson.fromJson(result.json, Map::class.java) as Map<*, *>
+        val jsonCollection = JsonService.mapper.readValue<Map<String, Any?>>(result.json!!)
         // Postman format: null instead of empty list (or key not present)
         val items = jsonCollection["item"]
         assertNull(items)
@@ -319,7 +318,7 @@ class PostmanExporterTest {
 
         assertTrue(result.isSuccess)
 
-        val jsonCollection = gson.fromJson(result.json, Map::class.java) as Map<*, *>
+        val jsonCollection = JsonService.mapper.readValue<Map<String, Any?>>(result.json!!)
         val jsonItems = jsonCollection["item"] as List<*>
 
         methods.forEachIndexed { index, method ->
@@ -357,7 +356,7 @@ class PostmanExporterTest {
             assertTrue(tempFile.readText().isNotEmpty())
 
             // Verify the file content is valid JSON
-            val json = gson.fromJson(tempFile.readText(), Map::class.java) as Map<*, *>
+            val json = JsonService.mapper.readValue<Map<String, Any?>>(tempFile.readText())
             assertEquals("File Export Test", (json["info"] as Map<*, *>)["name"])
         } finally {
             tempFile.delete()
@@ -388,7 +387,7 @@ class PostmanExporterTest {
 
         assertTrue(result.isSuccess)
 
-        val jsonCollection = gson.fromJson(result.json, Map::class.java) as Map<*, *>
+        val jsonCollection = JsonService.mapper.readValue<Map<String, Any?>>(result.json!!)
         val item = (jsonCollection["item"] as List<*>)[0] as Map<*, *>
 
         assertEquals("This is a detailed description", item["description"])
@@ -429,7 +428,7 @@ class PostmanExporterTest {
 
         assertTrue(result.isSuccess)
 
-        val jsonCollection = gson.fromJson(result.json, Map::class.java) as Map<*, *>
+        val jsonCollection = JsonService.mapper.readValue<Map<String, Any?>>(result.json!!)
         val items = jsonCollection["item"] as List<*>
         val apiFolder = items[0] as Map<*, *>
         val v1Folder = (apiFolder["item"] as List<*>)[0] as Map<*, *>
