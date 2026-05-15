@@ -6,6 +6,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.ValidationInfo
 import com.intellij.ui.CheckboxTree
+import com.intellij.ui.CheckboxTreeBase
 import com.intellij.ui.CheckedTreeNode
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
@@ -35,7 +36,7 @@ class HarImportDialog(private val project: Project) : DialogWrapper(project) {
 
     private val rootNode = CheckedTreeNode("root")
     private val treeModel = DefaultTreeModel(rootNode)
-    private val tree = CheckboxTree(HarEntryRenderer(), rootNode).apply {
+    private val tree = CheckboxTree(HarEntryRenderer(), rootNode, CheckboxTreeBase.CheckPolicy(false, true, false, false)).apply {
         model = treeModel
         isRootVisible = false
     }
