@@ -1,9 +1,0 @@
-{
-  "id": "variable_resolver_optimization",
-  "title": "Variable Resolver Logic Optimization",
-  "status": "PLANNED",
-  "progress": 0,
-  "description": "重构变量解析算法，从正则表达式替换优化为单次扫描 StringBuilder 替换，解决在大 Body 场景下的内存抖动与性能瓶颈。",
-  "created_at": "2026-03-18",
-  "updated_at": "2026-03-18"
-}
