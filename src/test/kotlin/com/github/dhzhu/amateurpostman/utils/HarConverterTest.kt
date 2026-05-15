@@ -316,7 +316,7 @@ class HarConverterTest {
             status = 200,
             content = HarParser.HarContent(mimeType = mimeType)
         ),
-        _resourceType = resourceType
+        resourceType = resourceType
     )
 
     private fun entryWithBody(method: String, url: String, mimeType: String, text: String) =
