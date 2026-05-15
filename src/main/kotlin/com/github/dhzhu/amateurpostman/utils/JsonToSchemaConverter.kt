@@ -38,7 +38,7 @@ object JsonToSchemaConverter {
         val schema = Schema<Any>().type("object")
         if (node.size() > 0) {
             val properties = linkedMapOf<String, Schema<*>>()
-            node.fields().forEach { (key, value) ->
+            for ((key, value) in node.properties()) {
                 inferSchema(value)?.let { properties[key] = it }
             }
             if (properties.isNotEmpty()) schema.properties = properties

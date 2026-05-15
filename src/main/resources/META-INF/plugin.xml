@@ -2,7 +2,8 @@
 <idea-plugin>
     <id>com.github.dhzhu.amateurpostman</id>
     <name>Amateur-Postman</name>
-    <vendor>dhzhu</vendor>
+    <vendor url="https://github.com/DHzhu/Amateur-Postman">dhzhu</vendor>
+    <category>HTTP Client</category>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.java</depends>
