@@ -4,4 +4,18 @@
 .intellijPlatform
 .kotlin
 .qodana
+.vscode
 build
+bin
+.github
+.run
+.claudecode.json
+
+# AI assistant tool configs
+.agent/
+.claude/
+.claudignore
+.gemini/
+
+# Internal agent workflow
+conductor/

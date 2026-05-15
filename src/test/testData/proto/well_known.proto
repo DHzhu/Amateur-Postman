@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package wellknown;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/wrappers.proto";
+
+// Service using well-known types - complexity level 3
+service EventService {
+  rpc RecordEvent (RecordEventRequest) returns (RecordEventResponse);
+  rpc GetEvent (GetEventRequest) returns (Event);
+}
+
+message RecordEventRequest {
+  string event_type = 1;
+  google.protobuf.Struct payload = 2;
+  google.protobuf.Timestamp occurred_at = 3;
+}
+
+message RecordEventResponse {
+  string event_id = 1;
+  google.protobuf.Timestamp created_at = 2;
+}
+
+message GetEventRequest {
+  string event_id = 1;
+}
+
+message Event {
+  string event_id = 1;
+  string event_type = 2;
+  google.protobuf.Struct payload = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+  google.protobuf.StringValue description = 5;
+}

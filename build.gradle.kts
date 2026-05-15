@@ -1,5 +1,6 @@
 import org.jetbrains.changelog.Changelog
 import org.jetbrains.changelog.markdownToHTML
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
@@ -31,12 +32,49 @@ repositories {
 
 // Dependencies are managed with Gradle version catalog - read more: https://docs.gradle.org/current/userguide/platforms.html#sub:version-catalog
 dependencies {
-    testImplementation(libs.junit)
+    // JUnit 5 (Jupiter) - primary test framework
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testRuntimeOnly(libs.junit.platform.launcher)
+
+    // OpenTest4J for custom assertions
     testImplementation(libs.opentest4j)
+
+    // HTTP Client - OkHttp for making HTTP requests
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    
+    // Kotlin Coroutines for async request handling
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
+    
+    // JSON Processing
+    implementation(libs.jackson.databind)
+    implementation(libs.jackson.module.kotlin)
+    
+    // JS Scripting Engine (GraalVM JS)
+    implementation(libs.graaljs)
+    implementation(libs.graaljs.scriptengine)
+
+    // gRPC & Protobuf (using netty-shaded to avoid IntelliJ Netty version conflicts)
+    implementation(libs.grpc.netty.shaded)
+    implementation(libs.grpc.protobuf)
+    implementation(libs.grpc.stub)
+    implementation(libs.protobuf.java)
+    implementation(libs.protobuf.java.util)
+
+    // OpenAPI Parser (swagger-parser)
+    implementation("io.swagger.parser.v3:swagger-parser:2.1.32")
+
+    // Test dependencies
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.grpc.testing)
+    testImplementation(libs.grpc.inprocess)
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
-        create(providers.gradleProperty("platformType"), providers.gradleProperty("platformVersion"))
+        create(providers.gradleProperty("platformType").get(), providers.gradleProperty("platformVersion").get())
 
         // Plugin Dependencies. Uses `platformBundledPlugins` property from the gradle.properties file for bundled IntelliJ Platform plugins.
         bundledPlugins(providers.gradleProperty("platformBundledPlugins").map { it.split(',') })
@@ -104,7 +142,7 @@ intellijPlatform {
 
     pluginVerification {
         ides {
-            recommended()
+            create(IntelliJPlatformType.IntellijIdeaCommunity, "2025.1.1")
         }
     }
 }
@@ -129,6 +167,11 @@ kover {
 tasks {
     wrapper {
         gradleVersion = providers.gradleProperty("gradleVersion").get()
+    }
+
+    // Enable JUnit Platform for JUnit 5 support
+    withType<Test> {
+        useJUnitPlatform()
     }
 
     publishPlugin {

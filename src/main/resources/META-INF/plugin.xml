@@ -1,15 +1,36 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
     <id>com.github.dhzhu.amateurpostman</id>
-    <name>Amateur-Postman-</name>
+    <name>Amateur-Postman</name>
     <vendor>dhzhu</vendor>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.java</depends>
 
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.dhzhu.amateurpostman.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
-        <postStartupActivity implementation="com.github.dhzhu.amateurpostman.startup.MyProjectActivity" />
+        <!-- Amateur-Postman Tool Window -->
+        <toolWindow factoryClass="com.github.dhzhu.amateurpostman.toolWindow.PostmanToolWindowFactory" id="Amateur-Postman" anchor="right" icon="AllIcons.Toolwindows.ToolWindowRun"/>
+
+        <!-- HTTP Request Service -->
+        <projectService serviceInterface="com.github.dhzhu.amateurpostman.services.HttpRequestService" serviceImplementation="com.github.dhzhu.amateurpostman.services.HttpRequestServiceImpl"/>
+
+        <!-- Request History Service -->
+        <projectService serviceImplementation="com.github.dhzhu.amateurpostman.services.RequestHistoryService"/>
+
+        <!-- Environment Service -->
+        <projectService serviceImplementation="com.github.dhzhu.amateurpostman.services.EnvironmentService"/>
+
+        <!-- Collection Service -->
+        <projectService serviceImplementation="com.github.dhzhu.amateurpostman.services.CollectionService"/>
+
+        <!-- Script Execution Service -->
+        <projectService serviceImplementation="com.github.dhzhu.amateurpostman.services.ScriptExecutionService"/>
+
+        <!-- Controller Line Marker Provider for Spring Boot / JAX-RS -->
+        <codeInsight.lineMarkerProvider
+            language="JAVA"
+            implementationClass="com.github.dhzhu.amateurpostman.codeinsight.AmControllerLineMarkerProvider"/>
     </extensions>
 </idea-plugin>

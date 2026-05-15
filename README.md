@@ -1,52 +1,62 @@
-# Amateur-Postman-
+# Amateur-Postman
 
-![Build](https://github.com/DHzhu/Amateur-Postman-/workflows/Build/badge.svg)
+![Build](https://github.com/DHzhu/Amateur-Postman/workflows/Build/badge.svg)
 [![Version](https://img.shields.io/jetbrains/plugin/v/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
-
-## Template ToDo list
-- [x] Create a new [IntelliJ Platform Plugin Template][template] project.
-- [ ] Get familiar with the [template documentation][template].
-- [ ] Adjust the [pluginGroup](./gradle.properties) and [pluginName](./gradle.properties), as well as the [id](./src/main/resources/META-INF/plugin.xml) and [sources package](./src/main/kotlin).
-- [ ] Adjust the plugin description in `README` (see [Tips][docs:plugin-description])
-- [ ] Review the [Legal Agreements](https://plugins.jetbrains.com/docs/marketplace/legal-agreements.html?from=IJPluginTemplate).
-- [ ] [Publish a plugin manually](https://plugins.jetbrains.com/docs/intellij/publishing-plugin.html?from=IJPluginTemplate) for the first time.
-- [ ] Set the `MARKETPLACE_ID` in the above README badges. You can obtain it once the plugin is published to JetBrains Marketplace.
-- [ ] Set the [Plugin Signing](https://plugins.jetbrains.com/docs/intellij/plugin-signing.html?from=IJPluginTemplate) related [secrets](https://github.com/JetBrains/intellij-platform-plugin-template#environment-variables).
-- [ ] Set the [Deployment Token](https://plugins.jetbrains.com/docs/marketplace/plugin-upload.html?from=IJPluginTemplate).
-- [ ] Click the <kbd>Watch</kbd> button on the top of the [IntelliJ Platform Plugin Template][template] to be notified about releases containing new features and fixes.
-- [ ] Configure the [CODECOV_TOKEN](https://docs.codecov.com/docs/quick-start) secret for automated test coverage reports on PRs
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 <!-- Plugin description -->
-This Fancy IntelliJ Platform Plugin is going to be your implementation of the brilliant ideas that you have.
-
-This specific section is a source for the [plugin.xml](/src/main/resources/META-INF/plugin.xml) file which will be extracted by the [Gradle](/build.gradle.kts) during the build process.
-
-To keep everything working, do not remove `<!-- ... -->` sections. 
+**Amateur-Postman** 是一款集成在 IntelliJ IDEA 内部的高性能、轻量级 HTTP 客户端插件。它专为追求极简体验的开发者设计，通过内嵌的 GraalVM JavaScript 引擎和 Netty Mock 服务，提供足以替代专业工具的脚本化测试能力，同时保持极低的代码侵入性与内存占用。
 <!-- Plugin description end -->
 
-## Installation
+## ✨ 核心特性
 
-- Using the IDE built-in plugin system:
-  
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > <kbd>Search for "Amateur-Postman-"</kbd> >
-  <kbd>Install</kbd>
-  
-- Using JetBrains Marketplace:
+- 🚀 **极简 UI**: 聚焦核心测试流程，支持**虚拟滚动（Virtual Scrolling）**，轻松应对 1000+ 请求集合。
+- 📜 **脚本增强**: 内置 GraalVM JS，深度兼容 Postman API（支持 `pm.sendRequest`、`chai.js` 断言、`ajv` 模式校验、`CryptoJS` 等）。
+- 🧬 **变量与可视化**: 动态解析全局、环境、集合变量，支持 **Environment Quick Look** 悬浮窗与变量来源/优先级追踪。
+- 🛠️ **内置 Mock Server**: 基于 Netty 实现，具备规则权重匹配、流式 Body 读取与 OOM 自动保护机制。
+- 🔥 **高性能表现**: 深度优化的 **High-Perf Response Viewer**，支持 10MB+ 超大响应流畅预览与主题感知高亮。
+- 📊 **性能分析**: 详细的请求耗时分解，提供 DNS、TCP、SSL、TTFB 等关键节点的时序瀑布流视图。
+- 🔌 **gRPC 支持**: 动态加载 `.proto` 文件，无需代码生成，支持 Unary 调用、Metadata 注入与变量解析。
+- 🌐 **WebSocket & gRPC Streaming**: 支持 WebSocket 长连接调试和 gRPC Server/Client/Bi-Di 流式调用。
+- 📋 **OpenAPI 集成**: 支持 OpenAPI 3.x/Swagger 2.0 规范导入，自动生成请求集合，支持增量同步。
+- 🔗 **IDE 代码联动**: Spring Boot / JAX-RS 控制器方法旁显示 Gutter Icon，一键跳转发起请求。
+- 📂 **HAR 文件导入**: 支持从 Chrome DevTools、Firefox、Fiddler 等工具导出的 `.har` 文件导入 HTTP 请求，自动按 Host 分组、过滤静态资源，并提供树形 Checkbox 预览界面进行选择性导入。
+- 📄 **OpenAPI 3.0 导出**: 支持将集合导出为标准 OpenAPI 3.0.3 规范（YAML 或 JSON），文件夹层级自动映射为 Tags，`{{变量}}` 自动转换为路径参数，可从右键菜单或工具栏触发。
+- ✅ **稳健性保障**: 拥有 **420+** 核心单元测试（基于 JUnit 5），确保在高性能场景下的稳定性。
 
-  Go to [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID) and install it by clicking the <kbd>Install to ...</kbd> button in case your IDE is running.
+## 📸 快速上手
 
-  You can also download the [latest release](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID/versions) from JetBrains Marketplace and install it manually using
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from disk...</kbd>
+### 安装方式
+1. **IDE 内安装**:
+   <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > 搜索 **"Amateur-Postman"** > <kbd>Install</kbd>
+2. **离线安装**:
+   在 [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID) 下载最新发布版 Zip 包，通过 `Install plugin from disk...` 安装。
 
-- Manually:
+## 🗺️ 路线图 (Roadmap)
 
-  Download the [latest release](https://github.com/DHzhu/Amateur-Postman-/releases/latest) and install it manually using
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from disk...</kbd>
+- [x] **Phase 1: 核心请求与集合管理** (Completed)
+- [x] **Phase 2: 脚本引擎增强 (Advanced API & pm.sendRequest)** (Completed)
+- [x] **Phase 3: 变量可视化 (Environment Quick Look)** (Completed)
+- [x] **Phase 4: 内置 Mock Server 与规则引擎** (Completed)
+- [x] **Phase 5: UI/UX 性能优化与虚拟滚动** (Completed)
+- [x] **Phase 6: 性能分析与时序瀑布流** (Completed)
+- [x] **Phase 7: 协议扩展 — gRPC Unary Call** (Completed)
+- [x] **Phase 8: 协议扩展 — WebSocket & gRPC Streaming** (Completed)
+- [x] **Phase 9: OpenAPI 深度集成** (Completed)
+- [x] **Phase 10: 认证框架与 OAuth 2.0** (Completed)
+- [x] **Phase 11: HAR 文件导入** (Completed)
+- [x] **Phase 12: API 文档导出 (OpenAPI 3.0)** (Completed)
 
+## 🤝 参与贡献
+
+我们欢迎任何形式的贡献！在提交 Pull Request 之前，请阅读我们的 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+## 📄 开源协议
+
+本项目基于 **MIT License** 开源 - 详情请参阅 [LICENSE](LICENSE) 文件。
 
 ---
 Plugin based on the [IntelliJ Platform Plugin Template][template].
 
 [template]: https://github.com/JetBrains/intellij-platform-plugin-template
-[docs:plugin-description]: https://plugins.jetbrains.com/docs/intellij/plugin-user-experience.html#plugin-description-and-presentation
