@@ -55,8 +55,7 @@ class OpenApiImportDialog(private val project: Project) {
             "Import OpenAPI",
             arrayOf("Import", "Cancel"),
             0,
-            Messages.getQuestionIcon(),
-            null
+            Messages.getQuestionIcon()
         )
 
         if (result != 0) return null

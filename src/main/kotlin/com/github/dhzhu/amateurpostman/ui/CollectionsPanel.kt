@@ -464,13 +464,13 @@ class CollectionsPanel(
     private fun importCollection() {
         // Choose import type
         val importOptions = arrayOf("Postman Collection", "OpenAPI Specification", "HAR File", "Cancel")
-        val importChoice = Messages.showChooseDialog(
+        val importChoice = Messages.showDialog(
             project,
             "Select import format:",
             "Import Collection",
-            null,
             importOptions,
-            importOptions[0]
+            0,
+            Messages.getQuestionIcon()
         )
 
         when (importChoice) {
@@ -643,13 +643,13 @@ class CollectionsPanel(
 
     private fun chooseExportFormat() {
         val options = arrayOf("Postman Collection (JSON)", "OpenAPI 3.0 (YAML/JSON)", "Cancel")
-        val choice = Messages.showChooseDialog(
+        val choice = Messages.showDialog(
             project,
             "Select export format:",
             "Export Collection",
-            null,
             options,
-            options[0]
+            0,
+            Messages.getQuestionIcon()
         )
         when (choice) {
             0 -> exportCollection()
@@ -664,13 +664,13 @@ class CollectionsPanel(
             return
         }
         val collectionNames = collections.map { it.name }.toTypedArray()
-        val selectedIndex = Messages.showChooseDialog(
+        val selectedIndex = Messages.showDialog(
             project,
             "Select collection to export:",
             "Export as OpenAPI",
-            null,
             collectionNames,
-            collectionNames.firstOrNull()
+            0,
+            Messages.getQuestionIcon()
         )
         if (selectedIndex < 0) return
         exportCollectionAsOpenApi(collections[selectedIndex])
@@ -730,13 +730,13 @@ class CollectionsPanel(
         }
 
         val collectionNames = collections.map { it.name }.toTypedArray()
-        val selectedIndex = Messages.showChooseDialog(
+        val selectedIndex = Messages.showDialog(
             project,
             "Select collection to export:",
             "Export Collection",
-            null,
             collectionNames,
-            collectionNames.firstOrNull()
+            0,
+            Messages.getQuestionIcon()
         )
 
         if (selectedIndex < 0) return
