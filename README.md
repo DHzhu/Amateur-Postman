@@ -1,12 +1,12 @@
 # Amateur-Postman
 
 ![Build](https://github.com/DHzhu/Amateur-Postman/workflows/Build/badge.svg)
-[![Version](https://img.shields.io/jetbrains/plugin/v/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
-[![Downloads](https://img.shields.io/jetbrains/plugin/d/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
+[![Version](https://img.shields.io/jetbrains/plugin/v/31767.svg)](https://plugins.jetbrains.com/plugin/31767)
+[![Downloads](https://img.shields.io/jetbrains/plugin/d/31767.svg)](https://plugins.jetbrains.com/plugin/31767)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 <!-- Plugin description -->
-**Amateur-Postman** 是一款集成在 IntelliJ IDEA 内部的高性能、轻量级 HTTP 客户端插件。它专为追求极简体验的开发者设计，通过内嵌的 GraalVM JavaScript 引擎和 Netty Mock 服务，提供足以替代专业工具的脚本化测试能力，同时保持极低的代码侵入性与内存占用。
+**Amateur-Postman** is a high-performance, lightweight HTTP client plugin integrated into IntelliJ IDEA. Designed for developers who prefer a minimalist experience, it provides scriptable testing capabilities through an embedded GraalVM JavaScript engine and Netty Mock server, while maintaining low code intrusion and memory usage.
 <!-- Plugin description end -->
 
 ## ✨ 核心特性
@@ -31,7 +31,7 @@
 1. **IDE 内安装**:
    <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > 搜索 **"Amateur-Postman"** > <kbd>Install</kbd>
 2. **离线安装**:
-   在 [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID) 下载最新发布版 Zip 包，通过 `Install plugin from disk...` 安装。
+   在 [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/31767) 下载最新发布版 Zip 包，通过 `Install plugin from disk...` 安装。
 
 ## 🗺️ 路线图 (Roadmap)
 
