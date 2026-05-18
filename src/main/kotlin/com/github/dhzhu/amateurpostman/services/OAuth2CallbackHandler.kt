@@ -1,10 +1,11 @@
 package com.github.dhzhu.amateurpostman.services
 
+import com.github.dhzhu.amateurpostman.utils.SimpleHttpExchange
+import com.github.dhzhu.amateurpostman.utils.SimpleHttpServer
 import com.intellij.openapi.diagnostic.thisLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import java.net.InetSocketAddress
 import java.net.URI
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
@@ -30,7 +31,7 @@ class OAuth2CallbackServer(
     private val timeoutSeconds: Long = 300 // 5 minutes default
 ) {
     private val logger = thisLogger()
-    private var server: com.sun.net.httpserver.HttpServer? = null
+    private var server: SimpleHttpServer? = null
     private val callbackLatch = CountDownLatch(1)
     private val callbackResult = AtomicReference<AuthCallbackResult>()
 
@@ -52,12 +53,12 @@ class OAuth2CallbackServer(
      */
     fun start(): Boolean {
         return try {
-            server = com.sun.net.httpserver.HttpServer.create(InetSocketAddress(port), 0).apply {
-                createContext(callbackPath) { exchange ->
-                    handleCallback(exchange)
-                }
-                start()
+            val httpServer = SimpleHttpServer()
+            httpServer.createContext(callbackPath) { exchange ->
+                handleCallback(exchange)
             }
+            httpServer.start(port)
+            server = httpServer
             logger.info("OAuth callback server started on port $actualPort")
             true
         } catch (e: Exception) {
@@ -70,7 +71,7 @@ class OAuth2CallbackServer(
      * Stops the callback server.
      */
     fun stop() {
-        server?.stop(1)
+        server?.stop()
         server = null
         logger.info("OAuth callback server stopped")
     }
@@ -95,9 +96,9 @@ class OAuth2CallbackServer(
         }
     }
 
-    private fun handleCallback(exchange: com.sun.net.httpserver.HttpExchange) {
+    private fun handleCallback(exchange: SimpleHttpExchange) {
         try {
-            val query = exchange.requestURI.query ?: ""
+            val query = exchange.requestUri.query ?: ""
             val params = parseQueryParams(query)
 
             val result = when {
@@ -161,15 +162,9 @@ class OAuth2CallbackServer(
             }
 
             val responseBytes = response.toByteArray(Charsets.UTF_8)
-            exchange.responseHeaders.add("Content-Type", "text/html; charset=utf-8")
-            exchange.sendResponseHeaders(200, responseBytes.size.toLong())
-            exchange.responseBody.use { os ->
-                os.write(responseBytes)
-            }
+            exchange.sendResponse(200, mapOf("Content-Type" to "text/html; charset=utf-8"), responseBytes)
         } catch (e: Exception) {
             logger.error("Error handling OAuth callback", e)
-        } finally {
-            exchange.close()
         }
     }
 

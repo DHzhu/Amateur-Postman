@@ -1,15 +1,17 @@
 package com.github.dhzhu.amateurpostman.ui
 
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
-import com.intellij.openapi.editor.EditorKind
-import com.intellij.openapi.editor.ex.EditorEx
 import com.intellij.openapi.editor.highlighter.EditorHighlighterFactory
+import com.intellij.openapi.fileTypes.FileType
 import com.intellij.openapi.fileTypes.FileTypeManager
 import com.intellij.openapi.fileTypes.PlainTextFileType
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
+import java.awt.BorderLayout
 import javax.swing.JComponent
+import javax.swing.JPanel
 
 /**
  * Wraps an IntelliJ read-only [Editor] for displaying HTTP response bodies.
@@ -63,18 +65,35 @@ class ResponseEditorComponent(
     }
 
     private val document = EditorFactory.getInstance().createDocument("")
-    val editor: EditorEx = EditorFactory.getInstance()
-        .createViewer(document, project, EditorKind.PREVIEW) as EditorEx
+    private var currentEditor: Editor? = null
+    private var currentFileType: FileType? = null
+    private val wrapper = JPanel(BorderLayout())
 
     /** The Swing component to embed in layouts. */
-    val component: JComponent get() = editor.component
+    val component: JComponent get() = wrapper
 
     init {
-        configureEditor()
+        createEditor(PlainTextFileType.INSTANCE)
         Disposer.register(parentDisposable, this)
     }
 
-    private fun configureEditor() {
+    private fun createEditor(fileType: FileType) {
+        currentEditor?.let { old ->
+            wrapper.remove(old.component)
+            EditorFactory.getInstance().releaseEditor(old)
+        }
+
+        val editor = EditorFactory.getInstance().createEditor(document, project, fileType, true)
+        configureEditor(editor)
+        wrapper.add(editor.component, BorderLayout.CENTER)
+        wrapper.revalidate()
+        wrapper.repaint()
+
+        currentEditor = editor
+        currentFileType = fileType
+    }
+
+    private fun configureEditor(editor: Editor) {
         editor.settings.apply {
             isLineNumbersShown = false
             isFoldingOutlineShown = true
@@ -91,13 +110,14 @@ class ResponseEditorComponent(
      */
     fun setContent(text: String, contentType: String = "text/plain") {
         val extension = detectFileExtension(contentType)
-        try {
-            val fileType = FileTypeManager.getInstance().getFileTypeByExtension(extension)
-                ?: PlainTextFileType.INSTANCE
-            editor.highlighter = EditorHighlighterFactory.getInstance()
-                .createEditorHighlighter(project, fileType)
+        val fileType = try {
+            FileTypeManager.getInstance().getFileTypeByExtension(extension)
         } catch (_: Exception) {
-            // Highlighting is best-effort; content still displayed without it.
+            PlainTextFileType.INSTANCE
+        }
+
+        if (fileType != currentFileType) {
+            createEditor(fileType)
         }
 
         document.setReadOnly(false)
@@ -113,6 +133,7 @@ class ResponseEditorComponent(
     }
 
     override fun dispose() {
-        EditorFactory.getInstance().releaseEditor(editor)
+        currentEditor?.let { EditorFactory.getInstance().releaseEditor(it) }
+        currentEditor = null
     }
 }

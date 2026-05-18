@@ -4,20 +4,18 @@ import com.github.dhzhu.amateurpostman.models.BodyMatcher
 import com.github.dhzhu.amateurpostman.models.BodyMatchMode
 import com.github.dhzhu.amateurpostman.models.HttpMethod
 import com.github.dhzhu.amateurpostman.models.MockRule
+import com.github.dhzhu.amateurpostman.utils.SimpleHttpExchange
+import com.github.dhzhu.amateurpostman.utils.SimpleHttpServer
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 import com.intellij.openapi.components.service
+import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
-import com.intellij.util.xmlb.XmlSerializerUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.net.InetSocketAddress
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
-import com.sun.net.httpserver.HttpServer
-import com.intellij.openapi.diagnostic.thisLogger
 
 /**
  * Serializable state for BodyMatcher.
@@ -94,7 +92,7 @@ data class MockRuleState(
  * Service for managing the built-in Mock Server with persistent state.
  *
  * Provides a local HTTP server that can mock API responses based on configured rules.
- * Uses the JDK built-in HttpServer for lightweight operation.
+ * Uses a lightweight SimpleHttpServer based on java.net.ServerSocket.
  * Persists rules across IDE restarts.
  */
 @Service(Service.Level.PROJECT)
@@ -105,10 +103,9 @@ data class MockRuleState(
 class MockServerManager : PersistentStateComponent<MockServerState> {
 
     private var state = MockServerState()
-    private var server: HttpServer? = null
+    private var server: SimpleHttpServer? = null
     private val rules = ConcurrentHashMap<String, MockRule>()
     private val logger = thisLogger()
-    private val executor = Executors.newCachedThreadPool()
 
     /**
      * Current port the server is running on, or null if not running.
@@ -167,13 +164,11 @@ class MockServerManager : PersistentStateComponent<MockServerState> {
         }
 
         try {
-            val httpServer = HttpServer.create(InetSocketAddress(port), 0)
-            httpServer.createContext("/", MockHandler())
-            httpServer.executor = executor // Use thread pool for concurrent request handling
-            httpServer.start()
+            val httpServer = SimpleHttpServer()
+            httpServer.createContext("/") { exchange -> handleRequest(exchange) }
+            val actualPort = httpServer.start(port)
 
             server = httpServer
-            val actualPort = httpServer.address.port
             logger.info("Mock server started on port $actualPort")
             actualPort
         } catch (e: Exception) {
@@ -186,9 +181,8 @@ class MockServerManager : PersistentStateComponent<MockServerState> {
      * Stops the mock server.
      */
     fun stop() {
-        server?.stop(0)
+        server?.stop()
         server = null
-        executor.shutdown()
         logger.info("Mock server stopped")
     }
 
@@ -254,144 +248,105 @@ class MockServerManager : PersistentStateComponent<MockServerState> {
             }
     }
 
-    // ========== HTTP Handler ==========
+    // ========== HTTP Request Handling ==========
+
+    private fun handleRequest(exchange: SimpleHttpExchange) {
+        val path = exchange.requestUri.path
+        val methodResult = parseHttpMethod(exchange.requestMethod)
+
+        // Handle unknown method
+        if (methodResult == null) {
+            handleMethodNotAllowed(exchange, exchange.requestMethod)
+            return
+        }
+
+        // Check Content-Length header for size limit
+        val contentLength = exchange.requestHeaders["Content-Length"]?.firstOrNull()?.toLongOrNull() ?: 0
+        if (contentLength > MAX_REQUEST_BODY_SIZE) {
+            handlePayloadTooLarge(exchange)
+            return
+        }
+
+        // Read request body for body matching
+        val requestBody = exchange.requestBody
+
+        logger.debug("Received request: $methodResult $path (body: ${requestBody?.take(100)}...)")
+
+        val rule = findMatchingRule(path, methodResult, requestBody)
+
+        if (rule != null) {
+            handleMockResponse(exchange, rule)
+        } else {
+            handleNoMatch(exchange, path, methodResult)
+        }
+    }
+
+    private fun handleMockResponse(exchange: SimpleHttpExchange, rule: MockRule) {
+        // Apply delay if configured
+        if (rule.delayMs > 0) {
+            Thread.sleep(rule.delayMs)
+        }
+
+        // Build response headers
+        val headers = mutableMapOf<String, String>()
+        rule.headers.forEach { (key, value) ->
+            headers[key] = value
+        }
+
+        // Set content-type if not specified
+        if (!headers.keys.any { it.equals("Content-Type", ignoreCase = true) }) {
+            headers["Content-Type"] = "application/json"
+        }
+
+        val responseBody = rule.body.toByteArray(Charsets.UTF_8)
+        exchange.sendResponse(rule.statusCode, headers, responseBody)
+
+        logger.debug("Sent mock response: ${rule.statusCode} for ${rule.method} ${rule.path}")
+    }
+
+    private fun handleNoMatch(exchange: SimpleHttpExchange, path: String, method: HttpMethod) {
+        val response = """{"error":"No mock rule found","path":"$path","method":"$method"}"""
+        val responseBody = response.toByteArray(Charsets.UTF_8)
+
+        exchange.sendResponse(404, mapOf("Content-Type" to "application/json"), responseBody)
+
+        logger.debug("No matching rule for $method $path")
+    }
+
+    private fun handleMethodNotAllowed(exchange: SimpleHttpExchange, method: String) {
+        val response = """{"error":"Method Not Allowed","method":"$method"}"""
+        val responseBody = response.toByteArray(Charsets.UTF_8)
+
+        exchange.sendResponse(
+            405,
+            mapOf(
+                "Content-Type" to "application/json",
+                "Allow" to "GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS"
+            ),
+            responseBody
+        )
+
+        logger.debug("Method not allowed: $method")
+    }
+
+    private fun handlePayloadTooLarge(exchange: SimpleHttpExchange) {
+        val response = """{"error":"Payload Too Large","maxSize":$MAX_REQUEST_BODY_SIZE}"""
+        val responseBody = response.toByteArray(Charsets.UTF_8)
+
+        exchange.sendResponse(413, mapOf("Content-Type" to "application/json"), responseBody)
+
+        logger.debug("Request payload too large")
+    }
 
     /**
-     * Handler for incoming HTTP requests.
+     * Parses HTTP method string to HttpMethod enum.
+     * Returns null for unknown methods instead of defaulting to GET.
      */
-    private inner class MockHandler : com.sun.net.httpserver.HttpHandler {
-        override fun handle(exchange: com.sun.net.httpserver.HttpExchange) {
-            val path = exchange.requestURI.path
-            val methodResult = parseHttpMethod(exchange.requestMethod)
-
-            // Handle unknown method
-            if (methodResult == null) {
-                handleMethodNotAllowed(exchange, exchange.requestMethod)
-                return
-            }
-
-            // Check Content-Length header for size limit
-            val contentLength = exchange.requestHeaders.getFirst("Content-Length")?.toLongOrNull() ?: 0
-            if (contentLength > MAX_REQUEST_BODY_SIZE) {
-                handlePayloadTooLarge(exchange)
-                return
-            }
-
-            // Read request body for body matching (with size limit)
-            val requestBody = try {
-                exchange.requestBody.use { input ->
-                    // Read with limit to prevent OOM
-                    val buffer = ByteArray(minOf(contentLength.toInt(), MAX_REQUEST_BODY_SIZE + 1))
-                    val bytesRead = input.read(buffer)
-                    if (bytesRead > MAX_REQUEST_BODY_SIZE) {
-                        handlePayloadTooLarge(exchange)
-                        return
-                    }
-                    if (bytesRead > 0) String(buffer, 0, bytesRead, Charsets.UTF_8) else null
-                }
-            } catch (e: Exception) {
-                null
-            }
-
-            logger.debug("Received request: $methodResult $path (body: ${requestBody?.take(100)}...)")
-
-            val rule = findMatchingRule(path, methodResult, requestBody)
-
-            if (rule != null) {
-                handleMockResponse(exchange, rule)
-            } else {
-                handleNoMatch(exchange, path, methodResult)
-            }
-        }
-
-        private fun handleMockResponse(
-            exchange: com.sun.net.httpserver.HttpExchange,
-            rule: MockRule
-        ) {
-            // Apply delay if configured
-            // Note: Thread.sleep is acceptable here because we use a cached thread pool
-            // that can handle multiple concurrent requests without blocking each other.
-            // Each delayed request only blocks its own handler thread.
-            if (rule.delayMs > 0) {
-                Thread.sleep(rule.delayMs)
-            }
-
-            // Set response headers
-            rule.headers.forEach { (key, value) ->
-                exchange.responseHeaders.add(key, value)
-            }
-
-            // Set content-type if not specified
-            if (!rule.headers.keys.any { it.equals("Content-Type", ignoreCase = true) }) {
-                exchange.responseHeaders.add("Content-Type", "application/json")
-            }
-
-            val responseBody = rule.body.toByteArray(Charsets.UTF_8)
-            exchange.sendResponseHeaders(rule.statusCode, responseBody.size.toLong())
-            exchange.responseBody.use { os ->
-                os.write(responseBody)
-            }
-
-            logger.debug("Sent mock response: ${rule.statusCode} for ${rule.method} ${rule.path}")
-        }
-
-        private fun handleNoMatch(
-            exchange: com.sun.net.httpserver.HttpExchange,
-            path: String,
-            method: HttpMethod
-        ) {
-            val response = """{"error":"No mock rule found","path":"$path","method":"$method"}"""
-            val responseBody = response.toByteArray(Charsets.UTF_8)
-
-            exchange.responseHeaders.add("Content-Type", "application/json")
-            exchange.sendResponseHeaders(404, responseBody.size.toLong())
-            exchange.responseBody.use { os ->
-                os.write(responseBody)
-            }
-
-            logger.debug("No matching rule for $method $path")
-        }
-
-        private fun handleMethodNotAllowed(
-            exchange: com.sun.net.httpserver.HttpExchange,
-            method: String
-        ) {
-            val response = """{"error":"Method Not Allowed","method":"$method"}"""
-            val responseBody = response.toByteArray(Charsets.UTF_8)
-
-            exchange.responseHeaders.add("Content-Type", "application/json")
-            exchange.responseHeaders.add("Allow", "GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS")
-            exchange.sendResponseHeaders(405, responseBody.size.toLong())
-            exchange.responseBody.use { os ->
-                os.write(responseBody)
-            }
-
-            logger.debug("Method not allowed: $method")
-        }
-
-        private fun handlePayloadTooLarge(exchange: com.sun.net.httpserver.HttpExchange) {
-            val response = """{"error":"Payload Too Large","maxSize":$MAX_REQUEST_BODY_SIZE}"""
-            val responseBody = response.toByteArray(Charsets.UTF_8)
-
-            exchange.responseHeaders.add("Content-Type", "application/json")
-            exchange.sendResponseHeaders(413, responseBody.size.toLong())
-            exchange.responseBody.use { os ->
-                os.write(responseBody)
-            }
-
-            logger.debug("Request payload too large")
-        }
-
-        /**
-         * Parses HTTP method string to HttpMethod enum.
-         * Returns null for unknown methods instead of defaulting to GET.
-         */
-        private fun parseHttpMethod(method: String): HttpMethod? {
-            return try {
-                HttpMethod.valueOf(method.uppercase())
-            } catch (e: IllegalArgumentException) {
-                null
-            }
+    private fun parseHttpMethod(method: String): HttpMethod? {
+        return try {
+            HttpMethod.valueOf(method.uppercase())
+        } catch (e: IllegalArgumentException) {
+            null
         }
     }
 

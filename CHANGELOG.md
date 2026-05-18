@@ -6,6 +6,13 @@
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-05-18
+### Fixed
+- **Internal API 兼容性**: 移除 `com.sun.net.httpserver`、`EditorEx`、`XmlSerializerUtil` 等 Internal API 使用，通过 JetBrains Marketplace Plugin Verifier 验证。
+- **SimpleHttpServer**: 新建基于 `java.net.ServerSocket` 的轻量 HTTP 服务器，替代 `com.sun.net.httpserver`。
+- **ResponseEditorComponent**: 使用 `EditorFactory.createEditor()` 公共 API 替代 `EditorEx` 内部接口。
+- **Kotlin 版本对齐**: Kotlin 从 2.3.0 降至 2.2.0，匹配 IntelliJ Platform 2025.1.1 内置版本，修复 coroutines debug metadata 版本不匹配问题。
+
 ## [0.4.3] - 2026-03-18
 ### Changed
 - **响应查看器升级**: 将 `HighPerfResponseViewer` 从 `JTextPane` 迁移至 IntelliJ 原生 `EditorFactory.createViewer`，获得虚拟滚动、内置折叠、内置 Ctrl+F 搜索及主题自动适配能力。
