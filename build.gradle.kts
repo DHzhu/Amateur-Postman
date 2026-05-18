@@ -43,9 +43,9 @@ dependencies {
     // HTTP Client - OkHttp for making HTTP requests
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     
-    // Kotlin Coroutines for async request handling
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
+    // Kotlin Coroutines
+    implementation(libs.coroutines.core)
+    implementation(libs.coroutines.swing)
     
     // JSON Processing
     implementation(libs.jackson.databind)
@@ -74,7 +74,7 @@ dependencies {
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
-        create(providers.gradleProperty("platformType").get(), providers.gradleProperty("platformVersion").get())
+        intellijIdea(providers.gradleProperty("platformVersion").get())
 
         // Plugin Dependencies. Uses `platformBundledPlugins` property from the gradle.properties file for bundled IntelliJ Platform plugins.
         bundledPlugins(providers.gradleProperty("platformBundledPlugins").map { it.split(',') })
@@ -142,7 +142,7 @@ intellijPlatform {
 
     pluginVerification {
         ides {
-            create(IntelliJPlatformType.IntellijIdeaCommunity, "2025.1.1")
+            create(IntelliJPlatformType.IntellijIdeaUltimate, "2025.3")
         }
     }
 }

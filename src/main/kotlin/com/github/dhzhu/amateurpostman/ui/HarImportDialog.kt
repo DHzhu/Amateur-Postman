@@ -223,7 +223,7 @@ class HarImportDialog(private val project: Project) : DialogWrapper(project) {
     private class HarEntryRenderer : CheckboxTree.CheckboxTreeCellRenderer() {
         override fun customizeRenderer(
             tree: JTree,
-            value: Any?,
+            value: Any,
             selected: Boolean,
             expanded: Boolean,
             leaf: Boolean,
