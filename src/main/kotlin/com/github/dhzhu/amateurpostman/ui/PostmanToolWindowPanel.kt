@@ -484,11 +484,12 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             val c = xml[i]
             when {
                 c == '<' -> {
-                    if (xml[i + 1] == '/') {
+                    val next = if (i + 1 < xml.length) xml[i + 1] else ' '
+                    if (next == '/') {
                         // Closing tag
                         indentationLevel--
                         formatted.append('\n').append(indent.repeat(indentationLevel))
-                    } else if (xml.length > i + 1 && xml[i + 1] == '?' || xml[i + 1] == '!') {
+                    } else if (next == '?' || next == '!') {
                         // Processing instruction or comment
                         formatted.append('\n').append(indent.repeat(indentationLevel))
                     } else {
