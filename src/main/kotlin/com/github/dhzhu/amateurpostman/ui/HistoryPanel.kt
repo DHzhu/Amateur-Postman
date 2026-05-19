@@ -3,6 +3,7 @@ package com.github.dhzhu.amateurpostman.ui
 import com.github.dhzhu.amateurpostman.models.RequestHistoryEntry
 import com.github.dhzhu.amateurpostman.services.RequestHistoryService
 import com.github.dhzhu.amateurpostman.utils.CurlExporter
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
@@ -34,9 +35,10 @@ import javax.swing.SwingUtilities
 class HistoryPanel(
         private val project: Project,
         private val onLoadRequest: (RequestHistoryEntry) -> Unit
-) : JPanel(BorderLayout()) {
+) : JPanel(BorderLayout()), Disposable {
 
     private val historyService = project.service<RequestHistoryService>()
+    private val historyChangeListener: () -> Unit = { SwingUtilities.invokeLater { loadHistory() } }
     private val listModel = DefaultListModel<RequestHistoryEntry>()
     private val historyList = JBList(listModel)
     private val searchField = JBTextField()
@@ -47,7 +49,11 @@ class HistoryPanel(
         loadHistory()
 
         // Listen for history changes
-        historyService.addChangeListener { SwingUtilities.invokeLater { loadHistory() } }
+        historyService.addChangeListener(historyChangeListener)
+    }
+
+    override fun dispose() {
+        historyService.removeChangeListener(historyChangeListener)
     }
 
     private fun createUI() {

@@ -88,7 +88,7 @@ data class SerializableHistoryEntry(
 
         val request = HttpRequest(
             url = url,
-            method = HttpMethod.valueOf(method),
+            method = try { HttpMethod.valueOf(method) } catch (_: IllegalArgumentException) { HttpMethod.GET },
             headers = headers,
             body = body?.let { HttpBody(it, type) }
         )

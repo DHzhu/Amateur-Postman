@@ -35,7 +35,7 @@ data class BodyMatcher(
                 try {
                     val regex = Regex(pattern, RegexOption.MULTILINE)
                     regex.containsMatchIn(requestBody)
-                } catch (e: Exception) {
+                } catch (e: IllegalArgumentException) {
                     false
                 }
             }

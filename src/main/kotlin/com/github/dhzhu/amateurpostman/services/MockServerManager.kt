@@ -62,7 +62,7 @@ data class MockRuleState(
     fun toMockRule(): MockRule = MockRule(
         id = id,
         path = path,
-        method = HttpMethod.valueOf(method),
+        method = try { HttpMethod.valueOf(method) } catch (_: IllegalArgumentException) { HttpMethod.GET },
         statusCode = statusCode,
         headers = headers,
         body = body,
@@ -305,7 +305,9 @@ class MockServerManager : PersistentStateComponent<MockServerState> {
     }
 
     private fun handleNoMatch(exchange: SimpleHttpExchange, path: String, method: HttpMethod) {
-        val response = """{"error":"No mock rule found","path":"$path","method":"$method"}"""
+        val response = JsonService.compactMapper.writeValueAsString(
+            mapOf("error" to "No mock rule found", "path" to path, "method" to method.name)
+        )
         val responseBody = response.toByteArray(Charsets.UTF_8)
 
         exchange.sendResponse(404, mapOf("Content-Type" to "application/json"), responseBody)
@@ -314,7 +316,9 @@ class MockServerManager : PersistentStateComponent<MockServerState> {
     }
 
     private fun handleMethodNotAllowed(exchange: SimpleHttpExchange, method: String) {
-        val response = """{"error":"Method Not Allowed","method":"$method"}"""
+        val response = JsonService.compactMapper.writeValueAsString(
+            mapOf("error" to "Method Not Allowed", "method" to method)
+        )
         val responseBody = response.toByteArray(Charsets.UTF_8)
 
         exchange.sendResponse(

@@ -448,7 +448,7 @@ data class SerializableHttpRequest(
         } ?: BodyType.JSON
 
         return HttpRequest(
-            method = HttpMethod.valueOf(method),
+            method = try { HttpMethod.valueOf(method) } catch (_: IllegalArgumentException) { HttpMethod.GET },
             url = url,
             headers = headers,
             body = body?.let { HttpBody(it, type) }

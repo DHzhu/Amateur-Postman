@@ -144,8 +144,8 @@ class OAuth2CallbackServer(
                     <head><title>Authorization Failed</title></head>
                     <body>
                         <h1>Authorization Failed</h1>
-                        <p>Error: ${result.error}</p>
-                        <p>${result.description ?: ""}</p>
+                        <p>Error: ${escapeHtml(result.error)}</p>
+                        <p>${escapeHtml(result.description ?: "")}</p>
                     </body>
                     </html>"""
                 }
@@ -167,6 +167,12 @@ class OAuth2CallbackServer(
             logger.error("Error handling OAuth callback", e)
         }
     }
+
+    private fun escapeHtml(s: String): String = s
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
 
     private fun parseQueryParams(query: String): Map<String, String> {
         return query.split("&")
