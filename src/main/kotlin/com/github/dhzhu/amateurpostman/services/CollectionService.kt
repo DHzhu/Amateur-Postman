@@ -24,7 +24,7 @@ class CollectionService(private val project: Project) :
     private val logger = thisLogger()
 
     private var state = CollectionState()
-    private val listeners = mutableListOf<CollectionChangeListener>()
+    private val listeners = java.util.concurrent.CopyOnWriteArrayList<CollectionChangeListener>()
 
     override fun getState(): CollectionState = state
 
@@ -277,6 +277,26 @@ class CollectionService(private val project: Project) :
         val collection = getCollection(collectionId) ?: return false
 
         val updatedItems = updateItemRequest(collection.items, itemId, request, preRequestScript, testScript)
+        if (updatedItems != null) {
+            val updatedCollection = collection.copy(items = updatedItems).withUpdatedTimestamp()
+            updateCollection(updatedCollection)
+            return true
+        }
+        return false
+    }
+
+    /**
+     * Renames a request item.
+     *
+     * @param collectionId The collection ID
+     * @param itemId The request item ID to rename
+     * @param newName The new name
+     * @return true if renamed, false if not found
+     */
+    fun renameRequest(collectionId: String, itemId: String, newName: String): Boolean {
+        val collection = getCollection(collectionId) ?: return false
+
+        val updatedItems = updateItemName(collection.items, itemId, newName)
         if (updatedItems != null) {
             val updatedCollection = collection.copy(items = updatedItems).withUpdatedTimestamp()
             updateCollection(updatedCollection)

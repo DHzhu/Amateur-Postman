@@ -2,7 +2,10 @@ package com.github.dhzhu.amateurpostman.services
 
 import com.github.dhzhu.amateurpostman.models.HttpProfilingData
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.Request
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.net.InetAddress
@@ -200,10 +203,9 @@ class AmEventListenerTest {
     }
 
     /**
-     * Helper: Create a mock okhttp3.Call for testing
+     * Helper: Create a mock okhttp3.Call for testing (no real network request)
      */
     private fun createMockCall(): okhttp3.Call {
-        // Create a real OkHttpClient and Request to get a valid Call object
         val client = OkHttpClient()
         val request = Request.Builder().url("https://example.com").build()
         return client.newCall(request)
@@ -217,16 +219,17 @@ class AmEventListenerTest {
     }
 
     /**
-     * Helper: Create a mock Response for testing
+     * Helper: Create a mock Response for testing (no real network request)
      */
     private fun createMockResponse(): okhttp3.Response {
-        val client = OkHttpClient()
         val request = Request.Builder().url("https://example.com").build()
-        // This will actually fail if executed, but we just need the Response object structure
-        return request.newBuilder().build().let {
-            // Return a mock response - we'll create a simple one
-            client.newCall(it).execute()
-        }
+        return Response.Builder()
+            .request(request)
+            .protocol(Protocol.HTTP_1_1)
+            .code(200)
+            .message("OK")
+            .body("".toResponseBody(null))
+            .build()
     }
 
     /**

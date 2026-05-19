@@ -381,7 +381,11 @@ class ScriptExecutionService(
         private val project: Project,
         private val environmentService: EnvironmentService,
         private val httpRequestService: HttpRequestService? = null
-) {
+) : com.intellij.openapi.Disposable {
+
+    override fun dispose() {
+        engine?.close()
+    }
     // Called by IntelliJ service framework (single-arg Project constructor)
     constructor(project: Project) : this(project, project.service(), null)
 
@@ -409,7 +413,7 @@ class ScriptExecutionService(
                                 null,
                                 Context.newBuilder("js")
                                         .allowHostAccess(HostAccess.ALL)
-                                        .allowHostClassLookup { true }
+                                        .allowHostClassLookup { false }
                         )
 
                 // Load crypto-js library

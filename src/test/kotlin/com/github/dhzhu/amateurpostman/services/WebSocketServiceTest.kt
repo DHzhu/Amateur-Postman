@@ -2,6 +2,7 @@ package com.github.dhzhu.amateurpostman.services
 
 import com.github.dhzhu.amateurpostman.models.WebSocketMessageType
 import com.github.dhzhu.amateurpostman.models.WebSocketState
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -63,6 +64,7 @@ class WebSocketServiceTest {
         assertTrue(service.messageHistory.isEmpty())
     }
 
+    @OptIn(DelicateCoroutinesApi::class)
     @Test
     fun `state flow is observable`() {
         var observedState: WebSocketState? = null

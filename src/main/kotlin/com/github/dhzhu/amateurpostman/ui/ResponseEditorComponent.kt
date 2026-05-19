@@ -1,15 +1,18 @@
 package com.github.dhzhu.amateurpostman.ui
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
-import com.intellij.openapi.editor.EditorKind
-import com.intellij.openapi.editor.ex.EditorEx
 import com.intellij.openapi.editor.highlighter.EditorHighlighterFactory
+import com.intellij.openapi.fileTypes.FileType
 import com.intellij.openapi.fileTypes.FileTypeManager
 import com.intellij.openapi.fileTypes.PlainTextFileType
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
+import java.awt.BorderLayout
 import javax.swing.JComponent
+import javax.swing.JPanel
 
 /**
  * Wraps an IntelliJ read-only [Editor] for displaying HTTP response bodies.
@@ -47,11 +50,15 @@ class ResponseEditorComponent(
          */
         fun truncateForDisplay(content: String, maxBytes: Int = TRUNCATION_THRESHOLD): Pair<String, Boolean> {
             val bytes = content.toByteArray(Charsets.UTF_8)
-            return if (bytes.size > maxBytes) {
-                Pair(content.take(maxBytes), true)
-            } else {
-                Pair(content, false)
-            }
+            if (bytes.size <= maxBytes) return Pair(content, false)
+            // Find the longest prefix whose UTF-8 encoding fits in maxBytes
+            var end = maxBytes
+            // Back up past any partial multi-byte sequence (continuation bytes 10xxxxxx)
+            while (end > 0 && (bytes[end].toInt() and 0xC0) == 0x80) end--
+            // Also remove the leading byte of the now-incomplete character
+            if (end > 0) end--
+            val truncated = String(bytes, 0, end, Charsets.UTF_8)
+            return Pair(truncated, true)
         }
 
         /** Human-readable byte size string (B / KB / MB). */
@@ -63,18 +70,35 @@ class ResponseEditorComponent(
     }
 
     private val document = EditorFactory.getInstance().createDocument("")
-    val editor: EditorEx = EditorFactory.getInstance()
-        .createViewer(document, project, EditorKind.PREVIEW) as EditorEx
+    private var currentEditor: Editor? = null
+    private var currentFileType: FileType? = null
+    private val wrapper = JPanel(BorderLayout())
 
     /** The Swing component to embed in layouts. */
-    val component: JComponent get() = editor.component
+    val component: JComponent get() = wrapper
 
     init {
-        configureEditor()
+        createEditor(PlainTextFileType.INSTANCE)
         Disposer.register(parentDisposable, this)
     }
 
-    private fun configureEditor() {
+    private fun createEditor(fileType: FileType) {
+        currentEditor?.let { old ->
+            wrapper.remove(old.component)
+            EditorFactory.getInstance().releaseEditor(old)
+        }
+
+        val editor = EditorFactory.getInstance().createEditor(document, project, fileType, true)
+        configureEditor(editor)
+        wrapper.add(editor.component, BorderLayout.CENTER)
+        wrapper.revalidate()
+        wrapper.repaint()
+
+        currentEditor = editor
+        currentFileType = fileType
+    }
+
+    private fun configureEditor(editor: Editor) {
         editor.settings.apply {
             isLineNumbersShown = false
             isFoldingOutlineShown = true
@@ -91,28 +115,34 @@ class ResponseEditorComponent(
      */
     fun setContent(text: String, contentType: String = "text/plain") {
         val extension = detectFileExtension(contentType)
-        try {
-            val fileType = FileTypeManager.getInstance().getFileTypeByExtension(extension)
-                ?: PlainTextFileType.INSTANCE
-            editor.highlighter = EditorHighlighterFactory.getInstance()
-                .createEditorHighlighter(project, fileType)
+        val fileType = try {
+            FileTypeManager.getInstance().getFileTypeByExtension(extension)
         } catch (_: Exception) {
-            // Highlighting is best-effort; content still displayed without it.
+            PlainTextFileType.INSTANCE
         }
 
-        document.setReadOnly(false)
-        document.setText(text)
-        document.setReadOnly(true)
+        if (fileType != currentFileType) {
+            createEditor(fileType)
+        }
+
+        ApplicationManager.getApplication().runWriteAction {
+            document.setReadOnly(false)
+            document.setText(text)
+            document.setReadOnly(true)
+        }
     }
 
     /** Clears editor content. */
     fun clear() {
-        document.setReadOnly(false)
-        document.setText("")
-        document.setReadOnly(true)
+        ApplicationManager.getApplication().runWriteAction {
+            document.setReadOnly(false)
+            document.setText("")
+            document.setReadOnly(true)
+        }
     }
 
     override fun dispose() {
-        EditorFactory.getInstance().releaseEditor(editor)
+        currentEditor?.let { EditorFactory.getInstance().releaseEditor(it) }
+        currentEditor = null
     }
 }

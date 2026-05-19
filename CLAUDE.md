@@ -8,6 +8,7 @@
 - **Lifecycle**: For all track-level changes, maintain state in physical files (`tracks.md`, `plan.md`).
 - **Tasks**: Follow the workflow defined in `.agent/AGENT.md` and `conductor/workflow.md`.
 - **Commits**: For code changes, invoke `activate_skill("git-commit")`.
+- **Track Creation**: After creating a track (spec.md, plan.md, metadata.json), **STOP and wait**. Do NOT start coding unless the user explicitly requests it. Creating a track is planning, not execution.
 
 ## 3. Standards
 - **Language**: Simplified Chinese for user interactions, reports, and Git notes.

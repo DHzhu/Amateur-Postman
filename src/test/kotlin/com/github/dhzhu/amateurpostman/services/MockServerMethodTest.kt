@@ -5,6 +5,7 @@ import com.github.dhzhu.amateurpostman.models.MockRule
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -183,7 +184,7 @@ class MockServerMethodTest {
 
             val request = Request.Builder()
                 .url("http://localhost:$port/api/test")
-                .method(methodName, if (methodName in listOf("POST", "PUT", "PATCH")) okhttp3.RequestBody.create(null, byteArrayOf()) else null)
+                .method(methodName, if (methodName in listOf("POST", "PUT", "PATCH")) byteArrayOf().toRequestBody(null) else null)
                 .build()
 
             val response = httpClient.newCall(request).execute()

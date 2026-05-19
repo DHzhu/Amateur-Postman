@@ -37,7 +37,7 @@ object HarParser {
         val request: HarRequest,
         val response: HarResponse = HarResponse(),
         /** Chrome DevTools extension field — identifies resource type */
-        @JsonProperty("_resourceType") val resourceType: String? = null
+        @field:JsonProperty("_resourceType") val resourceType: String? = null
     )
 
     data class HarRequest(

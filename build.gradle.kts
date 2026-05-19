@@ -41,11 +41,13 @@ dependencies {
     testImplementation(libs.opentest4j)
 
     // HTTP Client - OkHttp for making HTTP requests
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation(libs.okhttp)
     
-    // Kotlin Coroutines for async request handling
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
+    // Kotlin Coroutines — core is compileOnly (IntelliJ bundles it), swing must be bundled
+    compileOnly(libs.coroutines.core)
+    implementation(libs.coroutines.swing) {
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
+    }
     
     // JSON Processing
     implementation(libs.jackson.databind)
@@ -63,10 +65,10 @@ dependencies {
     implementation(libs.protobuf.java.util)
 
     // OpenAPI Parser (swagger-parser)
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.32")
+    implementation(libs.swagger.parser)
 
     // Test dependencies
-    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.kotlin)
     testImplementation(libs.grpc.testing)
@@ -74,7 +76,7 @@ dependencies {
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
-        create(providers.gradleProperty("platformType").get(), providers.gradleProperty("platformVersion").get())
+        intellijIdea(providers.gradleProperty("platformVersion").get())
 
         // Plugin Dependencies. Uses `platformBundledPlugins` property from the gradle.properties file for bundled IntelliJ Platform plugins.
         bundledPlugins(providers.gradleProperty("platformBundledPlugins").map { it.split(',') })
@@ -123,6 +125,7 @@ intellijPlatform {
 
         ideaVersion {
             sinceBuild = providers.gradleProperty("pluginSinceBuild")
+            untilBuild = providers.gradleProperty("pluginUntilBuild")
         }
     }
 
@@ -142,7 +145,7 @@ intellijPlatform {
 
     pluginVerification {
         ides {
-            create(IntelliJPlatformType.IntellijIdeaCommunity, "2025.1.1")
+            create(IntelliJPlatformType.IntellijIdeaUltimate, "2025.3")
         }
     }
 }

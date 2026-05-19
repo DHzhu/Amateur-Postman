@@ -1,5 +1,6 @@
 [versions]
 # libraries
+coroutines = "1.10.2"
 junit-jupiter = "5.10.2"
 opentest4j = "1.3.0"
 graaljs = "24.1.2"
@@ -7,11 +8,13 @@ mockito = "5.11.0"
 grpc = "1.65.1"
 protobuf = "4.27.2"
 jackson = "2.18.2"
+okhttp = "4.12.0"
+swagger-parser = "2.1.32"
 
 # plugins
 changelog = "2.5.0"
-intelliJPlatform = "2.13.1"
-kotlin = "2.3.0"
+intelliJPlatform = "2.16.0"
+kotlin = "2.2.20"
 kover = "0.9.7"
 qodana = "2025.3.1"
 
@@ -28,6 +31,17 @@ mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mo
 mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version = "5.3.1" }
 jackson-databind = { group = "com.fasterxml.jackson.core", name = "jackson-databind", version.ref = "jackson" }
 jackson-module-kotlin = { group = "com.fasterxml.jackson.module", name = "jackson-module-kotlin", version.ref = "jackson" }
+
+# Kotlin Coroutines
+coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
+coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "coroutines" }
+
+# OkHttp
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
+
+# Swagger
+swagger-parser = { group = "io.swagger.parser.v3", name = "swagger-parser", version.ref = "swagger-parser" }
 
 # gRPC & Protobuf
 grpc-netty-shaded = { group = "io.grpc", name = "grpc-netty-shaded", version.ref = "grpc" }

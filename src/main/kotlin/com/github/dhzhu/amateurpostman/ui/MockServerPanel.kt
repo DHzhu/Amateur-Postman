@@ -3,6 +3,7 @@ package com.github.dhzhu.amateurpostman.ui
 import com.github.dhzhu.amateurpostman.models.HttpMethod
 import com.github.dhzhu.amateurpostman.models.MockRule
 import com.github.dhzhu.amateurpostman.services.MockServerManager
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
@@ -12,6 +13,8 @@ import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.JBUI
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.swing.Swing
 import java.awt.BorderLayout
@@ -32,10 +35,10 @@ import javax.swing.table.DefaultTableCellRenderer
  * - Add/Edit/Delete rule buttons
  * - Enable/disable individual rules
  */
-class MockServerPanel(private val project: Project) : JPanel(BorderLayout()) {
+class MockServerPanel(private val project: Project) : JPanel(BorderLayout()), Disposable {
 
     private val mockServerManager = project.service<MockServerManager>()
-    private val cs = CoroutineScope(Dispatchers.Swing)
+    private val cs = CoroutineScope(Dispatchers.Swing + SupervisorJob())
 
     // UI Components
     private val statusLabel = JBLabel("Server: Stopped")
@@ -264,5 +267,9 @@ class MockServerPanel(private val project: Project) : JPanel(BorderLayout()) {
                 else -> ""
             }
         }
+    }
+
+    override fun dispose() {
+        cs.cancel()
     }
 }

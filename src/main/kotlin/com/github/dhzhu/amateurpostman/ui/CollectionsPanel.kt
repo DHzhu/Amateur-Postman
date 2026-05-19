@@ -5,6 +5,7 @@ import com.github.dhzhu.amateurpostman.services.CollectionChangeListener
 import com.github.dhzhu.amateurpostman.services.CollectionService
 import com.github.dhzhu.amateurpostman.services.MockServerManager
 import com.github.dhzhu.amateurpostman.utils.OpenApiExporter
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
@@ -32,25 +33,31 @@ import javax.swing.tree.TreeSelectionModel
 class CollectionsPanel(
     private val project: Project,
     private val onRequestSelected: (CollectionItem.Request) -> Unit
-) : JPanel(BorderLayout()) {
+) : JPanel(BorderLayout()), Disposable {
 
     private val collectionService = project.service<CollectionService>()
     private val tree = Tree()
     private val rootNode = DefaultMutableTreeNode("Root")
     private var collections: List<RequestCollection> = emptyList()
 
+    private val changeListener = object : CollectionChangeListener {
+        override fun onCollectionChanged() {
+            SwingUtilities.invokeLater {
+                loadCollections()
+            }
+        }
+    }
+
     init {
         createUI()
         loadCollections()
 
         // Listen for collection changes
-        collectionService.addChangeListener(object : CollectionChangeListener {
-            override fun onCollectionChanged() {
-                SwingUtilities.invokeLater {
-                    loadCollections()
-                }
-            }
-        })
+        collectionService.addChangeListener(changeListener)
+    }
+
+    override fun dispose() {
+        collectionService.removeChangeListener(changeListener)
     }
 
     private fun createUI() {
@@ -347,16 +354,7 @@ class CollectionsPanel(
             return
         }
 
-        val collection = collectionService.getCollection(collectionId)
-        if (collection != null) {
-            val item = collection.findItemById(requestId)
-            if (item is CollectionItem.Request) {
-                // Update request with new name (keep same request data)
-                collectionService.updateRequest(collectionId, requestId, item.request)
-                // Note: We'd need to also update the name, but the current service doesn't support that
-                // This is a limitation of the current implementation
-            }
-        }
+        collectionService.renameRequest(collectionId, requestId, newName)
     }
 
     private fun deleteCollection(collectionId: String) {

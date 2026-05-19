@@ -18,7 +18,7 @@ class RequestHistoryService(private val project: Project) :
         PersistentStateComponent<RequestHistoryState> {
 
     private var state = RequestHistoryState()
-    private val listeners = mutableListOf<() -> Unit>()
+    private val listeners = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
 
     override fun getState(): RequestHistoryState = state
 

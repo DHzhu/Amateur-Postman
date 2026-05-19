@@ -1,0 +1,9 @@
+{
+  "id": "code_review_fix_20260519",
+  "title": "全面代码审查修复",
+  "description": "对项目进行全面代码审查后的问题修复，涵盖安全漏洞、资源泄漏、线程安全、测试质量等 29 项问题。",
+  "status": "in_progress",
+  "created_at": "2026-05-19",
+  "priority": "high",
+  "tags": ["audit", "security", "bugfix", "quality"]
+}

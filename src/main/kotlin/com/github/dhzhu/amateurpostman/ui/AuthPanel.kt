@@ -16,6 +16,7 @@ import com.intellij.util.ui.JBUI
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.swing.Swing
 import java.awt.BorderLayout
@@ -41,10 +42,14 @@ enum class AuthType(val displayName: String) {
  * Panel for configuring authentication settings.
  * Supports Basic Auth, Bearer Token, API Key, OAuth 2.0, and Auth Inheritance.
  */
-class AuthPanel(private val project: Project) : JPanel(BorderLayout()) {
+class AuthPanel(private val project: Project) : JPanel(BorderLayout()), com.intellij.openapi.Disposable {
 
     private val oauth2Service = project.service<OAuth2Service>()
     private val scope = CoroutineScope(Dispatchers.Swing + SupervisorJob())
+
+    override fun dispose() {
+        scope.cancel()
+    }
 
     // Auth Type Selector
     private val authTypeComboBox = ComboBox(AuthType.entries.map { it.displayName }.toTypedArray())

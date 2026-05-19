@@ -18,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -53,13 +54,14 @@ class GrpcStreamingService(
     val messages: SharedFlow<GrpcStreamMessage> = _messages.asSharedFlow()
 
     private val _messageHistory = mutableListOf<GrpcStreamMessage>()
-    val messageHistory: List<GrpcStreamMessage> get() = _messageHistory.toList()
+    private val historyLock = Any()
+    val messageHistory: List<GrpcStreamMessage> get() = synchronized(historyLock) { _messageHistory.toList() }
 
-    private var _sentCount = 0
-    val sentCount: Int get() = _sentCount
+    private val _sentCount = AtomicInteger(0)
+    val sentCount: Int get() = _sentCount.get()
 
-    private var _receivedCount = 0
-    val receivedCount: Int get() = _receivedCount
+    private val _receivedCount = AtomicInteger(0)
+    val receivedCount: Int get() = _receivedCount.get()
 
     // Active stream observers
     private var requestObserver: StreamObserver<DynamicMessage>? = null
@@ -214,8 +216,8 @@ class GrpcStreamingService(
             observer.onNext(message)
 
             val streamMessage = GrpcStreamMessage(content = json, isOutgoing = true)
-            _sentCount++
-            _messageHistory.add(streamMessage)
+            _sentCount.incrementAndGet()
+            synchronized(historyLock) { _messageHistory.add(streamMessage) }
             scope.launch { _messages.emit(streamMessage) }
 
             LOG.fine("Sent streaming message")
@@ -257,9 +259,9 @@ class GrpcStreamingService(
      * Clears message history and counters.
      */
     fun clearHistory() {
-        _messageHistory.clear()
-        _sentCount = 0
-        _receivedCount = 0
+        synchronized(historyLock) { _messageHistory.clear() }
+        _sentCount.set(0)
+        _receivedCount.set(0)
     }
 
     /**
@@ -279,8 +281,8 @@ class GrpcStreamingService(
                 try {
                     val json = protoParser.messageToJson(value)
                     val message = GrpcStreamMessage(content = json, isOutgoing = false)
-                    _receivedCount++
-                    _messageHistory.add(message)
+                    _receivedCount.incrementAndGet()
+                    synchronized(historyLock) { _messageHistory.add(message) }
                     scope.launch { _messages.emit(message) }
                 } catch (e: Exception) {
                     LOG.warning("Failed to serialize response: ${e.message}")

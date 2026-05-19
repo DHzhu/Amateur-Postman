@@ -1,0 +1,9 @@
+{
+  "id": "code_review_fix_20260519_v2",
+  "title": "代码审查问题修复（第二轮）",
+  "description": "全面代码审查后的问题修复，涵盖线程安全、资源泄漏、空安全、安全漏洞、逻辑 bug、Darcula 主题兼容等 21 项问题。",
+  "status": "in_progress",
+  "created_at": "2026-05-19",
+  "priority": "high",
+  "tags": ["audit", "security", "bugfix", "quality", "ui"]
+}

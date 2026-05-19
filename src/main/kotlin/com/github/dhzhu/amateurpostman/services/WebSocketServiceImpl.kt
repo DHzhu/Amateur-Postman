@@ -3,6 +3,7 @@ package com.github.dhzhu.amateurpostman.services
 import com.github.dhzhu.amateurpostman.models.WebSocketMessage
 import com.github.dhzhu.amateurpostman.models.WebSocketMessageType
 import com.github.dhzhu.amateurpostman.models.WebSocketState
+import com.github.dhzhu.amateurpostman.utils.OkHttpClientFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,9 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class WebSocketServiceImpl : WebSocketService {
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-    private val client = OkHttpClient.Builder()
-        .pingInterval(25, TimeUnit.SECONDS)
-        .build()
+    private val client = OkHttpClientFactory.webSocketBuilder().build()
 
     private var webSocket: WebSocket? = null
     private val stateMutex = Mutex()
@@ -108,8 +107,6 @@ class WebSocketServiceImpl : WebSocketService {
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-            _state.value = WebSocketState.DISCONNECTED
-            this@WebSocketServiceImpl.webSocket = null
             // Emit error as a system message (could be handled differently)
             val errorMessage = WebSocketMessage(
                 content = "Connection error: ${t.message}",
@@ -120,6 +117,8 @@ class WebSocketServiceImpl : WebSocketService {
                 _messageHistory.add(errorMessage)
             }
             scope.launch {
+                _state.value = WebSocketState.DISCONNECTED
+                this@WebSocketServiceImpl.webSocket = null
                 _messages.emit(errorMessage)
             }
         }

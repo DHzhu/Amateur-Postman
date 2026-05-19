@@ -5,6 +5,7 @@ import com.github.dhzhu.amateurpostman.models.MockRule
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -187,7 +188,7 @@ class MockServerPriorityTest {
 
         val request = Request.Builder()
             .url("http://localhost:$port/api/action")
-            .post(okhttp3.RequestBody.create(null, byteArrayOf()))
+            .post(byteArrayOf().toRequestBody(null))
             .build()
 
         val response = httpClient.newCall(request).execute()

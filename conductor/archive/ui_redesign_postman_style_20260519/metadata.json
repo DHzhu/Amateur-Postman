@@ -1,0 +1,9 @@
+{
+  "id": "ui_redesign_postman_style_20260519",
+  "title": "Postman-Style UI Redesign",
+  "description": "Redesign HTTP, WebSocket, and gRPC tab layouts following Postman's UI patterns. Includes history panel toggle, inline row controls, dynamic sizing, and overall layout refinement.",
+  "status": "in_progress",
+  "created_at": "2026-05-19",
+  "priority": "high",
+  "tags": ["ui", "ux", "redesign", "postman-style"]
+}

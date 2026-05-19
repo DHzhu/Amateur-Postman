@@ -1,116 +1,243 @@
 package com.github.dhzhu.amateurpostman.services
 
+import com.github.dhzhu.amateurpostman.models.CollectionVariables
+import com.github.dhzhu.amateurpostman.models.Environment
 import com.github.dhzhu.amateurpostman.models.Variable
 import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 /**
- * Unit tests for variable scope priority.
- * Tests the resolution order: Global -> Collection -> Environment
+ * Tests for variable scope priority resolution.
+ * Priority chain: Global (lowest) -> Collection -> Environment -> Temporary (highest).
+ *
+ * Tests the model-level logic directly without requiring IntelliJ service initialization.
  */
 class VariableScopePriorityTest {
 
-    // Note: Full integration tests require Project and Service initialization
-    // These tests verify the model logic without requiring full IntelliJ setup
+    // ========== Variable Model Tests ==========
 
-    /**
-     * Test: Variable normalization is case-insensitive
-     */
     @Test
     fun testVariableKeyNormalization() {
-        val key1 = "API_KEY"
-        val key2 = "api_key"
-        val key3 = "Api_Key"
-
-        assertEquals("api_key", Variable.normalizeKey(key1), "Variable.normalizeKey should lowercase")
-        assertEquals("api_key", Variable.normalizeKey(key2), "Variable.normalizeKey should lowercase")
-        assertEquals("api_key", Variable.normalizeKey(key3), "Variable.normalizeKey should lowercase")
+        assertEquals("api_key", Variable.normalizeKey("API_KEY"))
+        assertEquals("api_key", Variable.normalizeKey("api_key"))
+        assertEquals("api_key", Variable.normalizeKey("Api_Key"))
     }
 
-    /**
-     * Test: Disabled variables should not be returned
-     */
     @Test
-    fun testDisabledVariableNotReturned() {
-        val enabledVar = Variable(key = "feature", value = "enabled", enabled = true)
-        val disabledVar = Variable(key = "feature", value = "disabled", enabled = false)
+    fun testDisabledVariableExcludedFromMap() {
+        val env = Environment(
+            id = "test", name = "Test",
+            variables = listOf(
+                Variable(key = "enabled_var", value = "yes", enabled = true),
+                Variable(key = "disabled_var", value = "no", enabled = false)
+            )
+        )
+        val map = env.getVariablesMap()
 
-        assertEquals("enabled", enabledVar.value)
-        assertEquals("disabled", disabledVar.value)
-        assertFalse(disabledVar.enabled, "Disabled variable should return false for enabled")
+        assertEquals("yes", map["enabled_var"])
+        assertNull(map["disabled_var"])
     }
 
-    /**
-     * Test: Variable normalizedKey method works correctly
-     */
     @Test
     fun testVariableNormalizedKeyMethod() {
         val variable = Variable(key = "BaseUrl", value = "https://api.example.com")
         assertEquals("baseurl", variable.normalizedKey())
     }
 
-    /**
-     * Test: Global variables should be stored correctly
-     */
-    @Test
-    fun testGlobalVariableStructure() {
-        val variable = Variable(key = "apiKey", value = "secret-key")
-        assertEquals("apiKey", variable.key)
-        assertEquals("secret-key", variable.value)
-        assertTrue(variable.enabled, "Default enabled should be true")
-        assertEquals("", variable.description)
-    }
+    // ========== Environment Variable Tests ==========
 
-    /**
-     * Test: Variable with all properties
-     */
     @Test
-    fun testVariableWithAllProperties() {
-        val variable = Variable(
-            key = "timeout",
-            value = "5000",
-            description = "Request timeout in milliseconds",
-            enabled = true
+    fun testEnvironmentGetVariablesMapCaseInsensitive() {
+        val env = Environment(
+            id = "test", name = "Test",
+            variables = listOf(
+                Variable(key = "API_KEY", value = "key123"),
+                Variable(key = "Base_URL", value = "https://example.com")
+            )
         )
-        assertEquals("timeout", variable.key)
-        assertEquals("5000", variable.value)
-        assertEquals("Request timeout in milliseconds", variable.description)
-        assertTrue(variable.enabled)
+        val map = env.getVariablesMap()
+
+        assertEquals("key123", map["api_key"])
+        assertEquals("https://example.com", map["base_url"])
     }
 
-    /**
-     * Test: CollectionVariables create method generates ID
-     */
     @Test
-    fun testCollectionVariablesCreate() {
-        // Note: This is a simplified test without full EnvironmentService
-        // In real scenario, we would use a test Project
-        val collectionId = "test-collection-id"
-        // Just verify the concept - actual implementation would use service
-        assertNotNull("Collection ID should not be null", collectionId)
+    fun testEnvironmentSetVariableReplaces() {
+        var env = Environment(
+            id = "test", name = "Test",
+            variables = listOf(Variable(key = "key", value = "old"))
+        )
+        env = env.setVariable(Variable(key = "key", value = "new"))
+
+        assertEquals("new", env.getVariableValue("key"))
+        assertEquals(1, env.variables.size)
     }
 
-    /**
-     * Test: Priority chain documentation
-     */
     @Test
-    fun testVariablePriorityChain() {
-        // This test documents the expected priority:
-        // 1. Environment (highest priority)
-        // 2. Collection
-        // 3. Global (lowest priority)
+    fun testEnvironmentRemoveVariable() {
+        var env = Environment(
+            id = "test", name = "Test",
+            variables = listOf(
+                Variable(key = "key1", value = "val1"),
+                Variable(key = "key2", value = "val2")
+            )
+        )
+        env = env.removeVariable("key1")
 
-        val globalVar = "global-value"
-        val collectionVar = "collection-value"
-        val environmentVar = "environment-value"
+        assertNull(env.getVariableValue("key1"))
+        assertEquals("val2", env.getVariableValue("key2"))
+    }
 
-        // Expected behavior:
-        // When all three have the same key, environment value should be used
-        // When only collection and global have the same key, collection value should be used
-        // When only global has the key, global value should be used
+    // ========== CollectionVariables Tests ==========
 
-        // Document expectation:
-        assertTrue(true, "Environment > Collection > Global")
+    @Test
+    fun testCollectionVariablesGetMap() {
+        val collVars = CollectionVariables(
+            id = "cv-1", collectionId = "coll-1",
+            variables = listOf(
+                Variable(key = "COLL_KEY", value = "coll_value"),
+                Variable(key = "SHARED", value = "from_collection")
+            )
+        )
+        val map = collVars.getVariablesMap()
+
+        assertEquals("coll_value", map["coll_key"])
+        assertEquals("from_collection", map["shared"])
+    }
+
+    // ========== Priority Chain Tests ==========
+
+    @Test
+    fun testEnvironmentOverridesGlobal() {
+        val global = Environment(
+            id = "global", name = "Globals", isGlobal = true,
+            variables = listOf(Variable(key = "url", value = "https://global.example.com"))
+        )
+        val environment = Environment(
+            id = "env", name = "Dev",
+            variables = listOf(Variable(key = "url", value = "https://dev.example.com"))
+        )
+
+        // Simulate getAllVariables priority: global then environment (environment wins)
+        val merged = global.getVariablesMap().toMutableMap()
+        merged.putAll(environment.getVariablesMap())
+
+        assertEquals("https://dev.example.com", merged["url"])
+    }
+
+    @Test
+    fun testCollectionOverridesGlobal() {
+        val global = Environment(
+            id = "global", name = "Globals", isGlobal = true,
+            variables = listOf(Variable(key = "token", value = "global_token"))
+        )
+        val collVars = CollectionVariables(
+            id = "cv", collectionId = "coll",
+            variables = listOf(Variable(key = "token", value = "collection_token"))
+        )
+
+        // Simulate priority: global then collection (collection wins)
+        val merged = global.getVariablesMap().toMutableMap()
+        merged.putAll(collVars.getVariablesMap())
+
+        assertEquals("collection_token", merged["token"])
+    }
+
+    @Test
+    fun testEnvironmentOverridesCollection() {
+        val collVars = CollectionVariables(
+            id = "cv", collectionId = "coll",
+            variables = listOf(Variable(key = "host", value = "coll.example.com"))
+        )
+        val environment = Environment(
+            id = "env", name = "Prod",
+            variables = listOf(Variable(key = "host", value = "prod.example.com"))
+        )
+
+        // Simulate priority: collection then environment (environment wins)
+        val merged = collVars.getVariablesMap().toMutableMap()
+        merged.putAll(environment.getVariablesMap())
+
+        assertEquals("prod.example.com", merged["host"])
+    }
+
+    @Test
+    fun testFullPriorityChainEnvironmentWins() {
+        val global = Environment(
+            id = "global", name = "Globals", isGlobal = true,
+            variables = listOf(
+                Variable(key = "api_url", value = "https://global.api.com"),
+                Variable(key = "api_key", value = "global_key"),
+                Variable(key = "shared", value = "global_shared")
+            )
+        )
+        val collVars = CollectionVariables(
+            id = "cv", collectionId = "coll",
+            variables = listOf(
+                Variable(key = "api_url", value = "https://coll.api.com"),
+                Variable(key = "shared", value = "coll_shared")
+            )
+        )
+        val environment = Environment(
+            id = "env", name = "Dev",
+            variables = listOf(
+                Variable(key = "api_url", value = "https://dev.api.com")
+            )
+        )
+
+        // Simulate EnvironmentService.getAllVariables: global -> collection -> environment
+        val merged = global.getVariablesMap().toMutableMap()
+        merged.putAll(collVars.getVariablesMap())
+        merged.putAll(environment.getVariablesMap())
+
+        // api_url: environment overrides all
+        assertEquals("https://dev.api.com", merged["api_url"])
+        // shared: collection overrides global
+        assertEquals("coll_shared", merged["shared"])
+        // api_key: only in global, preserved
+        assertEquals("global_key", merged["api_key"])
+    }
+
+    @Test
+    fun testDisabledVariablesNotInPriorityChain() {
+        val global = Environment(
+            id = "global", name = "Globals", isGlobal = true,
+            variables = listOf(Variable(key = "key", value = "global", enabled = true))
+        )
+        val environment = Environment(
+            id = "env", name = "Dev",
+            variables = listOf(Variable(key = "key", value = "disabled_env", enabled = false))
+        )
+
+        val merged = global.getVariablesMap().toMutableMap()
+        merged.putAll(environment.getVariablesMap())
+
+        // Disabled environment variable does NOT override global
+        assertEquals("global", merged["key"])
+    }
+
+    @Test
+    fun testVariablesToMapExcludesDisabled() {
+        val variables = listOf(
+            Variable(key = "a", value = "1", enabled = true),
+            Variable(key = "b", value = "2", enabled = false),
+            Variable(key = "c", value = "3", enabled = true)
+        )
+
+        val map = variables.filter { it.enabled }.associate { it.normalizedKey() to it.value }
+
+        assertEquals(2, map.size)
+        assertEquals("1", map["a"])
+        assertNull(map["b"])
+        assertEquals("3", map["c"])
+    }
+
+    @Test
+    fun testEmptyScopesProduceEmptyMaps() {
+        val emptyEnv = Environment.create("Empty")
+        val emptyCollVars = CollectionVariables.create("coll-id")
+
+        assertTrue(emptyEnv.getVariablesMap().isEmpty())
+        assertTrue(emptyCollVars.getVariablesMap().isEmpty())
     }
 }

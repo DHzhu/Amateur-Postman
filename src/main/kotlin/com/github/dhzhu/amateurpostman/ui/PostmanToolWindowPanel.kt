@@ -26,7 +26,6 @@ import com.github.dhzhu.amateurpostman.ui.MockServerPanel
 import com.github.dhzhu.amateurpostman.ui.QuickLookPanel
 import java.awt.BorderLayout
 import java.awt.CardLayout
-import java.awt.Color
 import java.awt.Component
 import java.awt.FlowLayout
 import java.awt.Font
@@ -92,8 +91,6 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         arrayOf("Key", "Type", "Value", "Content-Type", "Description"),
         0
     )
-    private val multipartParts = mutableListOf<MultipartPart>()
-
     // GraphQL components
     private lateinit var graphqlPanel: GraphQLPanel
 
@@ -116,6 +113,11 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
     // History
     private lateinit var historyPanel: HistoryPanel
+    private var historyVisible = false
+    private lateinit var mainContentPanel: JPanel
+    private lateinit var requestResponsePanel: JPanel
+    private var historySplitter: com.intellij.ui.JBSplitter? = null
+    private lateinit var historyButton: JButton
 
     // Environments
     private lateinit var environmentPanel: EnvironmentPanel
@@ -174,21 +176,27 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         curlButtonPanel.add(saveButton)
         curlButtonPanel.add(quickLookButton)  // Add the Quick Look button
 
+        // History toggle button
+        historyButton = JButton("History")
+        historyButton.toolTipText = "Toggle request history panel"
+        historyButton.addActionListener { toggleHistory() }
+        curlButtonPanel.add(historyButton)
+
         val topContainer = JPanel(BorderLayout())
         topContainer.add(topPanel, BorderLayout.NORTH)
         topContainer.add(curlButtonPanel, BorderLayout.SOUTH)
 
         mainPanel.add(topContainer, BorderLayout.NORTH)
 
-        // 2. Center: Main content with left sidebar for history
-        val mainContentPanel = JPanel(BorderLayout())
+        // 2. Center: Main content (history hidden by default, toggle via History button)
+        mainContentPanel = JPanel(BorderLayout())
 
-        // Left sidebar: History Panel
+        // History Panel (hidden by default)
         historyPanel = HistoryPanel(project) { entry -> loadFromHistory(entry) }
         historyPanel.preferredSize = java.awt.Dimension(250, 0)
 
         // Request/Response area
-        val requestResponsePanel = JPanel(BorderLayout())
+        requestResponsePanel = JPanel(BorderLayout())
 
         // Request Tabs
         tabbedPane = JBTabbedPane()
@@ -196,7 +204,8 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         // Tab: Params
         paramsTable = JBTable(paramsTableModel)
         paramsTable.setShowGrid(true)
-        val paramsPanel = createTablePanel(paramsTable, paramsTableModel)
+        InlineTableActionsHelper.addActionsColumn(paramsTable, paramsTableModel, 3)
+        val paramsPanel = createTablePanel(paramsTable, paramsTableModel, 3)
         tabbedPane.addTab("Params", paramsPanel)
 
         // Tab: Authorization
@@ -206,8 +215,9 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         // Tab: Headers
         headersTable = JBTable(headersTableModel)
         headersTable.setShowGrid(true)
-        headersTableModel.addRow(arrayOf("Content-Type", "application/json")) // Default header
-        val headersPanel = createTablePanel(headersTable, headersTableModel)
+        InlineTableActionsHelper.addActionsColumn(headersTable, headersTableModel, 2)
+        headersTableModel.addRow(arrayOf("Content-Type", "application/json", "")) // Default header
+        val headersPanel = createTablePanel(headersTable, headersTableModel, 2)
         tabbedPane.addTab("Headers", headersPanel)
 
         // Tab: Body with Content-Type selector and format button
@@ -351,20 +361,19 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
         // Split Pane (Request Tabs vs Response)
         val splitPane = com.intellij.ui.JBSplitter(true, 0.5f)
-        splitPane.dividerWidth = 2
-        splitPane.divider.background = com.intellij.util.ui.UIUtil.getPanelBackground().darker()
+        splitPane.dividerWidth = 6
+        splitPane.setHonorComponentsMinimumSize(false)
+
+        tabbedPane.minimumSize = java.awt.Dimension(0, 0)
+        responsePanel.minimumSize = java.awt.Dimension(0, 0)
 
         splitPane.firstComponent = tabbedPane
         splitPane.secondComponent = responsePanel
 
         requestResponsePanel.add(splitPane, BorderLayout.CENTER)
 
-        // Horizontal splitter for history and request/response
-        val horizontalSplitter = com.intellij.ui.JBSplitter(false, 0.25f)
-        horizontalSplitter.firstComponent = historyPanel
-        horizontalSplitter.secondComponent = requestResponsePanel
-
-        mainContentPanel.add(horizontalSplitter, BorderLayout.CENTER)
+        // History hidden by default — just show request/response directly
+        mainContentPanel.add(requestResponsePanel, BorderLayout.CENTER)
         mainPanel.add(mainContentPanel, BorderLayout.CENTER)
 
         // Setup keyboard shortcuts
@@ -420,6 +429,27 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                     }
                 }
         )
+    }
+
+    private fun toggleHistory() {
+        historyVisible = !historyVisible
+
+        mainContentPanel.removeAll()
+
+        if (historyVisible) {
+            val splitter = com.intellij.ui.JBSplitter(false, 0.25f)
+            splitter.firstComponent = historyPanel
+            splitter.secondComponent = requestResponsePanel
+            historySplitter = splitter
+            mainContentPanel.add(splitter, BorderLayout.CENTER)
+            historyPanel.refresh()
+        } else {
+            historySplitter = null
+            mainContentPanel.add(requestResponsePanel, BorderLayout.CENTER)
+        }
+
+        mainContentPanel.revalidate()
+        mainContentPanel.repaint()
     }
 
     private fun formatRequestBody() {
@@ -484,11 +514,12 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             val c = xml[i]
             when {
                 c == '<' -> {
-                    if (xml[i + 1] == '/') {
+                    val next = if (i + 1 < xml.length) xml[i + 1] else ' '
+                    if (next == '/') {
                         // Closing tag
-                        indentationLevel--
+                        indentationLevel = maxOf(0, indentationLevel - 1)
                         formatted.append('\n').append(indent.repeat(indentationLevel))
-                    } else if (xml.length > i + 1 && xml[i + 1] == '?' || xml[i + 1] == '!') {
+                    } else if (next == '?' || next == '!') {
                         // Processing instruction or comment
                         formatted.append('\n').append(indent.repeat(indentationLevel))
                     } else {
@@ -532,7 +563,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
         // If no Content-Type header exists, add one
         if (!contentTypeUpdated && selectedBodyType != BodyType.TEXT && selectedBodyType != BodyType.MULTIPART) {
-            headersTableModel.addRow(arrayOf("Content-Type", selectedBodyType.mimeType))
+            headersTableModel.addRow(arrayOf("Content-Type", selectedBodyType.mimeType, ""))
         }
 
         // For Multipart, remove Content-Type header (OkHttp will set it automatically)
@@ -695,8 +726,9 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             headersTableModel.removeRow(0)
         }
         entry.request.headers.forEach { (key, value) ->
-            headersTableModel.addRow(arrayOf(key, value))
+            headersTableModel.addRow(arrayOf(key, value, ""))
         }
+        InlineTableActionsHelper.ensureTrailingEmptyRow(headersTable, headersTableModel, 2)
 
         // Set body and body type
         entry.request.body?.let { body ->
@@ -741,8 +773,9 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             headersTableModel.removeRow(0)
         }
         requestItem.request.headers.forEach { (key, value) ->
-            headersTableModel.addRow(arrayOf(key, value))
+            headersTableModel.addRow(arrayOf(key, value, ""))
         }
+        InlineTableActionsHelper.ensureTrailingEmptyRow(headersTable, headersTableModel, 2)
 
         // Set body and body type
         requestItem.request.body?.let { body ->
@@ -789,8 +822,9 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             headersTableModel.removeRow(0)
         }
         request.headers.forEach { (key, value) ->
-            headersTableModel.addRow(arrayOf(key, value))
+            headersTableModel.addRow(arrayOf(key, value, ""))
         }
+        InlineTableActionsHelper.ensureTrailingEmptyRow(headersTable, headersTableModel, 2)
 
         // Set body and body type
         request.body?.let { body ->
@@ -830,22 +864,20 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         }
 
         // If editing an existing request from collection, update it
-        if (currentEditingRequestItem != null) {
-            // Find which collection this request belongs to
+        currentEditingRequestItem?.let { requestItem ->
             val collectionService = project.service<com.github.dhzhu.amateurpostman.services.CollectionService>()
             for (collection in collectionService.getCollections()) {
-                if (collection.findItemById(currentEditingRequestItem!!.id) != null) {
-                    // Update the existing request
+                if (collection.findItemById(requestItem.id) != null) {
                     val preRequestScript = preRequestScriptArea.text
                     val testScript = testsScriptArea.text
                     collectionService.updateRequest(
                         collection.id,
-                        currentEditingRequestItem!!.id,
+                        requestItem.id,
                         request,
                         preRequestScript,
                         testScript
                     )
-                    statusLabel.text = "Updated request: ${currentEditingRequestItem!!.name}"
+                    statusLabel.text = "Updated request: ${requestItem.name}"
                     return
                 }
             }
@@ -1006,34 +1038,10 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         return parts
     }
 
-    private fun createTablePanel(table: JBTable, model: DefaultTableModel): JPanel {
+    private fun createTablePanel(table: JBTable, model: DefaultTableModel, dataColumnCount: Int): JPanel {
         val panel = JPanel(BorderLayout())
         panel.add(JBScrollPane(table), BorderLayout.CENTER)
-
-        val buttonPanel = JPanel(FlowLayout(FlowLayout.LEFT))
-        val addButton = JButton("Add")
-        addButton.addActionListener {
-            model.addRow(arrayOf("", "", "")) // Add empty row
-            val newRow = model.rowCount - 1
-            table.setRowSelectionInterval(newRow, newRow)
-            table.scrollRectToVisible(table.getCellRect(newRow, 0, true))
-        }
-        val removeButton = JButton("Remove")
-        removeButton.addActionListener {
-            val selectedRow = table.selectedRow
-            if (selectedRow >= 0) {
-                model.removeRow(selectedRow)
-                if (model.rowCount > 0) {
-                    // Select the previous row, or the first one if we deleted the first
-                    val newSelection = if (selectedRow > 0) selectedRow - 1 else 0
-                    table.setRowSelectionInterval(newSelection, newSelection)
-                }
-            }
-        }
-        buttonPanel.add(addButton)
-        buttonPanel.add(removeButton)
-
-        panel.add(buttonPanel, BorderLayout.SOUTH)
+        InlineTableActionsHelper.ensureTrailingEmptyRow(table, model, dataColumnCount)
         return panel
     }
 
@@ -1070,8 +1078,9 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                 headersTableModel.removeRow(0)
             }
             request.headers.forEach { (key, value) ->
-                headersTableModel.addRow(arrayOf(key, value))
+                headersTableModel.addRow(arrayOf(key, value, ""))
             }
+            InlineTableActionsHelper.ensureTrailingEmptyRow(headersTable, headersTableModel, 2)
 
             // Set body and body type
             request.body?.let { body ->
@@ -1425,5 +1434,6 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
     override fun dispose() {
         scope.cancel()
+        authPanelWrapper.dispose()
     }
 }

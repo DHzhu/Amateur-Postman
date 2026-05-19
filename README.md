@@ -14,7 +14,7 @@
 - 🚀 **极简 UI**: 聚焦核心测试流程，支持**虚拟滚动（Virtual Scrolling）**，轻松应对 1000+ 请求集合。
 - 📜 **脚本增强**: 内置 GraalVM JS，深度兼容 Postman API（支持 `pm.sendRequest`、`chai.js` 断言、`ajv` 模式校验、`CryptoJS` 等）。
 - 🧬 **变量与可视化**: 动态解析全局、环境、集合变量，支持 **Environment Quick Look** 悬浮窗与变量来源/优先级追踪。
-- 🛠️ **内置 Mock Server**: 基于 Netty 实现，具备规则权重匹配、流式 Body 读取与 OOM 自动保护机制。
+- 🛠️ **内置 Mock Server**: 基于 `java.net.ServerSocket` 实现，具备规则权重匹配、流式 Body 读取与 OOM 自动保护机制。
 - 🔥 **高性能表现**: 深度优化的 **High-Perf Response Viewer**，支持 10MB+ 超大响应流畅预览与主题感知高亮。
 - 📊 **性能分析**: 详细的请求耗时分解，提供 DNS、TCP、SSL、TTFB 等关键节点的时序瀑布流视图。
 - 🔌 **gRPC 支持**: 动态加载 `.proto` 文件，无需代码生成，支持 Unary 调用、Metadata 注入与变量解析。
@@ -23,7 +23,7 @@
 - 🔗 **IDE 代码联动**: Spring Boot / JAX-RS 控制器方法旁显示 Gutter Icon，一键跳转发起请求。
 - 📂 **HAR 文件导入**: 支持从 Chrome DevTools、Firefox、Fiddler 等工具导出的 `.har` 文件导入 HTTP 请求，自动按 Host 分组、过滤静态资源，并提供树形 Checkbox 预览界面进行选择性导入。
 - 📄 **OpenAPI 3.0 导出**: 支持将集合导出为标准 OpenAPI 3.0.3 规范（YAML 或 JSON），文件夹层级自动映射为 Tags，`{{变量}}` 自动转换为路径参数，可从右键菜单或工具栏触发。
-- ✅ **稳健性保障**: 拥有 **420+** 核心单元测试（基于 JUnit 5），确保在高性能场景下的稳定性。
+- ✅ **稳健性保障**: 拥有 **650+** 核心单元测试（基于 JUnit 5），确保在高性能场景下的稳定性。
 
 ## 📸 快速上手
 

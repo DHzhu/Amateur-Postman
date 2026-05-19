@@ -1,6 +1,7 @@
 package com.github.dhzhu.amateurpostman.ui
 
 import com.github.dhzhu.amateurpostman.models.HttpProfilingData
+import com.intellij.ui.JBColor
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBTextArea
@@ -42,7 +43,7 @@ class ProfilingPanel : JPanel() {
         // Content panel with split view (timeline on top, text details below)
         val splitter = JBSplitter(false, 0.6f)
         splitter.dividerWidth = 2
-        splitter.divider.background = Color(60, 60, 60)
+        splitter.divider.background = JBColor(Color(200, 200, 200), Color(60, 60, 60))
         splitter.firstComponent = timelinePanel
         splitter.secondComponent = textScrollPane
 
@@ -97,8 +98,8 @@ class ProfilingPanel : JPanel() {
         val textArea = JBTextArea()
         textArea.isEditable = false
         textArea.font = Font("Monospaced", Font.PLAIN, 12)
-        textArea.background = Color(43, 43, 43)
-        textArea.foreground = Color(212, 212, 212)
+        textArea.background = JBColor(Color(245, 245, 245), Color(43, 43, 43))
+        textArea.foreground = JBColor(Color(50, 50, 50), Color(212, 212, 212))
         textArea.border = JBUI.Borders.empty(10)
         return textArea
     }

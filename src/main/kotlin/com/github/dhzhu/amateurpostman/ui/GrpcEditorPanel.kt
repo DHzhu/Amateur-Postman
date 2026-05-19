@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.swing.Swing
 import java.awt.BorderLayout
 import java.awt.CardLayout
-import java.awt.Color
+import com.intellij.ui.JBColor
 import java.awt.Dimension
 import java.awt.FlowLayout
 import java.awt.Font
@@ -118,7 +118,13 @@ class GrpcEditorPanel(private val project: Project) : Disposable {
         root.border = JBUI.Borders.empty(6)
 
         root.add(createConfigBar(), BorderLayout.NORTH)
-        root.add(createSplitEditor(), BorderLayout.CENTER)
+
+        // Center: split editor + action bar
+        val centerPanel = JPanel(BorderLayout(0, 4))
+        centerPanel.add(createSplitEditor(), BorderLayout.CENTER)
+        centerPanel.add(createActionBar(), BorderLayout.SOUTH)
+        root.add(centerPanel, BorderLayout.CENTER)
+
         root.add(createStatusBar(), BorderLayout.SOUTH)
 
         setupStreamObservation()
@@ -149,7 +155,7 @@ class GrpcEditorPanel(private val project: Project) : Disposable {
         protoButtonPanel.add(loadButton)
         protoRow.add(protoButtonPanel, BorderLayout.EAST)
 
-        // Row 2: Service + Method + Host + Port + TLS + Send
+        // Row 2: Service + Method + Host + Port + TLS
         val callRow = JPanel(FlowLayout(FlowLayout.LEFT, 6, 2))
 
         callRow.add(JBLabel("Service:"))
@@ -179,35 +185,59 @@ class GrpcEditorPanel(private val project: Project) : Disposable {
         useTlsCheckBox = javax.swing.JCheckBox("TLS")
         callRow.add(useTlsCheckBox)
 
-        sendButton = JButton("▶ Send")
-        sendButton.isEnabled = false
-        sendButton.addActionListener { sendGrpcRequest() }
-        callRow.add(sendButton)
-
-        completeButton = JButton("✓ Complete")
-        completeButton.isEnabled = false
-        completeButton.toolTipText = "Complete client stream (Client/Bidi streaming only)"
-        completeButton.addActionListener { completeStream() }
-        callRow.add(completeButton)
-
-        cancelButton = JButton("✗ Cancel")
-        cancelButton.isEnabled = false
-        cancelButton.toolTipText = "Cancel active stream"
-        cancelButton.addActionListener { cancelStream() }
-        callRow.add(cancelButton)
-
         panel.add(protoRow, BorderLayout.NORTH)
         panel.add(callRow, BorderLayout.SOUTH)
 
         return panel
     }
 
+    // ─── Action bar (Send/Complete/Cancel + stream state) ─────────────────────
+
+    private fun createActionBar(): JPanel {
+        val panel = JPanel(BorderLayout())
+        panel.border = JBUI.Borders.emptyTop(2)
+
+        val buttonPanel = JPanel(FlowLayout(FlowLayout.LEFT, 6, 0))
+
+        sendButton = JButton("▶ Send")
+        sendButton.isEnabled = false
+        sendButton.addActionListener { sendGrpcRequest() }
+        buttonPanel.add(sendButton)
+
+        completeButton = JButton("✓ Complete")
+        completeButton.isEnabled = false
+        completeButton.toolTipText = "Complete client stream (Client/Bidi streaming only)"
+        completeButton.addActionListener { completeStream() }
+        buttonPanel.add(completeButton)
+
+        cancelButton = JButton("✗ Cancel")
+        cancelButton.isEnabled = false
+        cancelButton.toolTipText = "Cancel active stream"
+        cancelButton.addActionListener { cancelStream() }
+        buttonPanel.add(cancelButton)
+
+        panel.add(buttonPanel, BorderLayout.WEST)
+
+        // Stream state indicator on the right
+        val statePanel = JPanel(FlowLayout(FlowLayout.RIGHT, 8, 0))
+        streamStateLabel = JLabel("IDLE")
+        streamStateLabel.icon = StreamStateIcon(GrpcStreamState.IDLE)
+        statePanel.add(streamStateLabel)
+        statePanel.add(JLabel("|"))
+        streamCountLabel = JLabel("Sent: 0 | Received: 0")
+        statePanel.add(streamCountLabel)
+        panel.add(statePanel, BorderLayout.EAST)
+
+        return panel
+    }
+
     // ─── Split editor (Request | Response) ────────────────────────────────────
 
-    private fun createSplitEditor(): JSplitPane {
-        val split = JSplitPane(JSplitPane.HORIZONTAL_SPLIT, createRequestPanel(), createResponsePanel())
-        split.resizeWeight = 0.5
-        split.isContinuousLayout = true
+    private fun createSplitEditor(): com.intellij.ui.JBSplitter {
+        val split = com.intellij.ui.JBSplitter(true, 0.5f)
+        split.setHonorComponentsMinimumSize(false)
+        split.firstComponent = createRequestPanel()
+        split.secondComponent = createResponsePanel()
         return split
     }
 
@@ -240,19 +270,9 @@ class GrpcEditorPanel(private val project: Project) : Disposable {
         metadataTableModel = DefaultTableModel(arrayOf("Key", "Value"), 0)
         metadataTable = JBTable(metadataTableModel)
         metadataTable.setShowGrid(true)
+        InlineTableActionsHelper.addActionsColumn(metadataTable, metadataTableModel, 2)
         metaPanel.add(JBScrollPane(metadataTable), BorderLayout.CENTER)
-
-        val metaButtonPanel = JPanel(FlowLayout(FlowLayout.LEFT))
-        val addMetaRow = JButton("Add")
-        addMetaRow.addActionListener { metadataTableModel.addRow(arrayOf("", "")) }
-        val removeMetaRow = JButton("Remove")
-        removeMetaRow.addActionListener {
-            val sel = metadataTable.selectedRow
-            if (sel >= 0) metadataTableModel.removeRow(sel)
-        }
-        metaButtonPanel.add(addMetaRow)
-        metaButtonPanel.add(removeMetaRow)
-        metaPanel.add(metaButtonPanel, BorderLayout.SOUTH)
+        InlineTableActionsHelper.ensureTrailingEmptyRow(metadataTable, metadataTableModel, 2)
         tabs.addTab("Metadata", metaPanel)
 
         panel.add(tabs, BorderLayout.CENTER)
@@ -262,16 +282,6 @@ class GrpcEditorPanel(private val project: Project) : Disposable {
     private fun createResponsePanel(): JPanel {
         val panel = JPanel(BorderLayout())
         panel.border = BorderFactory.createTitledBorder("Response")
-
-        // Streaming status line
-        val statusPanel = JPanel(FlowLayout(FlowLayout.LEFT, 8, 2))
-        streamStateLabel = JLabel("IDLE")
-        streamStateLabel.icon = StreamStateIcon(GrpcStreamState.IDLE)
-        statusPanel.add(streamStateLabel)
-        statusPanel.add(JLabel("|"))
-        streamCountLabel = JLabel("Sent: 0 | Received: 0")
-        statusPanel.add(streamCountLabel)
-        panel.add(statusPanel, BorderLayout.NORTH)
 
         // Tabs for Messages + Body + Trailing Metadata
         val tabs = JBTabbedPane()
@@ -772,32 +782,44 @@ class GrpcEditorPanel(private val project: Project) : Disposable {
         protoFile: File
     ): Map<String, com.google.protobuf.Descriptors.FileDescriptor> {
         val out = java.nio.file.Files.createTempFile("grpc_ui_desc_", ".pb").toFile()
-        out.deleteOnExit()
-        val cmd = listOf(
-            "protoc",
-            "--proto_path=${protoFile.parentFile.absolutePath}",
-            "--descriptor_set_out=${out.absolutePath}",
-            "--include_imports",
-            protoFile.absolutePath
-        )
-        val process = ProcessBuilder(cmd).redirectErrorStream(true).start()
-        process.inputStream.bufferedReader().readText() // drain output
-        process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)
-        if (process.exitValue() != 0) return emptyMap()
+        try {
+            val cmd = listOf(
+                "protoc",
+                "--proto_path=${protoFile.parentFile.absolutePath}",
+                "--descriptor_set_out=${out.absolutePath}",
+                "--include_imports",
+                protoFile.absolutePath
+            )
+            val process = ProcessBuilder(cmd).redirectErrorStream(true).start()
+            try {
+                process.inputStream.bufferedReader().use { it.readText() } // drain output
+                val finished = process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)
+                if (!finished) {
+                    process.destroyForcibly()
+                    return emptyMap()
+                }
+                if (process.exitValue() != 0) return emptyMap()
+            } catch (e: Exception) {
+                process.destroyForcibly()
+                throw e
+            }
 
-        val fds = com.google.protobuf.DescriptorProtos.FileDescriptorSet.parseFrom(out.readBytes())
-        val protoByName = fds.fileList.associateBy { it.name }
-        val resolved = mutableMapOf<String, com.google.protobuf.Descriptors.FileDescriptor>()
+            val fds = com.google.protobuf.DescriptorProtos.FileDescriptorSet.parseFrom(out.readBytes())
+            val protoByName = fds.fileList.associateBy { it.name }
+            val resolved = mutableMapOf<String, com.google.protobuf.Descriptors.FileDescriptor>()
 
-        fun resolve(proto: com.google.protobuf.DescriptorProtos.FileDescriptorProto) {
-            if (resolved.containsKey(proto.name)) return
-            proto.dependencyList.mapNotNull { protoByName[it] }.forEach { resolve(it) }
-            val deps = proto.dependencyList.mapNotNull { resolved[it] }.toTypedArray()
-            resolved[proto.name] = com.google.protobuf.Descriptors.FileDescriptor.buildFrom(proto, deps)
+            fun resolve(proto: com.google.protobuf.DescriptorProtos.FileDescriptorProto) {
+                if (resolved.containsKey(proto.name)) return
+                proto.dependencyList.mapNotNull { protoByName[it] }.forEach { resolve(it) }
+                val deps = proto.dependencyList.mapNotNull { resolved[it] }.toTypedArray()
+                resolved[proto.name] = com.google.protobuf.Descriptors.FileDescriptor.buildFrom(proto, deps)
+            }
+
+            fds.fileList.forEach { resolve(it) }
+            return resolved
+        } finally {
+            out.delete()
         }
-
-        fds.fileList.forEach { resolve(it) }
-        return resolved
     }
 
     // Disposable implementation
@@ -812,10 +834,10 @@ class GrpcEditorPanel(private val project: Project) : Disposable {
     private class StreamStateIcon(private val state: GrpcStreamState) : javax.swing.Icon {
         override fun paintIcon(c: java.awt.Component?, g: java.awt.Graphics?, x: Int, y: Int) {
             g?.color = when (state) {
-                GrpcStreamState.STREAMING -> Color(0, 180, 0)
-                GrpcStreamState.IDLE -> Color(180, 180, 180)
-                GrpcStreamState.COMPLETED -> Color(100, 100, 180)
-                GrpcStreamState.ERROR -> Color(200, 0, 0)
+                GrpcStreamState.STREAMING -> JBColor(0x00B400, 0x00CC00)
+                GrpcStreamState.IDLE -> JBColor(0xB4B4B4, 0x7A7A7A)
+                GrpcStreamState.COMPLETED -> JBColor(0x6464B4, 0x8080CC)
+                GrpcStreamState.ERROR -> JBColor(0xC80000, 0xE02020)
             }
             g?.fillOval(x + 2, y + 2, 8, 8)
         }

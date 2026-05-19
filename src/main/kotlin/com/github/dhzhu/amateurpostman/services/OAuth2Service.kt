@@ -1,7 +1,9 @@
 package com.github.dhzhu.amateurpostman.services
 
 import com.github.dhzhu.amateurpostman.models.*
+import com.github.dhzhu.amateurpostman.utils.OkHttpClientFactory
 import com.intellij.ide.BrowserUtil
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
@@ -35,25 +37,30 @@ sealed class TokenExchangeResult {
  */
 @Service(Service.Level.PROJECT)
 @State(name = "OAuth2Service", storages = [Storage("amateur-postman-oauth2.xml")])
-class OAuth2Service(private val project: Project) : PersistentStateComponent<OAuth2State> {
+class OAuth2Service(private val project: Project) : PersistentStateComponent<OAuth2State>, Disposable {
 
     private val logger = thisLogger()
     private var state = OAuth2State()
-    private val listeners = mutableListOf<OAuth2ConfigChangeListener>()
+    private val listeners = java.util.concurrent.CopyOnWriteArrayList<OAuth2ConfigChangeListener>()
 
-    private val httpClient: OkHttpClient by lazy {
-        OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .build()
-    }
+    private var _httpClient: OkHttpClient? = null
+    private val httpClient: OkHttpClient
+        get() = _httpClient ?: OkHttpClientFactory.defaultBuilder().build().also { _httpClient = it }
 
     override fun getState(): OAuth2State = state
 
     override fun loadState(state: OAuth2State) {
         this.state = state
         logger.info("Loaded ${state.configs.size} OAuth2 configurations")
+    }
+
+    override fun dispose() {
+        _httpClient?.let { client ->
+            client.dispatcher.executorService.shutdown()
+            client.connectionPool.evictAll()
+            client.cache?.close()
+        }
+        _httpClient = null
     }
 
     // ========== Configuration CRUD Operations ==========

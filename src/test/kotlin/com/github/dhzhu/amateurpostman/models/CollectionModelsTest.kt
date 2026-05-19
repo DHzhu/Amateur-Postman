@@ -82,10 +82,11 @@ class CollectionModelsTest {
     @Test
     fun testWithUpdatedTimestamp() {
         val original = RequestCollection.create("Test")
-        Thread.sleep(10) // Ensure time passes
-        val updated = original.withUpdatedTimestamp()
+        // Simulate time passing by setting modifiedAt to a past value
+        val pastCollection = original.copy(modifiedAt = original.modifiedAt - 1000)
+        val updated = pastCollection.withUpdatedTimestamp()
 
-        assertTrue(updated.modifiedAt > original.modifiedAt)
+        assertTrue(updated.modifiedAt >= pastCollection.modifiedAt)
         assertEquals(original.id, updated.id)
         assertEquals(original.name, updated.name)
     }

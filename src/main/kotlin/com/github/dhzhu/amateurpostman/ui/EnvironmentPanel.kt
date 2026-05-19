@@ -27,7 +27,7 @@ import javax.swing.JScrollPane
 import javax.swing.JTable
 import javax.swing.SwingConstants
 import javax.swing.SwingUtilities
-import javax.swing.table.DefaultTableModel
+import javax.swing.table.AbstractTableModel
 
 /**
  * Panel for managing environments and variables.
@@ -433,7 +433,7 @@ class EnvironmentPanel(private val project: Project) : JPanel(BorderLayout()) {
     /**
      * Table model for variables.
      */
-    private class VariablesTableModel : DefaultTableModel() {
+    private class VariablesTableModel : AbstractTableModel() {
         private val keys = mutableListOf<String>()
         private var variables: List<Variable> = emptyList()
 
@@ -484,10 +484,10 @@ class EnvironmentPanel(private val project: Project) : JPanel(BorderLayout()) {
         override fun setValueAt(value: Any?, row: Int, column: Int) {
             val variable = variables.getOrNull(row) ?: return
             val updatedVariable = when (column) {
-                0 -> variable.copy(key = value as String)
-                1 -> variable.copy(value = value as String)
-                2 -> variable.copy(description = value as String)
-                3 -> variable.copy(enabled = value as Boolean)
+                0 -> variable.copy(key = value as? String ?: "")
+                1 -> variable.copy(value = value as? String ?: "")
+                2 -> variable.copy(description = value as? String ?: "")
+                3 -> variable.copy(enabled = value as? Boolean ?: false)
                 else -> variable
             }
             variables = variables.toMutableList().apply { set(row, updatedVariable) }

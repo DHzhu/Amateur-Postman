@@ -66,7 +66,8 @@ data class RequestHistoryState(
 }
 
 /**
- * Serializable version of history entry for persistence
+ * Serializable version of history entry for persistence.
+ * Fields are `var` as required by IntelliJ PersistentStateComponent (reflection-based deserialization).
  */
 data class SerializableHistoryEntry(
     var id: String = "",
@@ -88,7 +89,7 @@ data class SerializableHistoryEntry(
 
         val request = HttpRequest(
             url = url,
-            method = HttpMethod.valueOf(method),
+            method = try { HttpMethod.valueOf(method) } catch (_: IllegalArgumentException) { HttpMethod.GET },
             headers = headers,
             body = body?.let { HttpBody(it, type) }
         )
