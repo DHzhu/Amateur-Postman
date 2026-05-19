@@ -27,6 +27,11 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class SimpleHttpServer {
 
+    companion object {
+        private const val MAX_BODY_SIZE = 1024 * 1024L // 1MB
+        private const val MAX_HEADER_LINE_LENGTH = 8192
+    }
+
     private val logger = thisLogger()
     private var serverSocket: ServerSocket? = null
     private var executor: ExecutorService? = null
@@ -112,7 +117,14 @@ class SimpleHttpServer {
                 val input = BufferedInputStream(sock.getInputStream())
                 val output = BufferedOutputStream(sock.getOutputStream())
 
-                val exchange = parseRequest(input) ?: return
+                val exchange = parseRequest(input)
+                if (exchange == null) {
+                    val errorBody = "Bad Request".toByteArray(Charsets.UTF_8)
+                    output.write("HTTP/1.1 400 Bad Request\r\nContent-Length: ${errorBody.size}\r\nConnection: close\r\n\r\n".toByteArray())
+                    output.write(errorBody)
+                    output.flush()
+                    return
+                }
                 val handler = findHandler(exchange.requestUri.path)
                     ?: findHandler("/") // fallback to root handler
 
@@ -172,6 +184,7 @@ class SimpleHttpServer {
 
         // Read body if Content-Length is present
         val contentLength = headers["Content-Length"]?.firstOrNull()?.toLongOrNull() ?: 0L
+        if (contentLength < 0 || contentLength > MAX_BODY_SIZE) return null
         val body = if (contentLength > 0) {
             val buffer = ByteArray(contentLength.toInt())
             var totalRead = 0
@@ -197,6 +210,7 @@ class SimpleHttpServer {
         val sb = StringBuilder()
         var prev = -1
         while (true) {
+            if (sb.length > MAX_HEADER_LINE_LENGTH) return null
             val b = input.read()
             if (b == -1) {
                 return if (sb.isEmpty() && prev == -1) null else sb.toString()
