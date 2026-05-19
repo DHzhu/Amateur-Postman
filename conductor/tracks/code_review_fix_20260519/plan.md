@@ -2,10 +2,10 @@
 
 ## 严重问题 (8 项)
 
-- [~] 1. SimpleHttpServer Content-Length 无上界 → OOM — 已修复，待测试验证
-- [~] 15. SimpleHttpServer readLine 无长度限制 — 已修复，待测试验证
+- [x] 1. SimpleHttpServer Content-Length 无上界 → OOM — `81fbcd2`
+- [x] 15. SimpleHttpServer readLine 无长度限制 — `81fbcd2`
 - [ ] 2. formatXml 数组越界崩溃 (PostmanToolWindowPanel.kt:487,491)
-- [ ] 3. VariablesTableModel.setValueAt 类型转换崩溃 (EnvironmentPanel.kt:487-489)
+- [x] 3. VariablesTableModel.setValueAt 类型转换崩溃 (EnvironmentPanel.kt:487-489) — `c241bd4`（注：实际修复为 DefaultTableModel → AbstractTableModel，解决构造期 NPE）
 - [ ] 4. GrpcStreamingService 线程安全 (GrpcStreamingService.kt:55-61)
 - [ ] 5. OAuth2Service OkHttpClient 从未关闭 (OAuth2Service.kt:44-50)
 - [ ] 6. GrpcStreamingServiceTest 混用 JUnit 4 API (GrpcStreamingServiceTest.kt:3-4)
