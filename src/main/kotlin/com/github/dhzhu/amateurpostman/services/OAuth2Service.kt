@@ -40,7 +40,7 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
 
     private val logger = thisLogger()
     private var state = OAuth2State()
-    private val listeners = mutableListOf<OAuth2ConfigChangeListener>()
+    private val listeners = java.util.concurrent.CopyOnWriteArrayList<OAuth2ConfigChangeListener>()
 
     private var _httpClient: OkHttpClient? = null
     private val httpClient: OkHttpClient

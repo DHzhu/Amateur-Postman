@@ -24,7 +24,7 @@ class CollectionService(private val project: Project) :
     private val logger = thisLogger()
 
     private var state = CollectionState()
-    private val listeners = mutableListOf<CollectionChangeListener>()
+    private val listeners = java.util.concurrent.CopyOnWriteArrayList<CollectionChangeListener>()
 
     override fun getState(): CollectionState = state
 

@@ -41,7 +41,7 @@ dependencies {
     testImplementation(libs.opentest4j)
 
     // HTTP Client - OkHttp for making HTTP requests
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation(libs.okhttp)
     
     // Kotlin Coroutines
     implementation(libs.coroutines.core)
@@ -63,10 +63,10 @@ dependencies {
     implementation(libs.protobuf.java.util)
 
     // OpenAPI Parser (swagger-parser)
-    implementation("io.swagger.parser.v3:swagger-parser:2.1.32")
+    implementation(libs.swagger.parser)
 
     // Test dependencies
-    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.kotlin)
     testImplementation(libs.grpc.testing)

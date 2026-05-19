@@ -8,6 +8,8 @@ mockito = "5.11.0"
 grpc = "1.65.1"
 protobuf = "4.27.2"
 jackson = "2.18.2"
+okhttp = "4.12.0"
+swagger-parser = "2.1.32"
 
 # plugins
 changelog = "2.5.0"
@@ -33,6 +35,13 @@ jackson-module-kotlin = { group = "com.fasterxml.jackson.module", name = "jackso
 # Kotlin Coroutines
 coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "coroutines" }
+
+# OkHttp
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
+
+# Swagger
+swagger-parser = { group = "io.swagger.parser.v3", name = "swagger-parser", version.ref = "swagger-parser" }
 
 # gRPC & Protobuf
 grpc-netty-shaded = { group = "io.grpc", name = "grpc-netty-shaded", version.ref = "grpc" }
