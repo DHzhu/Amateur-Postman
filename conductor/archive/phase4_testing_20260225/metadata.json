@@ -1,0 +1,20 @@
+{
+  "track_id": "phase4_testing_20260225",
+  "name": "Phase 4 - Testing and Automation",
+  "description": "实现响应断言测试、Pre-request 脚本和 Collection Runner。",
+  "created_at": "2026-02-25",
+  "started_at": "2026-02-26",
+  "completed_at": "2026-02-26",
+  "status": "completed",
+  "phases_completed": 4,
+  "phases_total": 4,
+  "tasks_completed": 13,
+  "tasks_total": 16,
+  "related_files": [
+    "src/main/kotlin/com/github/dhzhu/amateurpostman/models/CollectionModels.kt",
+    "src/main/kotlin/com/github/dhzhu/amateurpostman/ui/PostmanToolWindowPanel.kt",
+    "src/main/kotlin/com/github/dhzhu/amateurpostman/ui/CollectionRunnerDialog.kt",
+    "src/main/kotlin/com/github/dhzhu/amateurpostman/services/HttpRequestService.kt",
+    "src/main/kotlin/com/github/dhzhu/amateurpostman/services/ScriptExecutionService.kt"
+  ]
+}

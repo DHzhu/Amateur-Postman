@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Conductor Track Metadata",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9_]+(_\\d{8})?$" },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "status": { "enum": ["todo", "in_progress", "done"] },
+    "created_at": { "type": "string", "format": "date" },
+    "priority": { "enum": ["high", "medium", "low"] },
+    "tags": { "type": "array", "items": { "type": "string" } }
+  },
+  "required": ["id", "title", "description", "status", "created_at"]
+}
