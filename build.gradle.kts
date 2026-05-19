@@ -43,9 +43,11 @@ dependencies {
     // HTTP Client - OkHttp for making HTTP requests
     implementation(libs.okhttp)
     
-    // Kotlin Coroutines
-    implementation(libs.coroutines.core)
-    implementation(libs.coroutines.swing)
+    // Kotlin Coroutines — core is compileOnly (IntelliJ bundles it), swing must be bundled
+    compileOnly(libs.coroutines.core)
+    implementation(libs.coroutines.swing) {
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
+    }
     
     // JSON Processing
     implementation(libs.jackson.databind)

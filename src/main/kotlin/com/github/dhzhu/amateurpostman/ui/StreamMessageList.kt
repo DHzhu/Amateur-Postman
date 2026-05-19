@@ -199,7 +199,7 @@ class StreamMessageList<T : StreamMessage>(
 
     private class ArrowIcon(private val isOutgoing: Boolean) : Icon {
         override fun paintIcon(c: Component?, g: Graphics?, x: Int, y: Int) {
-            g?.color = if (isOutgoing) Color(0, 120, 0) else Color(0, 0, 160)
+            g?.color = if (isOutgoing) JBColor(0x007800, 0x00AA00) else JBColor(0x0000A0, 0x4040E0)
             if (isOutgoing) {
                 // Right arrow (outgoing)
                 val px = intArrayOf(x + 2, x + 10, x + 6)

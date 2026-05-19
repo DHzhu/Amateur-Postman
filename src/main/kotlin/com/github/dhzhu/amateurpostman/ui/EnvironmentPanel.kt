@@ -484,10 +484,10 @@ class EnvironmentPanel(private val project: Project) : JPanel(BorderLayout()) {
         override fun setValueAt(value: Any?, row: Int, column: Int) {
             val variable = variables.getOrNull(row) ?: return
             val updatedVariable = when (column) {
-                0 -> variable.copy(key = value as String)
-                1 -> variable.copy(value = value as String)
-                2 -> variable.copy(description = value as String)
-                3 -> variable.copy(enabled = value as Boolean)
+                0 -> variable.copy(key = value as? String ?: "")
+                1 -> variable.copy(value = value as? String ?: "")
+                2 -> variable.copy(description = value as? String ?: "")
+                3 -> variable.copy(enabled = value as? Boolean ?: false)
                 else -> variable
             }
             variables = variables.toMutableList().apply { set(row, updatedVariable) }

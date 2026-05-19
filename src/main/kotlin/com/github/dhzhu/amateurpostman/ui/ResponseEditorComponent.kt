@@ -1,5 +1,6 @@
 package com.github.dhzhu.amateurpostman.ui
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
@@ -49,11 +50,15 @@ class ResponseEditorComponent(
          */
         fun truncateForDisplay(content: String, maxBytes: Int = TRUNCATION_THRESHOLD): Pair<String, Boolean> {
             val bytes = content.toByteArray(Charsets.UTF_8)
-            return if (bytes.size > maxBytes) {
-                Pair(content.take(maxBytes), true)
-            } else {
-                Pair(content, false)
-            }
+            if (bytes.size <= maxBytes) return Pair(content, false)
+            // Find the longest prefix whose UTF-8 encoding fits in maxBytes
+            var end = maxBytes
+            // Back up past any partial multi-byte sequence (continuation bytes 10xxxxxx)
+            while (end > 0 && (bytes[end].toInt() and 0xC0) == 0x80) end--
+            // Also remove the leading byte of the now-incomplete character
+            if (end > 0) end--
+            val truncated = String(bytes, 0, end, Charsets.UTF_8)
+            return Pair(truncated, true)
         }
 
         /** Human-readable byte size string (B / KB / MB). */
@@ -120,16 +125,20 @@ class ResponseEditorComponent(
             createEditor(fileType)
         }
 
-        document.setReadOnly(false)
-        document.setText(text)
-        document.setReadOnly(true)
+        ApplicationManager.getApplication().runWriteAction {
+            document.setReadOnly(false)
+            document.setText(text)
+            document.setReadOnly(true)
+        }
     }
 
     /** Clears editor content. */
     fun clear() {
-        document.setReadOnly(false)
-        document.setText("")
-        document.setReadOnly(true)
+        ApplicationManager.getApplication().runWriteAction {
+            document.setReadOnly(false)
+            document.setText("")
+            document.setReadOnly(true)
+        }
     }
 
     override fun dispose() {

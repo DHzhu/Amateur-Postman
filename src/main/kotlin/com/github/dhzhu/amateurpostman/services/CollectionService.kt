@@ -286,6 +286,26 @@ class CollectionService(private val project: Project) :
     }
 
     /**
+     * Renames a request item.
+     *
+     * @param collectionId The collection ID
+     * @param itemId The request item ID to rename
+     * @param newName The new name
+     * @return true if renamed, false if not found
+     */
+    fun renameRequest(collectionId: String, itemId: String, newName: String): Boolean {
+        val collection = getCollection(collectionId) ?: return false
+
+        val updatedItems = updateItemName(collection.items, itemId, newName)
+        if (updatedItems != null) {
+            val updatedCollection = collection.copy(items = updatedItems).withUpdatedTimestamp()
+            updateCollection(updatedCollection)
+            return true
+        }
+        return false
+    }
+
+    /**
      * Deletes a request item.
      *
      * @param collectionId The collection ID

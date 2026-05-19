@@ -71,9 +71,12 @@
 - [ ] No secrets leaked
 - [ ] Linting/Checks pass (`./gradlew check`)
 - [ ] KDoc for public API
+- [ ] Plugin verification pass (`./gradlew verifyPlugin`)
+- [ ] Code review pass（所有任务完成后进行代码审查）
 
 ## 5. Development Commands
 - **Build**: `./gradlew build`
 - **Test**: `./gradlew test`
 - **Coverage**: `./gradlew koverHtmlReport`
 - **Static Analysis**: `./gradlew check`
+- **Plugin Verification**: `./gradlew verifyPlugin`

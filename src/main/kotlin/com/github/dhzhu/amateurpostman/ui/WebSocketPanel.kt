@@ -12,6 +12,7 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBTextArea
 import com.intellij.ui.components.JBTextField
 import com.intellij.ui.table.JBTable
+import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +21,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.swing.Swing
 import java.awt.BorderLayout
-import java.awt.Color
 import java.awt.Dimension
 import java.awt.FlowLayout
 import java.awt.Font
@@ -101,61 +101,28 @@ class WebSocketPanel(private val project: Project) : Disposable {
     }
 
     private fun createTopBar(): JPanel {
-        val panel = JPanel(BorderLayout(0, 4))
+        val panel = JPanel(BorderLayout(4, 0))
+        panel.border = JBUI.Borders.emptyBottom(4)
 
-        // Row 1: URL input
-        val urlRow = JPanel(BorderLayout(4, 0))
-        urlRow.add(JBLabel("URL:"), BorderLayout.WEST)
-
-        val urlInputPanel = JPanel(BorderLayout(4, 0))
         protocolComboBox = ComboBox(DefaultComboBoxModel(arrayOf("wss://", "ws://")))
         protocolComboBox.selectedItem = "wss://"
         protocolComboBox.preferredSize = Dimension(70, protocolComboBox.preferredSize.height)
-        urlInputPanel.add(protocolComboBox, BorderLayout.WEST)
+        panel.add(protocolComboBox, BorderLayout.WEST)
 
         urlField = JBTextField("echo.websocket.org")
         urlField.toolTipText = "WebSocket server URL"
-        urlInputPanel.add(urlField, BorderLayout.CENTER)
+        panel.add(urlField, BorderLayout.CENTER)
 
-        urlRow.add(urlInputPanel, BorderLayout.CENTER)
-
-        val buttonPanel = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0))
         connectButton = JButton("Connect")
         connectButton.addActionListener { connect() }
         disconnectButton = JButton("Disconnect")
         disconnectButton.isEnabled = false
         disconnectButton.addActionListener { disconnect() }
+
+        val buttonPanel = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0))
         buttonPanel.add(connectButton)
         buttonPanel.add(disconnectButton)
-        urlRow.add(buttonPanel, BorderLayout.EAST)
-
-        // Row 2: Headers
-        val headersRow = JPanel(BorderLayout(4, 0))
-        headersRow.add(JBLabel("Headers:"), BorderLayout.WEST)
-
-        headersTableModel = DefaultTableModel(arrayOf("Key", "Value"), 0)
-        headersTable = JBTable(headersTableModel)
-        headersTable.setShowGrid(true)
-        headersTable.preferredSize = Dimension(0, 60)
-
-        val headersButtonPanel = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0))
-        val addHeaderButton = JButton("Add")
-        addHeaderButton.addActionListener { headersTableModel.addRow(arrayOf("", "")) }
-        val removeHeaderButton = JButton("Remove")
-        removeHeaderButton.addActionListener {
-            val sel = headersTable.selectedRow
-            if (sel >= 0) headersTableModel.removeRow(sel)
-        }
-        headersButtonPanel.add(addHeaderButton)
-        headersButtonPanel.add(removeHeaderButton)
-
-        val headersContainer = JPanel(BorderLayout())
-        headersContainer.add(JBScrollPane(headersTable).apply { preferredSize = Dimension(0, 60) }, BorderLayout.CENTER)
-        headersContainer.add(headersButtonPanel, BorderLayout.EAST)
-        headersRow.add(headersContainer, BorderLayout.CENTER)
-
-        panel.add(urlRow, BorderLayout.NORTH)
-        panel.add(headersRow, BorderLayout.SOUTH)
+        panel.add(buttonPanel, BorderLayout.EAST)
 
         return panel
     }
@@ -163,20 +130,19 @@ class WebSocketPanel(private val project: Project) : Disposable {
     private fun createMainContent(): JPanel {
         val panel = JPanel(BorderLayout(0, 4))
 
-        // High-performance message list with syntax highlighting
-        val messagesPanel = JPanel(BorderLayout())
-        messagesPanel.border = BorderFactory.createTitledBorder("Messages")
+        // Tabbed pane: Messages / Headers
+        val tabs = com.intellij.ui.components.JBTabbedPane()
 
+        // Messages tab
+        val messagesTab = JPanel(BorderLayout(0, 4))
         messageList = StreamMessageList(maxMessages = 1000)
-        messagesPanel.add(messageList, BorderLayout.CENTER)
+        messagesTab.add(messageList, BorderLayout.CENTER)
 
-        // Input area
+        // Input area inside messages tab
         val inputPanel = JPanel(BorderLayout(4, 0))
         inputPanel.border = JBUI.Borders.emptyTop(4)
 
-        val inputToolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0))
         binaryModeCheckBox = JCheckBox("Binary (Base64)")
-        inputToolbar.add(binaryModeCheckBox)
 
         messageInputArea = JBTextArea()
         messageInputArea.font = Font("Monospaced", Font.PLAIN, 13)
@@ -190,37 +156,50 @@ class WebSocketPanel(private val project: Project) : Disposable {
         clearButton = JButton("Clear")
         clearButton.addActionListener { clearMessages() }
 
+        val inputToolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0))
+        inputToolbar.add(binaryModeCheckBox)
         inputToolbar.add(sendTextButton)
         inputToolbar.add(clearButton)
 
         inputPanel.add(inputToolbar, BorderLayout.WEST)
         inputPanel.add(JBScrollPane(messageInputArea), BorderLayout.CENTER)
 
-        panel.add(messagesPanel, BorderLayout.CENTER)
-        panel.add(inputPanel, BorderLayout.SOUTH)
+        messagesTab.add(inputPanel, BorderLayout.SOUTH)
+        tabs.addTab("Messages", messagesTab)
 
+        // Headers tab
+        val headersTab = JPanel(BorderLayout(0, 4))
+        headersTableModel = DefaultTableModel(arrayOf("Key", "Value"), 0)
+        headersTable = JBTable(headersTableModel)
+        headersTable.setShowGrid(true)
+        InlineTableActionsHelper.addActionsColumn(headersTable, headersTableModel, 2)
+
+        headersTab.add(JBScrollPane(headersTable), BorderLayout.CENTER)
+        InlineTableActionsHelper.ensureTrailingEmptyRow(headersTable, headersTableModel, 2)
+
+        tabs.addTab("Headers", headersTab)
+
+        panel.add(tabs, BorderLayout.CENTER)
         return panel
     }
 
     private fun createStatusBar(): JPanel {
-        val panel = JPanel(FlowLayout(FlowLayout.LEFT, 12, 2))
+        val panel = JPanel(BorderLayout())
         panel.border = JBUI.Borders.emptyTop(4)
 
+        val leftPanel = JPanel(FlowLayout(FlowLayout.LEFT, 12, 2))
         statusLabel = JLabel("Disconnected")
         statusLabel.icon = StatusIcon(WebSocketState.DISCONNECTED)
-        panel.add(statusLabel)
-
-        panel.add(JLabel("|"))
-
+        leftPanel.add(statusLabel)
+        leftPanel.add(JLabel("|"))
         messageCountLabel = JLabel("Messages: 0")
-        panel.add(messageCountLabel)
-
+        leftPanel.add(messageCountLabel)
         sentCountLabel = JLabel("Sent: 0")
-        panel.add(sentCountLabel)
-
+        leftPanel.add(sentCountLabel)
         receivedCountLabel = JLabel("Received: 0")
-        panel.add(receivedCountLabel)
+        leftPanel.add(receivedCountLabel)
 
+        panel.add(leftPanel, BorderLayout.WEST)
         return panel
     }
 
@@ -327,11 +306,11 @@ class WebSocketPanel(private val project: Project) : Disposable {
     private class StatusIcon(private val state: WebSocketState) : javax.swing.Icon {
         override fun paintIcon(c: java.awt.Component?, g: java.awt.Graphics?, x: Int, y: Int) {
             g?.color = when (state) {
-                WebSocketState.CONNECTED -> Color(0, 180, 0)
-                WebSocketState.CONNECTING -> Color(255, 165, 0)
-                WebSocketState.CLOSING -> Color(255, 165, 0)
-                WebSocketState.DISCONNECTED -> Color(180, 180, 180)
-                WebSocketState.CLOSED -> Color(180, 180, 180)
+                WebSocketState.CONNECTED -> JBColor(0x00B400, 0x00CC00)
+                WebSocketState.CONNECTING -> JBColor(0xFFA500, 0xFFB733)
+                WebSocketState.CLOSING -> JBColor(0xFFA500, 0xFFB733)
+                WebSocketState.DISCONNECTED -> JBColor(0xB4B4B4, 0x7A7A7A)
+                WebSocketState.CLOSED -> JBColor(0xB4B4B4, 0x7A7A7A)
             }
             g?.fillOval(x + 2, y + 2, 8, 8)
         }

@@ -4,7 +4,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## Active Tracks
 
-(No active tracks)
+(无)
 
 ## Next Up
 
@@ -12,8 +12,20 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## Archive
 
-- [x] **Track: 全面代码审查修复** [DONE]
-  *Link: [./tracks/code_review_fix_20260519/](./tracks/code_review_fix_20260519/)*
+- [x] **Track: Postman 风格 UI 重新设计** [DONE]
+  *Link: [./archive/ui_redesign_postman_style_20260519/](./archive/ui_redesign_postman_style_20260519/)*
+  *Description: 重新设计 HTTP、WebSocket、gRPC 三个 Tab 的窗口布局，参照 Postman 样式：历史窗口默认关闭、参数表格行内操作按钮、动态尺寸调整、整体布局美化。*
+  *Started: 2026-05-19*
+  *Completed: 2026-05-19*
+
+- [x] **Track: 代码审查问题修复（第二轮）** [DONE]
+  *Link: [./archive/code_review_fix_20260519_v2/](./archive/code_review_fix_20260519_v2/)*
+  *Description: 全面代码审查后的问题修复，涵盖线程安全、资源泄漏、空安全、安全漏洞、逻辑 bug、Darcula 主题兼容等 21 项问题。*
+  *Started: 2026-05-19*
+  *Completed: 2026-05-19*
+
+- [x] **Track: 全面代码审查修复（第一轮）** [DONE]
+  *Link: [./archive/code_review_fix_20260519/](./archive/code_review_fix_20260519/)*
   *Description: 全面代码审查后的问题修复，涵盖安全漏洞、资源泄漏、线程安全、测试质量等 29 项问题。*
   *Started: 2026-05-19*
   *Completed: 2026-05-19*

@@ -413,7 +413,7 @@ class ScriptExecutionService(
                                 null,
                                 Context.newBuilder("js")
                                         .allowHostAccess(HostAccess.ALL)
-                                        .allowHostClassLookup { true }
+                                        .allowHostClassLookup { false }
                         )
 
                 // Load crypto-js library
