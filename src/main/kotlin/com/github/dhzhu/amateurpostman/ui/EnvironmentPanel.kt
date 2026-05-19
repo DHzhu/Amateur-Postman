@@ -27,7 +27,7 @@ import javax.swing.JScrollPane
 import javax.swing.JTable
 import javax.swing.SwingConstants
 import javax.swing.SwingUtilities
-import javax.swing.table.DefaultTableModel
+import javax.swing.table.AbstractTableModel
 
 /**
  * Panel for managing environments and variables.
@@ -433,7 +433,7 @@ class EnvironmentPanel(private val project: Project) : JPanel(BorderLayout()) {
     /**
      * Table model for variables.
      */
-    private class VariablesTableModel : DefaultTableModel() {
+    private class VariablesTableModel : AbstractTableModel() {
         private val keys = mutableListOf<String>()
         private var variables: List<Variable> = emptyList()
 
