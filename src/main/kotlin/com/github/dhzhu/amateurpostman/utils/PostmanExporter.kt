@@ -310,7 +310,7 @@ object PostmanExporter {
     private data class PostmanInfo(
         val name: String,
         val description: String? = null,
-        @JsonProperty("_postman_id") val postmanId: String? = null
+        @field:JsonProperty("_postman_id") val postmanId: String? = null
     )
 
     private data class PostmanItem(

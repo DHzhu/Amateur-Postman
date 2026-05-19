@@ -250,7 +250,7 @@ class OpenApiExporterTest {
     @Test
     fun `exportToFile writes content to file`() {
         val col = collection("API", items = listOf(request("GET", "https://api.example.com/")))
-        val file = createTempFile("openapi", ".json")
+        val file = kotlin.io.path.createTempFile("openapi", ".json").toFile()
         file.deleteOnExit()
 
         val result = OpenApiExporter.exportToFile(col, file, OpenApiExporter.ExportFormat.JSON)
