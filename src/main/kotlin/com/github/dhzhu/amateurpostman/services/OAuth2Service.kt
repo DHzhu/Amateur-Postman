@@ -1,6 +1,7 @@
 package com.github.dhzhu.amateurpostman.services
 
 import com.github.dhzhu.amateurpostman.models.*
+import com.github.dhzhu.amateurpostman.utils.OkHttpClientFactory
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.PersistentStateComponent
@@ -44,11 +45,7 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
 
     private var _httpClient: OkHttpClient? = null
     private val httpClient: OkHttpClient
-        get() = _httpClient ?: OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .build().also { _httpClient = it }
+        get() = _httpClient ?: OkHttpClientFactory.defaultBuilder().build().also { _httpClient = it }
 
     override fun getState(): OAuth2State = state
 

@@ -1,6 +1,7 @@
 package com.github.dhzhu.amateurpostman.services
 
 import com.github.dhzhu.amateurpostman.models.*
+import com.github.dhzhu.amateurpostman.utils.OkHttpClientFactory
 import com.github.dhzhu.amateurpostman.utils.VariableResolver
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
@@ -29,13 +30,7 @@ class HttpRequestServiceImpl(private val project: Project) : HttpRequestService,
     private val logger = thisLogger()
 
     private val client: OkHttpClient by lazy {
-        OkHttpClient.Builder()
-                .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
-                .writeTimeout(30, TimeUnit.SECONDS)
-                .followRedirects(true)
-                .followSslRedirects(true)
-                .build()
+        OkHttpClientFactory.defaultBuilder().build()
     }
 
     override fun dispose() {
