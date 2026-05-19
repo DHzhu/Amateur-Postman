@@ -108,8 +108,6 @@ class WebSocketServiceImpl : WebSocketService {
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-            _state.value = WebSocketState.DISCONNECTED
-            this@WebSocketServiceImpl.webSocket = null
             // Emit error as a system message (could be handled differently)
             val errorMessage = WebSocketMessage(
                 content = "Connection error: ${t.message}",
@@ -120,6 +118,8 @@ class WebSocketServiceImpl : WebSocketService {
                 _messageHistory.add(errorMessage)
             }
             scope.launch {
+                _state.value = WebSocketState.DISCONNECTED
+                this@WebSocketServiceImpl.webSocket = null
                 _messages.emit(errorMessage)
             }
         }

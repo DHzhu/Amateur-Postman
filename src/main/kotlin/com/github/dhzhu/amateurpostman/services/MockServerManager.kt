@@ -100,12 +100,19 @@ data class MockRuleState(
     name = "AmateurPostmanMockServer",
     storages = [Storage("amateur-postman-mock.xml")]
 )
-class MockServerManager : PersistentStateComponent<MockServerState> {
+class MockServerManager : PersistentStateComponent<MockServerState>, com.intellij.openapi.Disposable {
 
     private var state = MockServerState()
     private var server: SimpleHttpServer? = null
     private val rules = ConcurrentHashMap<String, MockRule>()
     private val logger = thisLogger()
+    private val delayExecutor = java.util.concurrent.Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "MockServer-Delay").apply { isDaemon = true }
+    }
+
+    override fun dispose() {
+        delayExecutor.shutdownNow()
+    }
 
     /**
      * Current port the server is running on, or null if not running.
@@ -282,9 +289,11 @@ class MockServerManager : PersistentStateComponent<MockServerState> {
     }
 
     private fun handleMockResponse(exchange: SimpleHttpExchange, rule: MockRule) {
-        // Apply delay if configured
+        // Apply delay if configured — use scheduled executor to avoid blocking HTTP thread pool
         if (rule.delayMs > 0) {
-            Thread.sleep(rule.delayMs)
+            val latch = java.util.concurrent.CountDownLatch(1)
+            delayExecutor.schedule({ latch.countDown() }, rule.delayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+            latch.await()
         }
 
         // Build response headers

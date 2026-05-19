@@ -165,6 +165,9 @@ class AuthService(private val project: Project) {
      * @return The resolved Authentication, or null if no auth is configured
      */
     fun resolveAuthBlocking(collectionId: String, itemId: String): Authentication? {
+        check(!javax.swing.SwingUtilities.isEventDispatchThread()) {
+            "resolveAuthBlocking must not be called from EDT to avoid deadlock"
+        }
         return runBlocking { resolveAuth(collectionId, itemId) }
     }
 
