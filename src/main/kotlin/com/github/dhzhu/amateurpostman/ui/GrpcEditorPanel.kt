@@ -781,9 +781,18 @@ class GrpcEditorPanel(private val project: Project) : Disposable {
             protoFile.absolutePath
         )
         val process = ProcessBuilder(cmd).redirectErrorStream(true).start()
-        process.inputStream.bufferedReader().readText() // drain output
-        process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)
-        if (process.exitValue() != 0) return emptyMap()
+        try {
+            process.inputStream.bufferedReader().use { it.readText() } // drain output
+            val finished = process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)
+            if (!finished) {
+                process.destroyForcibly()
+                return emptyMap()
+            }
+            if (process.exitValue() != 0) return emptyMap()
+        } catch (e: Exception) {
+            process.destroyForcibly()
+            throw e
+        }
 
         val fds = com.google.protobuf.DescriptorProtos.FileDescriptorSet.parseFrom(out.readBytes())
         val protoByName = fds.fileList.associateBy { it.name }
