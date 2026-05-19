@@ -6,6 +6,32 @@
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-05-19
+### Fixed
+- **安全漏洞**: SimpleHttpServer 增加 Content-Length 上界（1MB）和 Header 行长度限制（8KB），防止 OOM 攻击。
+- **安全漏洞**: OAuth2CallbackServer 修复 XSS 漏洞，对错误信息进行 HTML 转义。
+- **安全漏洞**: MockServerManager 修复 JSON 注入风险，使用 Jackson 序列化替代字符串拼接。
+- **资源泄漏**: GrpcEditorPanel protoc 进程超时/异常时正确销毁。
+- **资源泄漏**: OAuth2Service、AuthPanel、ScriptExecutionService 实现 `Disposable` 接口，正确释放 OkHttpClient、CoroutineScope、GraalJS 引擎。
+- **线程安全**: GrpcStreamingService 共享状态改用 `AtomicInteger` + `synchronized`。
+- **线程安全**: 多个服务的 listeners 列表改用 `CopyOnWriteArrayList`。
+- **线程安全**: WebSocketServiceImpl `onFailure` 回调中状态赋值移入 `scope.launch` 消除竞态。
+- **崩溃修复**: `VariablesTableModel` 从 `DefaultTableModel` 改为 `AbstractTableModel`，修复构造期 NPE。
+- **崩溃修复**: `formatXml` 修复 `'<'` 后字符越界和运算符优先级问题。
+- **崩溃修复**: `HttpMethod.valueOf` 反序列化增加异常保护，避免 `IllegalArgumentException`。
+- **崩溃修复**: `BodyMatcher` 异常捕获从 `Exception` 收窄为 `IllegalArgumentException`。
+- **死锁防护**: `AuthService.resolveAuthBlocking` 增加 EDT 线程检查，防止死锁。
+- **UI**: `ProfilingPanel` 硬编码暗色主题颜色改为 `JBColor` 主题感知。
+- **Mock Server**: 延迟规则从 `Thread.sleep` 改用 `ScheduledExecutor` + `CountDownLatch`，避免阻塞 HTTP 线程池。
+- **构建**: `pluginUntilBuild` 配置为 `253.*`，明确兼容性范围。
+- **依赖**: OkHttp 和 swagger-parser 版本纳入 `libs.versions.toml` 统一管理。
+
+### Changed
+- **测试质量**: `AmEventListenerTest` 消除真实网络请求，改用 `Response.Builder` 构造 mock 响应。
+- **测试质量**: `StreamMessageListTest` 去除 9 处 `Thread.sleep`，改用 `invokeAndWait` 确定性同步。
+- **测试质量**: `VariableScopePriorityTest` 从空壳测试扩展为覆盖完整优先级链。
+- **基础设施**: 提取 `OkHttpClientFactory` 统一生产 OkHttpClient 配置。
+
 ## [0.0.4] - 2026-05-18
 ### Fixed
 - **Internal API 兼容性**: 移除 `com.sun.net.httpserver`、`EditorEx`、`XmlSerializerUtil` 等 Internal API 使用，通过 JetBrains Marketplace Plugin Verifier 验证。
@@ -76,6 +102,7 @@
 - **基础 UI**: 基于 IntelliJ ToolWindow 实现的极简测试面板。
 
 ---
+[0.0.5]: https://github.com/DHzhu/Amateur-Postman/compare/v0.0.4...v0.0.5
 [0.4.0]: https://github.com/DHzhu/Amateur-Postman/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/DHzhu/Amateur-Postman/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/DHzhu/Amateur-Postman/compare/v0.1.0...v0.2.0

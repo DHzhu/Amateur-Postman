@@ -4,16 +4,19 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## Active Tracks
 
-- [ ] **Track: 全面代码审查修复**
-  *Link: [./tracks/code_review_fix_20260519/](./tracks/code_review_fix_20260519/)*
-  *Description: 全面代码审查后的问题修复，涵盖安全漏洞、资源泄漏、线程安全、测试质量等 29 项问题。*
-  *Started: 2026-05-19*
+(No active tracks)
 
 ## Next Up
 
 (To be planned)
 
 ## Archive
+
+- [x] **Track: 全面代码审查修复** [DONE]
+  *Link: [./tracks/code_review_fix_20260519/](./tracks/code_review_fix_20260519/)*
+  *Description: 全面代码审查后的问题修复，涵盖安全漏洞、资源泄漏、线程安全、测试质量等 29 项问题。*
+  *Started: 2026-05-19*
+  *Completed: 2026-05-19*
 
 - [x] **Track: Variable Resolver Logic Optimization** [DONE]
   *Link: [./archive/variable_resolver_optimization_20260318/](./archive/variable_resolver_optimization_20260318/)*

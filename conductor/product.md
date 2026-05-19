@@ -40,11 +40,9 @@ Amateur-Postman 旨在为开发者提供一个集成在 IntelliJ IDEA 内部的�
 - **Phase 7: 协议扩展 (gRPC)** (✅已完成): 实现 Proto 动态解析与一元 RPC 调用。
 - **Phase 8: 协议补完 (WebSocket & Streaming)** (✅已完成): WebSocket 长连接调试、gRPC 服务端/客户端流式支持。
 - **Phase 9: OpenAPI 深度集成** (✅已完成): OpenAPI 规范导入、增量同步、IDE 代码联动。
-- **Phase 10: 企业级测试与生态**: OAuth 2.0 流程支持、HAR 导入及 API 文档导出。
+- **Phase 10: 企业级测试与生态** (✅已完成): OAuth 2.0 流程支持、HAR 导入及 API 文档导出。
 
 ## Next Steps
 
-- **OAuth 2.0 支持**: 支持 Authorization Code, Client Credentials 等常用流程。
-- **HAR 导入**: 支持导入 HTTP Archive 格式。
-- **API 文档导出**: 导出 OpenAPI 规范文档。
+- **质量加固**: 持续完善测试覆盖率，优化线程安全与资源生命周期管理。
 
