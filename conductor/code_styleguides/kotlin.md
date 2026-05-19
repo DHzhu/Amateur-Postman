@@ -1,29 +1,29 @@
-# Kotlin Code Style Guide - Amateur-Postman
+# Kotlin 代码风格指南 - Amateur-Postman
 
-## General Rules
-- Follow official [Kotlin Coding Conventions](https://kotlinlang.org/docs/coding-conventions.html).
-- Prefer expression bodies for simple functions.
-- Use trailing commas for parameters and arguments.
+## 基本规则
+- 遵循官方 [Kotlin 编码规范](https://kotlinlang.org/docs/coding-conventions.html)。
+- 简单函数优先使用表达式体。
+- 参数和实参使用尾逗号。
 
-## Naming
-- **Classes/Objects**: PascalCase (e.g., `PostmanToolWindowPanel`)
-- **Functions/Properties**: camelCase (e.g., `sendRequest`)
-- **Constants**: SCREAMING_SNAKE_CASE (e.g., `DEFAULT_TIMEOUT`)
+## 命名
+- **类/对象**: PascalCase（如 `PostmanToolWindowPanel`）
+- **函数/属性**: camelCase（如 `sendRequest`）
+- **常量**: SCREAMING_SNAKE_CASE（如 `DEFAULT_TIMEOUT`）
 
-## Null Safety
-- Avoid `!!` whenever possible. Use safe calls (`?.`) or Elvis operator (`?:`).
-- Use `lateinit` only for properties initialized in `onInit` or similar lifecycle methods (like UI components).
+## 空安全
+- 尽可能避免 `!!`，优先使用安全调用（`?.`）或 Elvis 运算符（`?:`）。
+- `lateinit` 仅用于在 `onInit` 等生命周期方法中初始化的属性（如 UI 组件）。
 
-## Functional Programming
-- Use `let`, `run`, `apply`, `also`, and `with` appropriately to improve readability.
-- Prefer immutability (`val` over `var`, `List` over `MutableList`).
+## 函数式编程
+- 合理使用 `let`、`run`、`apply`、`also`、`with` 以提升可读性。
+- 优先不可变性（`val` 优于 `var`，`List` 优于 `MutableList`）。
 
 ## API 合规性（强制）
 
-### 禁止使用 Internal API
+### 禁止使用内部 API
 - **不得使用** `com.intellij.openapi.diagnostic` 以外的 `com.intellij.*` 包中标记为 `@Internal` 或 `@ApiStatus.Internal` 的类/方法。
 - **不得使用** `com.sun.*`、`sun.*`、`jdk.internal.*` 等 JDK 内部 API。
-- 替代方案：查找 JetBrains 官方文档中的公共 API，或使用标准 JDK API。
+- 替代方案：查阅 JetBrains 官方文档中的公共 API，或使用标准 JDK API。
 
 ### 禁止使用已废弃 API
 - **不得调用** 标记为 `@Deprecated` 的方法，除非有 `ReplaceWith` 且已应用替换。
@@ -47,6 +47,6 @@
 ### 验证方式
 每次提交前执行 `./gradlew clean compileKotlin compileTestKotlin --no-build-cache`，确认输出中无 `^w:` 警告。
 
-## IntelliJ Integration
-- Respect the IDE's built-in formatting settings (defined in `.idea/codeStyles`).
-- Use KDoc for documenting non-trivial public APIs.
+## IntelliJ 集成
+- 遵循 IDE 内置的格式化设置（定义在 `.idea/codeStyles` 中）。
+- 非平凡的公共 API 使用 KDoc 文档注释。
