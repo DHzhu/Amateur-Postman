@@ -1426,5 +1426,6 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
     override fun dispose() {
         scope.cancel()
+        authPanelWrapper.dispose()
     }
 }
