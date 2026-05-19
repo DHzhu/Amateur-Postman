@@ -18,6 +18,11 @@ This document outlines general coding principles that apply across all languages
 - Write code that is easy to modify and extend.
 - Minimize dependencies and coupling.
 
+## API 合规性（强制）
+- **禁止使用 Internal API**: 不得调用框架或库中标记为 Internal 的接口。对于 IntelliJ 插件，以 Plugin Verifier 报告为准。
+- **禁止使用已废弃 API**: 不得调用标记为 Deprecated 的方法，必须使用推荐替代方案。
+- **编译零警告**: 代码提交前必须通过 `./gradlew clean compileKotlin compileTestKotlin --no-build-cache` 且无 `^w:` 警告。
+
 ## Documentation
 - Document *why* something is done, not just *what*.
 - Keep documentation up-to-date with code changes.

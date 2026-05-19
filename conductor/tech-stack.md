@@ -19,3 +19,14 @@
 - **Mocking**: MockWebServer (OkHttp), gRPC InProcessServer - 分别用于模拟 HTTP 服务器和内嵌 gRPC 服务器。
 - **Static Analysis**: Qodana, Checkstyle (via build plugins)
 - **Coverage**: Kover
+
+## Build Quality Gates（提交前必须通过）
+
+| 检查项 | 命令 | 通过标准 |
+|--------|------|----------|
+| 编译零警告 | `./gradlew clean compileKotlin compileTestKotlin --no-build-cache` | 输出中无 `^w:` 行 |
+| 全量测试 | `./gradlew test` | BUILD SUCCESSFUL，0 failures |
+| Plugin Verifier | `./gradlew verifyPlugin` | 结果为 Compatible，无 Internal API 警告 |
+| 插件打包 | `./gradlew buildPlugin` | 生成 zip 文件 |
+
+**注意**: 编译缓存会静默吞掉警告，检查警告时**必须**加 `--no-build-cache`。
