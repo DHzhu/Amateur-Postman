@@ -19,7 +19,7 @@
 - [x] 11. AuthPanel CoroutineScope 未取消 — `6556dea`
 - [x] 12. ProfilingPanel 硬编码暗色主题 — `adc4996`
 - [x] 13. MockServerManager JSON 注入 — `adc4996`
-- [ ] 14. ScriptExecutionService GraalJS 引擎泄漏
+- [x] 14. ScriptExecutionService GraalJS 引擎泄漏 — `70368c1`
 - [x] 16. OAuth2CallbackServer XSS — `adc4996`
 - [x] 17. HttpMethod.valueOf 反序列化无异常保护 — `adc4996`
 - [x] 18. BodyMatcher 异常捕获过宽 — `adc4996`
