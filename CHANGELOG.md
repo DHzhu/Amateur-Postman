@@ -6,6 +6,22 @@
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-06-08
+### Added
+- **Collections 工具栏按钮**: 在工具栏 History 按钮前新增 Collections 入口，点击可展开/收起 Collections 侧边栏。
+- **Params 显式按钮**: Params 表格新增 Add/Remove 按钮，作为内联 +/- 按钮的备用操作方式。
+- **保存更新模式**: 从 Collections 加载的请求再次保存时，弹出 Update / Save as New / Cancel 选项，避免重复保存。
+
+### Fixed
+- **IntelliJ 2025.3 兼容性**: `InlineTableActionsHelper` 单元格编辑器改用 `currentRow` 替代 `table.editingRow`，并在操作前调用 `table.removeEditor()` 确保编辑器完全释放，修复 2025.3 上 Params/Headers 添加删除按钮失效的问题。
+- **变量解析**: 发送请求时先解析环境变量再验证 URL 格式，支持 `{{variable}}` 语法；未解析的变量给出明确错误提示。
+- **环境切换**: `EnvironmentWrapper` 实现 `equals()`/`hashCode()`，修复创建新环境后无法通过 ComboBox 切换的问题。
+- **环境加载防抖**: `loadEnvironments` 期间设置 `isLoadingEnvironments` 标志，防止 ComboBox 重绘时触发多余的环境切换事件。
+- **变量编辑自动保存**: 环境变量和全局变量的表格编辑操作实时回写到 `EnvironmentService`，不再需要额外保存步骤。
+- **Save 对话框**: 重写为 `GridBagLayout` 布局，修复空白窗口问题；使用 IntelliJ 标准 `doOKAction` 处理确认逻辑。
+- **响应换行符**: `ResponseEditorComponent.setContent` 将 `\r\n` 规范化为 `\n`，修复 HTTP 响应含 Windows 换行符时抛出 `Wrong line separators` 异常。
+- **UI 文案**: 错误提示和脚本说明统一改为英文。
+
 ## [0.0.5] - 2026-05-19
 ### Fixed
 - **安全漏洞**: SimpleHttpServer 增加 Content-Length 上界（1MB）和 Header 行长度限制（8KB），防止 OOM 攻击。
@@ -102,6 +118,7 @@
 - **基础 UI**: 基于 IntelliJ ToolWindow 实现的极简测试面板。
 
 ---
+[0.0.6]: https://github.com/DHzhu/Amateur-Postman/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.com/DHzhu/Amateur-Postman/compare/v0.0.4...v0.0.5
 [0.4.0]: https://github.com/DHzhu/Amateur-Postman/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/DHzhu/Amateur-Postman/compare/v0.2.0...v0.3.0

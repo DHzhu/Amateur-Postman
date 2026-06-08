@@ -43,6 +43,7 @@ class EnvironmentPanel(private val project: Project) : JPanel(BorderLayout()) {
 
     private val environmentService = project.service<EnvironmentService>()
     private val environments = mutableListOf<Environment>()
+    private var isLoadingEnvironments = false
 
     // UI Components
     private val tabbedPane = JBTabbedPane()
@@ -51,14 +52,21 @@ class EnvironmentPanel(private val project: Project) : JPanel(BorderLayout()) {
 
     // Environment tab components
     private val environmentComboBox = JComboBox<EnvironmentWrapper>()
-    private val variablesTableModel = VariablesTableModel()
+    private val variablesTableModel = VariablesTableModel { variable ->
+        val current = environmentService.getCurrentEnvironment()
+        if (current != null) {
+            environmentService.updateVariable(current.id, variable)
+        }
+    }
     private val variablesTable = JBTable(variablesTableModel)
     private val addVariableButton = JButton("Add Variable")
     private val removeVariableButton = JButton("Remove")
     private val manageEnvironmentsButton = JButton("Manage Environments")
 
     // Global variables tab components
-    private val globalVariablesTableModel = VariablesTableModel()
+    private val globalVariablesTableModel = VariablesTableModel { variable ->
+        environmentService.setGlobalVariable(variable)
+    }
     private val globalVariablesTable = JBTable(globalVariablesTableModel)
     private val addGlobalVariableButton = JButton("Add Variable")
     private val removeGlobalVariableButton = JButton("Remove")
@@ -211,11 +219,15 @@ class EnvironmentPanel(private val project: Project) : JPanel(BorderLayout()) {
     private fun setupEnvironmentListeners() {
         // Environment selection changed
         environmentComboBox.addItemListener { e ->
-            if (e.stateChange == ItemEvent.SELECTED) {
+            if (e.stateChange == ItemEvent.SELECTED && !isLoadingEnvironments) {
                 val selected = e.item as? EnvironmentWrapper
                 selected?.let { wrapper ->
                     wrapper.environment?.let { env ->
                         environmentService.setCurrentEnvironment(env.id)
+                        loadVariables()
+                    } ?: run {
+                        // "No Environment" selected
+                        environmentService.clearCurrentEnvironment()
                         loadVariables()
                     }
                 }
@@ -241,33 +253,38 @@ class EnvironmentPanel(private val project: Project) : JPanel(BorderLayout()) {
     }
 
     private fun loadEnvironments() {
-        // Load all environments
-        environments.clear()
-        environments.addAll(environmentService.getEnvironments())
+        isLoadingEnvironments = true
+        try {
+            // Load all environments
+            environments.clear()
+            environments.addAll(environmentService.getEnvironments())
 
-        // Update combo box
-        environmentComboBox.removeAllItems()
+            // Update combo box
+            environmentComboBox.removeAllItems()
 
-        // Add "No Environment" option
-        environmentComboBox.addItem(EnvironmentWrapper(null))
+            // Add "No Environment" option
+            environmentComboBox.addItem(EnvironmentWrapper(null))
 
-        // Add all environments
-        environments.forEach { env ->
-            environmentComboBox.addItem(EnvironmentWrapper(env))
+            // Add all environments
+            environments.forEach { env ->
+                environmentComboBox.addItem(EnvironmentWrapper(env))
+            }
+
+            // Set current selection
+            val current = environmentService.getCurrentEnvironment()
+            if (current != null) {
+                val wrapper = EnvironmentWrapper(current)
+                environmentComboBox.selectedItem = wrapper
+            } else {
+                environmentComboBox.selectedIndex = 0
+            }
+
+            // Load variables for current environment
+            loadVariables()
+            loadGlobalVariables()
+        } finally {
+            isLoadingEnvironments = false
         }
-
-        // Set current selection
-        val current = environmentService.getCurrentEnvironment()
-        if (current != null) {
-            val wrapper = EnvironmentWrapper(current)
-            environmentComboBox.selectedItem = wrapper
-        } else {
-            environmentComboBox.selectedIndex = 0
-        }
-
-        // Load variables for current environment
-        loadVariables()
-        loadGlobalVariables()
     }
 
     private fun loadVariables() {
@@ -428,12 +445,22 @@ class EnvironmentPanel(private val project: Project) : JPanel(BorderLayout()) {
         override fun toString(): String {
             return environment?.name ?: "No Environment"
         }
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is EnvironmentWrapper) return false
+            return environment?.id == other.environment?.id
+        }
+
+        override fun hashCode(): Int {
+            return environment?.id?.hashCode() ?: 0
+        }
     }
 
     /**
      * Table model for variables.
      */
-    private class VariablesTableModel : AbstractTableModel() {
+    private class VariablesTableModel(private val onVariableChanged: ((Variable) -> Unit)? = null) : AbstractTableModel() {
         private val keys = mutableListOf<String>()
         private var variables: List<Variable> = emptyList()
 
@@ -442,6 +469,8 @@ class EnvironmentPanel(private val project: Project) : JPanel(BorderLayout()) {
             keys.clear()
             keys.addAll(vars.map { it.key })
         }
+
+        fun getVariables(): List<Variable> = variables
 
         fun getKeyAt(row: Int): String {
             return keys.getOrNull(row) ?: ""
@@ -493,6 +522,7 @@ class EnvironmentPanel(private val project: Project) : JPanel(BorderLayout()) {
             variables = variables.toMutableList().apply { set(row, updatedVariable) }
             keys[row] = updatedVariable.key
             fireTableCellUpdated(row, column)
+            onVariableChanged?.invoke(updatedVariable)
         }
     }
 }

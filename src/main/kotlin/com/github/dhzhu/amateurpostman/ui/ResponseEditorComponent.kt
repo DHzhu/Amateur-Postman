@@ -127,7 +127,7 @@ class ResponseEditorComponent(
 
         ApplicationManager.getApplication().runWriteAction {
             document.setReadOnly(false)
-            document.setText(text)
+            document.setText(text.replace("\r\n", "\n"))
             document.setReadOnly(true)
         }
     }
