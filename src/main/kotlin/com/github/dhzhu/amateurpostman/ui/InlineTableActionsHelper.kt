@@ -55,8 +55,10 @@ object InlineTableActionsHelper {
         val row = Array(dataColumnCount + 1) { "" }
         model.addRow(row)
         val newRow = model.rowCount - 1
-        table.setRowSelectionInterval(newRow, newRow)
-        table.scrollRectToVisible(table.getCellRect(newRow, 0, true))
+        javax.swing.SwingUtilities.invokeLater {
+            table.setRowSelectionInterval(newRow, newRow)
+            table.scrollRectToVisible(table.getCellRect(newRow, 0, true))
+        }
     }
 
     /**
@@ -130,11 +132,18 @@ object InlineTableActionsHelper {
             cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
         }
 
+        private var currentRow = -1
+
         init {
             button.addActionListener {
-                val row = table.editingRow
+                val row = currentRow
+                // Stop editing first — commit any pending cell edits.
+                // On 2025.3 fireEditingStopped() alone may not fully release the editor,
+                // so we explicitly remove it from the table as well.
+                fireEditingStopped()
+                try { table.removeEditor() } catch (_: Exception) {}
+
                 if (row < 0 || row >= model.rowCount) {
-                    fireEditingStopped()
                     return@addActionListener
                 }
 
@@ -146,7 +155,7 @@ object InlineTableActionsHelper {
                     addEmptyRow(jbTable, model, dataColCount)
                 } else {
                     // "−" clicked — delete row (but not if it's the only empty row)
-                    if (!(model.rowCount == 1)) {
+                    if (model.rowCount > 1) {
                         model.removeRow(row)
                         ensureTrailingEmptyRow(jbTable, model, dataColCount)
                         if (model.rowCount > 0) {
@@ -155,7 +164,6 @@ object InlineTableActionsHelper {
                         }
                     }
                 }
-                fireEditingStopped()
             }
         }
 
@@ -166,6 +174,7 @@ object InlineTableActionsHelper {
             row: Int,
             column: Int
         ): Component {
+            currentRow = row
             button.text = if (isTrailingEmptyRow(model, row)) "+" else "−"
             return button
         }

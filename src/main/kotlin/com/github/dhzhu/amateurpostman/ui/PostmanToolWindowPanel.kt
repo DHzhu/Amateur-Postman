@@ -125,6 +125,8 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
     // Collections
     private lateinit var collectionsPanel: CollectionsPanel
     private lateinit var mockServerPanel: MockServerPanel
+    private var collectionsVisible = false
+    private var collectionsSplitter: com.intellij.ui.JBSplitter? = null
 
     // Script panels
     private lateinit var preRequestScriptArea: JBTextArea
@@ -176,6 +178,12 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         curlButtonPanel.add(saveButton)
         curlButtonPanel.add(quickLookButton)  // Add the Quick Look button
 
+        // Collections toggle button
+        val collectionsButton = JButton("Collections")
+        collectionsButton.toolTipText = "Toggle collections panel"
+        collectionsButton.addActionListener { toggleCollections() }
+        curlButtonPanel.add(collectionsButton)
+
         // History toggle button
         historyButton = JButton("History")
         historyButton.toolTipText = "Toggle request history panel"
@@ -205,7 +213,28 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         paramsTable = JBTable(paramsTableModel)
         paramsTable.setShowGrid(true)
         InlineTableActionsHelper.addActionsColumn(paramsTable, paramsTableModel, 3)
-        val paramsPanel = createTablePanel(paramsTable, paramsTableModel, 3)
+        val paramsPanel = JPanel(BorderLayout())
+        paramsPanel.add(JBScrollPane(paramsTable), BorderLayout.CENTER)
+        val paramsButtonPanel = JPanel(FlowLayout(FlowLayout.LEFT))
+        val addParamButton = JButton("Add")
+        addParamButton.addActionListener {
+            InlineTableActionsHelper.addEmptyRow(paramsTable, paramsTableModel, 3)
+        }
+        val removeParamButton = JButton("Remove")
+        removeParamButton.addActionListener {
+            val selectedRow = paramsTable.selectedRow
+            if (selectedRow >= 0 && paramsTableModel.rowCount > 1) {
+                paramsTableModel.removeRow(selectedRow)
+                InlineTableActionsHelper.ensureTrailingEmptyRow(paramsTable, paramsTableModel, 3)
+                if (paramsTableModel.rowCount > 0) {
+                    val newSelection = if (selectedRow > 0) selectedRow - 1 else 0
+                    paramsTable.setRowSelectionInterval(newSelection, newSelection)
+                }
+            }
+        }
+        paramsButtonPanel.add(addParamButton)
+        paramsButtonPanel.add(removeParamButton)
+        paramsPanel.add(paramsButtonPanel, BorderLayout.SOUTH)
         tabbedPane.addTab("Params", paramsPanel)
 
         // Tab: Authorization
@@ -282,7 +311,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         val preRequestPanel = JPanel(BorderLayout())
         preRequestScriptArea = createTextArea()
         preRequestScriptArea.font = Font("Monospaced", Font.PLAIN, 13)
-        val preRequestInfoLabel = JLabel("// 在发送请求前执行的脚本。可使用 am.environment.set(key, value) 设置环境变量")
+        val preRequestInfoLabel = JLabel("// Script executed before sending request. Use am.environment.set(key, value) to set variables")
         preRequestInfoLabel.border = JBUI.Borders.empty(5)
         preRequestPanel.add(preRequestInfoLabel, BorderLayout.NORTH)
         preRequestPanel.add(JBScrollPane(preRequestScriptArea), BorderLayout.CENTER)
@@ -292,7 +321,7 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         val testsPanel = JPanel(BorderLayout())
         testsScriptArea = createTextArea()
         testsScriptArea.font = Font("Monospaced", Font.PLAIN, 13)
-        val testsInfoLabel = JLabel("// 请求完成后执行的测试脚本。可使用 pm.test(name, fn) 添加断言")
+        val testsInfoLabel = JLabel("// Script executed after request completes. Use pm.test(name, fn) to add assertions")
         testsInfoLabel.border = JBUI.Borders.empty(5)
         testsPanel.add(testsInfoLabel, BorderLayout.NORTH)
         testsPanel.add(JBScrollPane(testsScriptArea), BorderLayout.CENTER)
@@ -445,6 +474,26 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             historyPanel.refresh()
         } else {
             historySplitter = null
+            mainContentPanel.add(requestResponsePanel, BorderLayout.CENTER)
+        }
+
+        mainContentPanel.revalidate()
+        mainContentPanel.repaint()
+    }
+
+    private fun toggleCollections() {
+        collectionsVisible = !collectionsVisible
+
+        mainContentPanel.removeAll()
+
+        if (collectionsVisible) {
+            val splitter = com.intellij.ui.JBSplitter(false, 0.25f)
+            splitter.firstComponent = collectionsPanel
+            splitter.secondComponent = requestResponsePanel
+            collectionsSplitter = splitter
+            mainContentPanel.add(splitter, BorderLayout.CENTER)
+        } else {
+            collectionsSplitter = null
             mainContentPanel.add(requestResponsePanel, BorderLayout.CENTER)
         }
 
@@ -863,45 +912,47 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             return
         }
 
-        // If editing an existing request from collection, update it
+        val preRequestScript = preRequestScriptArea.text
+        val testScript = testsScriptArea.text
+        val collectionService = project.service<com.github.dhzhu.amateurpostman.services.CollectionService>()
+
+        // Check if this request was loaded from a collection
         currentEditingRequestItem?.let { requestItem ->
-            val collectionService = project.service<com.github.dhzhu.amateurpostman.services.CollectionService>()
             for (collection in collectionService.getCollections()) {
                 if (collection.findItemById(requestItem.id) != null) {
-                    val preRequestScript = preRequestScriptArea.text
-                    val testScript = testsScriptArea.text
-                    collectionService.updateRequest(
-                        collection.id,
-                        requestItem.id,
-                        request,
-                        preRequestScript,
-                        testScript
+                    // Show update dialog with Update / Save as New / Cancel
+                    SaveRequestDialog.showForUpdate(
+                        project, request,
+                        existingRequestName = requestItem.name,
+                        existingCollectionId = collection.id,
+                        onUpdate = {
+                            collectionService.updateRequest(
+                                collection.id, requestItem.id,
+                                request, preRequestScript, testScript
+                            )
+                            statusLabel.text = "Updated: ${requestItem.name}"
+                        },
+                        onSaveAsNew = { collectionId, folderId, name, description ->
+                            collectionService.addRequest(
+                                collectionId, request, name, description,
+                                preRequestScript, testScript, folderId
+                            )
+                            statusLabel.text = "Saved: $name"
+                        }
                     )
-                    statusLabel.text = "Updated request: ${requestItem.name}"
                     return
                 }
             }
         }
 
-        // Otherwise, save as new request
+        // No existing request — save as new
         SaveRequestDialog.show(project, request) { collectionId, folderId, name, description ->
-            val collectionService = project.service<com.github.dhzhu.amateurpostman.services.CollectionService>()
-
-            // Include scripts when saving
-            val preRequestScript = preRequestScriptArea.text
-            val testScript = testsScriptArea.text
             collectionService.addRequest(
-                collectionId,
-                request,
-                name,
-                description,
-                preRequestScript,
-                testScript,
-                folderId
+                collectionId, request, name, description,
+                preRequestScript, testScript, folderId
             )
-
             SwingUtilities.invokeLater {
-                statusLabel.text = "Saved request: $name"
+                statusLabel.text = "Saved: $name"
             }
         }
     }
@@ -1160,12 +1211,15 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             return
         }
 
-        // Validate URL format
-        try {
-            URI(urlText).toURL()
-        } catch (e: Exception) {
-            statusLabel.text = "Error: Invalid URL format"
-            return
+        // Validate URL format (skip if contains unresolved variables)
+        val hasVariables = urlText.contains("{{") && urlText.contains("}}")
+        if (!hasVariables) {
+            try {
+                URI(urlText).toURL()
+            } catch (e: Exception) {
+                statusLabel.text = "Error: Invalid URL format"
+                return
+            }
         }
 
         statusLabel.text = "Sending request..."
@@ -1251,20 +1305,44 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                                         authentication = authentication
                                 )
 
-                        // Execute Pre-request script and send request
-                        val response = if (preRequestScriptArea.text.isNotBlank()) {
-                            val scriptVars = scriptExecutionService.executePreRequestScript(preRequestScriptArea.text)
-                            // Re-resolve variables in request with new values
-                            val environmentService = project.service<com.github.dhzhu.amateurpostman.services.EnvironmentService>()
-                            val allVars = environmentService.getCurrentEnvironmentVariables() + scriptVars
-                            val resolvedRequest = com.github.dhzhu.amateurpostman.utils.VariableResolver.substitute(
-                                request,
-                                allVars
-                            )
-                            httpService.executeRequest(resolvedRequest)
+                        // Resolve environment variables and execute
+                        val environmentService = project.service<com.github.dhzhu.amateurpostman.services.EnvironmentService>()
+                        val envVars = environmentService.getCurrentEnvironmentVariables()
+                        val globalVars = environmentService.getGlobalVariablesMap()
+
+                        // Execute Pre-request script if present
+                        val scriptVars = if (preRequestScriptArea.text.isNotBlank()) {
+                            scriptExecutionService.executePreRequestScript(preRequestScriptArea.text)
                         } else {
-                            httpService.executeRequest(request)
+                            emptyMap()
                         }
+
+                        val allVars = globalVars + envVars + scriptVars
+                        val resolvedRequest = com.github.dhzhu.amateurpostman.utils.VariableResolver.substitute(
+                            request,
+                            allVars
+                        )
+
+                        // Check for unresolved variables in the resolved request
+                        val remainingVars = com.github.dhzhu.amateurpostman.utils.VariableResolver.extractVariableNames(
+                            resolvedRequest.url + "\n" +
+                            resolvedRequest.headers.values.joinToString("\n") + "\n" +
+                            (resolvedRequest.body?.content ?: "")
+                        )
+                        if (remainingVars.isNotEmpty()) {
+                            statusLabel.text = "Error: Variable not found: ${remainingVars.joinToString(", ")}"
+                            return@launch
+                        }
+
+                        // Validate resolved URL format
+                        try {
+                            java.net.URI(resolvedRequest.url).toURL()
+                        } catch (e: Exception) {
+                            statusLabel.text = "Error: Invalid URL after substitution: ${resolvedRequest.url}"
+                            return@launch
+                        }
+
+                        val response = httpService.executeRequest(resolvedRequest)
 
                         // Display
                         displayResponse(response)
