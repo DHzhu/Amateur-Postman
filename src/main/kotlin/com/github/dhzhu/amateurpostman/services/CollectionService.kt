@@ -23,6 +23,7 @@ class CollectionService(private val project: Project) :
 
     private val logger = thisLogger()
 
+    @Volatile
     private var state = CollectionState()
     private val listeners = java.util.concurrent.CopyOnWriteArrayList<CollectionChangeListener>()
 

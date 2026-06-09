@@ -39,7 +39,7 @@ import javax.swing.table.AbstractTableModel
  * - Manage environments (create/delete/rename)
  * - Separate tab for global variables
  */
-class EnvironmentPanel(private val project: Project) : JPanel(BorderLayout()) {
+class EnvironmentPanel(private val project: Project) : JPanel(BorderLayout()), com.intellij.openapi.Disposable {
 
     private val environmentService = project.service<EnvironmentService>()
     private val environments = mutableListOf<Environment>()
@@ -71,18 +71,24 @@ class EnvironmentPanel(private val project: Project) : JPanel(BorderLayout()) {
     private val addGlobalVariableButton = JButton("Add Variable")
     private val removeGlobalVariableButton = JButton("Remove")
 
+    private val changeListener = object : EnvironmentChangeListener {
+        override fun onEnvironmentChanged() {
+            SwingUtilities.invokeLater {
+                loadEnvironments()
+            }
+        }
+    }
+
     init {
         createUI()
         loadEnvironments()
 
         // Listen for environment changes
-        environmentService.addChangeListener(object : EnvironmentChangeListener {
-            override fun onEnvironmentChanged() {
-                SwingUtilities.invokeLater {
-                    loadEnvironments()
-                }
-            }
-        })
+        environmentService.addChangeListener(changeListener)
+    }
+
+    override fun dispose() {
+        environmentService.removeChangeListener(changeListener)
     }
 
     private fun createUI() {

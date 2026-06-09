@@ -110,6 +110,8 @@ class HttpRequestServiceImpl(private val project: Project) : HttpRequestService,
 
                         httpResponse
                     }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e // Must re-throw CancellationException for proper coroutine cancellation
                 } catch (e: Exception) {
                     val duration = System.currentTimeMillis() - startTime
                     // Log full stack trace internally for debugging

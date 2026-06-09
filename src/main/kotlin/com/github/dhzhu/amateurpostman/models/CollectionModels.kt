@@ -5,7 +5,7 @@ package com.github.dhzhu.amateurpostman.models
  * Supports all authentication types via a type discriminator.
  */
 data class SerializableAuthentication(
-    val type: String,  // "NONE", "BASIC", "BEARER", "API_KEY", "OAUTH2_CONFIG"
+    val type: String = "NONE",  // "NONE", "BASIC", "BEARER", "API_KEY", "OAUTH2_CONFIG"
     val username: String? = null,      // For Basic Auth
     val password: String? = null,      // For Basic Auth
     val token: String? = null,         // For Bearer Token
@@ -298,8 +298,8 @@ data class CollectionState(
  * @property auth Collection-level authentication configuration
  */
 data class SerializableCollection(
-    val id: String,
-    val name: String,
+    val id: String = "",
+    val name: String = "",
     val description: String = "",
     val items: List<SerializableCollectionItem> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
@@ -360,9 +360,9 @@ data class SerializableCollection(
  * @property auth Folder-level authentication configuration (folders only)
  */
 data class SerializableCollectionItem(
-    val id: String,
-    val type: String,
-    val name: String,
+    val id: String = "",
+    val type: String = "",
+    val name: String = "",
     val description: String = "",
     val request: SerializableHttpRequest? = null,
     val preRequestScript: String = "",
@@ -436,10 +436,10 @@ data class SerializableCollectionItem(
  * This wraps the existing HttpRequest with additional metadata if needed.
  */
 data class SerializableHttpRequest(
-    val method: String,
-    val url: String,
-    val headers: Map<String, String>,
-    val body: String?,
+    val method: String = "GET",
+    val url: String = "",
+    val headers: Map<String, String> = emptyMap(),
+    val body: String? = null,
     val bodyType: String? = null  // "JSON", "XML", "TEXT", "HTML", "JAVASCRIPT"
 ) {
     fun toHttpRequest(): HttpRequest {

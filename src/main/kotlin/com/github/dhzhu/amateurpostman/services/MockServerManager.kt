@@ -102,7 +102,9 @@ data class MockRuleState(
 )
 class MockServerManager : PersistentStateComponent<MockServerState>, com.intellij.openapi.Disposable {
 
+    @Volatile
     private var state = MockServerState()
+    @Volatile
     private var server: SimpleHttpServer? = null
     private val rules = ConcurrentHashMap<String, MockRule>()
     private val logger = thisLogger()
@@ -111,6 +113,11 @@ class MockServerManager : PersistentStateComponent<MockServerState>, com.intelli
     }
 
     override fun dispose() {
+        try {
+            stop()
+        } catch (e: Exception) {
+            logger.warn("Error stopping mock server during dispose", e)
+        }
         delayExecutor.shutdownNow()
     }
 
@@ -135,9 +142,9 @@ class MockServerManager : PersistentStateComponent<MockServerState>, com.intelli
     // ========== PersistentStateComponent Implementation ==========
 
     override fun getState(): MockServerState {
-        // Sync in-memory rules to state
-        state.rules.clear()
-        state.rules.addAll(rules.values.map { MockRuleState.fromMockRule(it) })
+        // Sync in-memory rules to state using copy-on-write
+        val newRules = rules.values.map { MockRuleState.fromMockRule(it) }
+        state = state.copy(rules = newRules.toMutableList())
         return state
     }
 
@@ -188,8 +195,13 @@ class MockServerManager : PersistentStateComponent<MockServerState>, com.intelli
      * Stops the mock server.
      */
     fun stop() {
-        server?.stop()
-        server = null
+        try {
+            server?.stop()
+        } catch (e: Exception) {
+            logger.warn("Error stopping mock server", e)
+        } finally {
+            server = null
+        }
         logger.info("Mock server stopped")
     }
 

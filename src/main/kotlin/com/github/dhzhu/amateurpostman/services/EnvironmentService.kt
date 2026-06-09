@@ -23,6 +23,7 @@ class EnvironmentService(private val project: Project) :
 
     private val logger = thisLogger()
 
+    @Volatile
     private var state = EnvironmentState()
     private val listeners = java.util.concurrent.CopyOnWriteArrayList<EnvironmentChangeListener>()
     // Temporary variables set by scripts (not persisted)

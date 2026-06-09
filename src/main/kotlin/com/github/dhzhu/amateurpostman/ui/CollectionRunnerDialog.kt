@@ -15,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.swing.Swing
 import java.awt.BorderLayout
@@ -190,6 +191,7 @@ class CollectionRunnerDialog(
 
     override fun dispose() {
         runJob?.cancel()
+        scope.cancel()
         super.dispose()
     }
 

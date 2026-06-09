@@ -6,6 +6,19 @@
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-06-09
+### Fixed
+- **Collections 重复展示**: 移除 tabbedPane 中的 Collections tab，仅保留工具栏 toggle 按钮，修复 Collections 同时出现在两个位置的问题。
+- **Collections 持久化失效**: `SerializableCollection`、`SerializableCollectionItem`、`SerializableHttpRequest`、`SerializableAuthentication` 等序列化模型补全无参构造器默认值，修复 IntelliJ `XmlSerializer` 反序列化静默失败导致重启后数据丢失。
+- **Environments 持久化失效**: `SerializableEnvironment`、`SerializableVariable`、`SerializableCollectionVariables` 补全默认值，修复环境变量重启后丢失。
+- **OAuth2 持久化失效**: `OAuth2Config`、`OAuth2Token`、`OAuth2ConfigEntry`、`RequestAuthMapping`、`CollectionAuthMapping` 补全默认值，修复 OAuth2 配置重启后丢失。
+- **协程取消传播**: `HttpRequestServiceImpl`、`OAuth2Service`、`ScriptExecutionService` 中 `catch (e: Exception)` 吞掉 `CancellationException`，导致协程取消无法正确传播。
+- **PersistentStateComponent 线程安全**: `MockServerManager`、`RequestHistoryService`、`OAuth2Service` 的 `state` 字段补充 `@Volatile` 注解。
+- **资源泄漏**: `MockServerManager.dispose()` 未停止 HTTP Server、`WebSocketServiceImpl.dispose()` 未清理 ConnectionPool、`PostmanToolWindowPanel.dispose()` 未清理子组件 Disposable、`EnvironmentPanel` 未实现 Disposable、`CollectionRunnerDialog` CoroutineScope 未取消。
+- **WebSocket 线程安全**: `WebSocketServiceImpl.webSocket` 字段补充 `@Volatile` 注解，移除未使用的 `stateMutex`。
+- **gRPC 线程安全**: `GrpcStreamingService.requestObserver` 和 `currentChannel` 字段补充 `@Volatile` 注解。
+- **并发安全**: `MockServerManager.getState()` 改用 copy-on-write 模式，`RequestHistoryService` 的 `addEntry`/`deleteEntry`/`clearHistory`/`renameEntry` 改用不可变列表。
+
 ## [0.0.6] - 2026-06-08
 ### Added
 - **Collections 工具栏按钮**: 在工具栏 History 按钮前新增 Collections 入口，点击可展开/收起 Collections 侧边栏。

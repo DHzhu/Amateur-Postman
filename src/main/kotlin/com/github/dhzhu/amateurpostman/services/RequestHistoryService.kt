@@ -17,6 +17,7 @@ import com.intellij.openapi.project.Project
 class RequestHistoryService(private val project: Project) :
         PersistentStateComponent<RequestHistoryState> {
 
+    @Volatile
     private var state = RequestHistoryState()
     private val listeners = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
 
@@ -31,13 +32,15 @@ class RequestHistoryService(private val project: Project) :
         val entry = RequestHistoryEntry(request = request, response = response, name = name)
 
         val serializable = SerializableHistoryEntry.fromHistoryEntry(entry)
-        state.entries.add(0, serializable) // Add to beginning
+        val newEntries = mutableListOf(serializable)
+        newEntries.addAll(state.entries)
 
         // Trim to max size
-        while (state.entries.size > RequestHistoryState.MAX_ENTRIES) {
-            state.entries.removeAt(state.entries.size - 1)
+        while (newEntries.size > RequestHistoryState.MAX_ENTRIES) {
+            newEntries.removeAt(newEntries.size - 1)
         }
 
+        state = state.copy(entries = newEntries)
         notifyListeners()
     }
 
@@ -60,13 +63,13 @@ class RequestHistoryService(private val project: Project) :
 
     /** Delete a history entry by ID */
     fun deleteEntry(id: String) {
-        state.entries.removeIf { it.id == id }
+        state = state.copy(entries = state.entries.filter { it.id != id }.toMutableList())
         notifyListeners()
     }
 
     /** Clear all history */
     fun clearHistory() {
-        state.entries.clear()
+        state = state.copy(entries = mutableListOf())
         notifyListeners()
     }
 
@@ -79,7 +82,9 @@ class RequestHistoryService(private val project: Project) :
     fun renameEntry(id: String, newName: String) {
         val index = state.entries.indexOfFirst { it.id == id }
         if (index >= 0) {
-            state.entries[index] = state.entries[index].copy(name = newName)
+            val newEntries = state.entries.toMutableList()
+            newEntries[index] = newEntries[index].copy(name = newName)
+            state = state.copy(entries = newEntries)
             notifyListeners()
         }
     }

@@ -755,6 +755,8 @@ class ScriptExecutionService(
                         }
                     }
                     context.getVariables()
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     // Log error but don't fail the request
                     thisLogger().warn("Pre-request script execution failed: ${e.message}")
@@ -811,6 +813,8 @@ class ScriptExecutionService(
                         }
                     }
                     TestResult.create(context.getResults())
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     // Log error and return failed result
                     thisLogger().warn("Test script execution failed: ${e.message}")

@@ -36,8 +36,8 @@ class WebSocketServiceImpl : WebSocketService {
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val client = OkHttpClientFactory.webSocketBuilder().build()
 
+    @Volatile
     private var webSocket: WebSocket? = null
-    private val stateMutex = Mutex()
 
     // State management
     private val _state = MutableStateFlow(WebSocketState.DISCONNECTED)
@@ -205,5 +205,6 @@ class WebSocketServiceImpl : WebSocketService {
         disconnect()
         scope.cancel()
         client.dispatcher.executorService.shutdown()
+        client.connectionPool.evictAll()
     }
 }

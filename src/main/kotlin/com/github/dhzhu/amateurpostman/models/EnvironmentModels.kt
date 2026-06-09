@@ -259,8 +259,8 @@ data class CollectionVariables(
  * @property variables List of serializable variables
  */
 data class SerializableCollectionVariables(
-    val id: String,
-    val collectionId: String,
+    val id: String = "",
+    val collectionId: String = "",
     val variables: List<SerializableVariable> = emptyList()
 ) {
     /**
@@ -317,8 +317,8 @@ data class EnvironmentState(
  * @property order Display order in UI
  */
 data class SerializableEnvironment(
-    val id: String,
-    val name: String,
+    val id: String = "",
+    val name: String = "",
     val variables: List<SerializableVariable> = emptyList(),
     val isGlobal: Boolean = false,
     val order: Int = 0
@@ -406,8 +406,8 @@ data class VariableResolutionResult(
  * @property enabled Whether the variable is active
  */
 data class SerializableVariable(
-    val key: String,
-    val value: String,
+    val key: String = "",
+    val value: String = "",
     val description: String = "",
     val enabled: Boolean = true
 ) {

@@ -40,6 +40,7 @@ sealed class TokenExchangeResult {
 class OAuth2Service(private val project: Project) : PersistentStateComponent<OAuth2State>, Disposable {
 
     private val logger = thisLogger()
+    @Volatile
     private var state = OAuth2State()
     private val listeners = java.util.concurrent.CopyOnWriteArrayList<OAuth2ConfigChangeListener>()
 
@@ -241,6 +242,8 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
 
                 parseTokenResponse(responseBody)
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.error("Token exchange error", e)
             TokenExchangeResult.Error("Token exchange failed: ${e.message}")
@@ -301,6 +304,8 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
 
                 parseTokenResponse(responseBody)
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.error("Password token exchange error", e)
             TokenExchangeResult.Error("Token exchange failed: ${e.message}")
@@ -357,6 +362,8 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
 
                 parseTokenResponse(responseBody)
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.error("Token refresh error", e)
             TokenExchangeResult.Error("Token refresh failed: ${e.message}")
@@ -541,6 +548,8 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
             }
 
             result
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.error("Error during authorization code flow", e)
             TokenExchangeResult.Error("Authorization failed: ${e.message}")
@@ -595,6 +604,8 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
 
                 parseTokenResponse(responseBody)
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.error("Authorization code exchange error", e)
             TokenExchangeResult.Error("Token exchange failed: ${e.message}")
@@ -812,19 +823,19 @@ data class OAuth2State(
 )
 
 data class OAuth2ConfigEntry(
-    val id: String,
-    val name: String,
-    val config: OAuth2Config
+    val id: String = "",
+    val name: String = "",
+    val config: OAuth2Config = OAuth2Config()
 )
 
 data class RequestAuthMapping(
-    val requestId: String,
-    val configId: String
+    val requestId: String = "",
+    val configId: String = ""
 )
 
 data class CollectionAuthMapping(
-    val collectionId: String,
-    val configId: String
+    val collectionId: String = "",
+    val configId: String = ""
 )
 
 interface OAuth2ConfigChangeListener {

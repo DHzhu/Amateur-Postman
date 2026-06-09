@@ -300,12 +300,10 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         environmentPanel = EnvironmentPanel(project)
         tabbedPane.addTab("Environments", environmentPanel)
 
-        // Tab: Collections
+        // Collections panel (accessed via toolbar toggle button, not as a tab)
         collectionsPanel = CollectionsPanel(project) { requestItem ->
-            // Load request from collection (including scripts)
             loadRequest(requestItem)
         }
-        tabbedPane.addTab("Collections", collectionsPanel)
 
         // Tab: Pre-request Script
         val preRequestPanel = JPanel(BorderLayout())
@@ -1513,5 +1511,8 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
     override fun dispose() {
         scope.cancel()
         authPanelWrapper.dispose()
+        historyPanel.dispose()
+        collectionsPanel.dispose()
+        mockServerPanel.dispose()
     }
 }

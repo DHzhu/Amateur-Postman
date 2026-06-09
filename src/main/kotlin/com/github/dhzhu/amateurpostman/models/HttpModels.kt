@@ -32,7 +32,7 @@ enum class OAuth2GrantType(val displayName: String) {
 
 /** Represents an OAuth 2.0 token with metadata */
 data class OAuth2Token(
-    val accessToken: String,
+    val accessToken: String = "",
     val tokenType: String = "Bearer",
     val expiresIn: Long? = null,
     val refreshToken: String? = null,
@@ -53,10 +53,10 @@ data class OAuth2Token(
 
 /** Configuration for OAuth 2.0 authentication */
 data class OAuth2Config(
-    val grantType: OAuth2GrantType,
+    val grantType: OAuth2GrantType = OAuth2GrantType.AUTHORIZATION_CODE,
     val authUrl: String? = null,          // Required for Authorization Code and Implicit
-    val tokenUrl: String,                  // Token endpoint URL
-    val clientId: String,
+    val tokenUrl: String = "",             // Token endpoint URL
+    val clientId: String = "",
     val clientSecret: String? = null,      // Required for Client Credentials, optional for others
     val scope: String? = null,
     val username: String? = null,          // Required for Password grant

@@ -64,7 +64,9 @@ class GrpcStreamingService(
     val receivedCount: Int get() = _receivedCount.get()
 
     // Active stream observers
+    @Volatile
     private var requestObserver: StreamObserver<DynamicMessage>? = null
+    @Volatile
     private var currentChannel: ManagedChannel? = null
 
     /**
