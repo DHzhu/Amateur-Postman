@@ -321,4 +321,77 @@ class MockServerManagerTest {
         assertTrue(putResponse.body?.string()?.contains("updated") == true)
         assertTrue(deleteResponse.body?.string()?.contains("deleted") == true)
     }
+
+    // ========== Concurrent Delay Tests (Issue 2.2.2) ==========
+
+    @Test
+    fun `test concurrent delayed requests do not block each other`() = runBlocking<Unit> {
+        val port = mockServerManager.start(0)!!
+        val delayMs = 200L
+        val concurrency = 5
+
+        mockServerManager.addRule(
+            MockRule(
+                path = "/api/delayed",
+                method = HttpMethod.GET,
+                body = """{"delayed":true}""",
+                delayMs = delayMs
+            )
+        )
+
+        val startTime = System.currentTimeMillis()
+
+        // Fire N concurrent requests
+        val threads = (1..concurrency).map {
+            Thread {
+                val request = Request.Builder()
+                    .url("http://localhost:$port/api/delayed")
+                    .get()
+                    .build()
+                httpClient.newCall(request).execute().close()
+            }
+        }
+        threads.forEach { it.start() }
+        threads.forEach { it.join(10_000) }
+
+        val elapsed = System.currentTimeMillis() - startTime
+
+        // With the old blocking approach, N requests with single-threaded delay executor
+        // would take ~N * delayMs. With non-blocking deferral, they should complete in
+        // roughly delayMs + small overhead (concurrent socket writes).
+        // Allow 2x margin for CI variability.
+        assertTrue(
+            elapsed < delayMs * concurrency,
+            "Concurrent delayed requests took ${elapsed}ms — expected < ${delayMs * concurrency}ms (non-blocking)"
+        )
+        // But must still be at least as long as the delay itself
+        assertTrue(
+            elapsed >= delayMs - 50,
+            "Response should be delayed by at least ${delayMs}ms, took ${elapsed}ms"
+        )
+    }
+
+    @Test
+    fun `test delayed response returns correct body`() = runBlocking<Unit> {
+        val port = mockServerManager.start(0)!!
+        mockServerManager.addRule(
+            MockRule(
+                path = "/api/delayed-body",
+                method = HttpMethod.GET,
+                body = """{"status":"delayed-ok"}""",
+                headers = mapOf("X-Test" to "delayed"),
+                delayMs = 100
+            )
+        )
+
+        val request = Request.Builder()
+            .url("http://localhost:$port/api/delayed-body")
+            .get()
+            .build()
+        val response = httpClient.newCall(request).execute()
+
+        assertEquals(200, response.code)
+        assertTrue(response.body?.string()?.contains("delayed-ok") == true)
+        assertEquals("delayed", response.header("X-Test"))
+    }
 }

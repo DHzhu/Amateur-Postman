@@ -259,9 +259,9 @@ data class CollectionVariables(
  * @property variables List of serializable variables
  */
 data class SerializableCollectionVariables(
-    val id: String = "",
-    val collectionId: String = "",
-    val variables: List<SerializableVariable> = emptyList()
+    var id: String = "",
+    var collectionId: String = "",
+    var variables: List<SerializableVariable> = emptyList()
 ) {
     /**
      * Converts this serializable collection variables to a domain CollectionVariables.
@@ -300,11 +300,11 @@ data class SerializableCollectionVariables(
  * @property collectionVariables List of collection-level variables
  */
 data class EnvironmentState(
-    val version: Int = 1,
-    val environments: List<SerializableEnvironment> = emptyList(),
-    val currentEnvironmentId: String? = null,
-    val globalVariables: SerializableEnvironment? = null,
-    val collectionVariables: List<SerializableCollectionVariables> = emptyList()
+    var version: Int = 1,
+    var environments: List<SerializableEnvironment> = emptyList(),
+    var currentEnvironmentId: String? = null,
+    var globalVariables: SerializableEnvironment? = null,
+    var collectionVariables: List<SerializableCollectionVariables> = emptyList()
 )
 
 /**
@@ -317,11 +317,11 @@ data class EnvironmentState(
  * @property order Display order in UI
  */
 data class SerializableEnvironment(
-    val id: String = "",
-    val name: String = "",
-    val variables: List<SerializableVariable> = emptyList(),
-    val isGlobal: Boolean = false,
-    val order: Int = 0
+    var id: String = "",
+    var name: String = "",
+    var variables: List<SerializableVariable> = emptyList(),
+    var isGlobal: Boolean = false,
+    var order: Int = 0
 ) {
     /**
      * Converts this serializable environment to a domain Environment.
@@ -406,10 +406,10 @@ data class VariableResolutionResult(
  * @property enabled Whether the variable is active
  */
 data class SerializableVariable(
-    val key: String = "",
-    val value: String = "",
-    val description: String = "",
-    val enabled: Boolean = true
+    var key: String = "",
+    var value: String = "",
+    var description: String = "",
+    var enabled: Boolean = true
 ) {
     /**
      * Converts this serializable variable to a domain Variable.

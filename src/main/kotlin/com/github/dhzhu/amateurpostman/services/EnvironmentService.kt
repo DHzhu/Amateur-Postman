@@ -25,6 +25,7 @@ class EnvironmentService(private val project: Project) :
 
     @Volatile
     private var state = EnvironmentState()
+    private val stateLock = Any()
     private val listeners = java.util.concurrent.CopyOnWriteArrayList<EnvironmentChangeListener>()
     // Temporary variables set by scripts (not persisted)
     private val temporaryVariables = mutableMapOf<String, String>()
@@ -46,8 +47,10 @@ class EnvironmentService(private val project: Project) :
      */
     fun createEnvironment(name: String): Environment {
         val environment = Environment.create(name)
-        val serializable = SerializableEnvironment.from(environment, state.environments.size)
-        state = state.copy(environments = state.environments + serializable)
+        synchronized(stateLock) {
+            val serializable = SerializableEnvironment.from(environment, state.environments.size)
+            state = state.copy(environments = state.environments + serializable)
+        }
         logger.info("Created environment: ${environment.name} (${environment.id})")
         notifyListeners()
         return environment
@@ -81,19 +84,21 @@ class EnvironmentService(private val project: Project) :
      * @param environment The environment to update
      */
     fun updateEnvironment(environment: Environment) {
-        val index = state.environments.indexOfFirst { it.id == environment.id }
-        if (index >= 0) {
-            val serializable = SerializableEnvironment.from(
-                environment,
-                state.environments[index].order
-            )
-            val updatedList = state.environments.toMutableList()
-            updatedList[index] = serializable
-            state = state.copy(environments = updatedList)
-            logger.info("Updated environment: ${environment.name}")
-            notifyListeners()
-        } else {
-            logger.warn("Attempted to update non-existent environment: ${environment.id}")
+        synchronized(stateLock) {
+            val index = state.environments.indexOfFirst { it.id == environment.id }
+            if (index >= 0) {
+                val serializable = SerializableEnvironment.from(
+                    environment,
+                    state.environments[index].order
+                )
+                val updatedList = state.environments.toMutableList()
+                updatedList[index] = serializable
+                state = state.copy(environments = updatedList)
+                logger.info("Updated environment: ${environment.name}")
+                notifyListeners()
+            } else {
+                logger.warn("Attempted to update non-existent environment: ${environment.id}")
+            }
         }
     }
 
@@ -104,15 +109,17 @@ class EnvironmentService(private val project: Project) :
      * @param id The environment ID to delete
      */
     fun deleteEnvironment(id: String) {
-        val env = getEnvironment(id)
-        if (env != null) {
-            val newCurrentId = if (state.currentEnvironmentId == id) null else state.currentEnvironmentId
-            state = state.copy(
-                environments = state.environments.filter { it.id != id },
-                currentEnvironmentId = newCurrentId
-            )
-            logger.info("Deleted environment: ${env.name}")
-            notifyListeners()
+        synchronized(stateLock) {
+            val env = state.environments.find { it.id == id }?.toEnvironment()
+            if (env != null) {
+                val newCurrentId = if (state.currentEnvironmentId == id) null else state.currentEnvironmentId
+                state = state.copy(
+                    environments = state.environments.filter { it.id != id },
+                    currentEnvironmentId = newCurrentId
+                )
+                logger.info("Deleted environment: ${env.name}")
+                notifyListeners()
+            }
         }
     }
 
@@ -124,17 +131,19 @@ class EnvironmentService(private val project: Project) :
      * @return true if renamed, false if environment not found
      */
     fun renameEnvironment(id: String, newName: String): Boolean {
-        val index = state.environments.indexOfFirst { it.id == id }
-        if (index >= 0) {
-            val oldName = state.environments[index].name
-            val updatedList = state.environments.toMutableList()
-            updatedList[index] = updatedList[index].copy(name = newName)
-            state = state.copy(environments = updatedList)
-            logger.info("Renamed environment '$oldName' to '$newName'")
-            notifyListeners()
-            return true
+        synchronized(stateLock) {
+            val index = state.environments.indexOfFirst { it.id == id }
+            if (index >= 0) {
+                val oldName = state.environments[index].name
+                val updatedList = state.environments.toMutableList()
+                updatedList[index] = updatedList[index].copy(name = newName)
+                state = state.copy(environments = updatedList)
+                logger.info("Renamed environment '$oldName' to '$newName'")
+                notifyListeners()
+                return true
+            }
+            return false
         }
-        return false
     }
 
     // ========== Current Environment Management ==========
@@ -155,21 +164,25 @@ class EnvironmentService(private val project: Project) :
      * @return true if set successfully, false if environment not found
      */
     fun setCurrentEnvironment(id: String): Boolean {
-        if (getEnvironment(id) != null) {
-            state = state.copy(currentEnvironmentId = id)
-            val envName = getEnvironment(id)?.name ?: "Unknown"
-            logger.info("Set current environment to: $envName")
-            notifyListeners()
-            return true
+        synchronized(stateLock) {
+            if (state.environments.any { it.id == id }) {
+                state = state.copy(currentEnvironmentId = id)
+                val envName = state.environments.find { it.id == id }?.name ?: "Unknown"
+                logger.info("Set current environment to: $envName")
+                notifyListeners()
+                return true
+            }
+            return false
         }
-        return false
     }
 
     /**
      * Clears the current environment selection.
      */
     fun clearCurrentEnvironment() {
-        state = state.copy(currentEnvironmentId = null)
+        synchronized(stateLock) {
+            state = state.copy(currentEnvironmentId = null)
+        }
         logger.info("Cleared current environment")
         notifyListeners()
     }
@@ -202,9 +215,12 @@ class EnvironmentService(private val project: Project) :
      * @param variable The variable to set
      */
     fun setGlobalVariable(variable: Variable) {
-        val globalEnv = getGlobalEnvironment()
-        val updatedEnv = globalEnv.setVariable(variable)
-        state = state.copy(globalVariables = SerializableEnvironment.from(updatedEnv, 0))
+        synchronized(stateLock) {
+            val globalEnv = state.globalVariables?.toEnvironment()
+                ?: Environment.create("Globals", isGlobal = true)
+            val updatedEnv = globalEnv.setVariable(variable)
+            state = state.copy(globalVariables = SerializableEnvironment.from(updatedEnv, 0))
+        }
         logger.info("Set global variable: ${variable.key}")
         notifyListeners()
     }
@@ -215,9 +231,12 @@ class EnvironmentService(private val project: Project) :
      * @param key The variable key to remove
      */
     fun removeGlobalVariable(key: String) {
-        val globalEnv = getGlobalEnvironment()
-        val updatedEnv = globalEnv.removeVariable(key)
-        state = state.copy(globalVariables = SerializableEnvironment.from(updatedEnv, 0))
+        synchronized(stateLock) {
+            val globalEnv = state.globalVariables?.toEnvironment()
+                ?: Environment.create("Globals", isGlobal = true)
+            val updatedEnv = globalEnv.removeVariable(key)
+            state = state.copy(globalVariables = SerializableEnvironment.from(updatedEnv, 0))
+        }
         logger.info("Removed global variable: $key")
         notifyListeners()
     }
@@ -353,21 +372,24 @@ class EnvironmentService(private val project: Project) :
      * @param variable The variable to set
      */
     fun setCollectionVariable(collectionId: String, variable: Variable) {
-        val collVars = getCollectionVariables(collectionId)
-        val updated = collVars.setVariable(variable)
-        val serializable = SerializableCollectionVariables.from(updated)
+        synchronized(stateLock) {
+            val collVars = state.collectionVariables
+                .firstOrNull { it.collectionId == collectionId }
+                ?.toCollectionVariables()
+                ?: CollectionVariables.create(collectionId)
+            val updated = collVars.setVariable(variable)
+            val serializable = SerializableCollectionVariables.from(updated)
 
-        // Update or add in state
-        val existingIndex = state.collectionVariables.indexOfFirst { it.collectionId == collectionId }
-        val updatedList = if (existingIndex >= 0) {
-            state.collectionVariables.toMutableList().apply {
-                set(existingIndex, serializable)
+            val existingIndex = state.collectionVariables.indexOfFirst { it.collectionId == collectionId }
+            val updatedList = if (existingIndex >= 0) {
+                state.collectionVariables.toMutableList().apply {
+                    set(existingIndex, serializable)
+                }
+            } else {
+                state.collectionVariables + serializable
             }
-        } else {
-            state.collectionVariables + serializable
+            state = state.copy(collectionVariables = updatedList)
         }
-
-        state = state.copy(collectionVariables = updatedList)
         logger.info("Set collection variable ${variable.key} in collection $collectionId")
         notifyListeners()
     }
@@ -379,19 +401,23 @@ class EnvironmentService(private val project: Project) :
      * @param key The variable key to remove
      */
     fun removeCollectionVariable(collectionId: String, key: String) {
-        val collVars = getCollectionVariables(collectionId)
-        val updated = collVars.removeVariable(key)
-        val serializable = SerializableCollectionVariables.from(updated)
+        synchronized(stateLock) {
+            val collVars = state.collectionVariables
+                .firstOrNull { it.collectionId == collectionId }
+                ?.toCollectionVariables()
+                ?: return
+            val updated = collVars.removeVariable(key)
+            val serializable = SerializableCollectionVariables.from(updated)
 
-        // Update in state
-        val existingIndex = state.collectionVariables.indexOfFirst { it.collectionId == collectionId }
-        if (existingIndex >= 0) {
-            val updatedList = state.collectionVariables.toMutableList().apply {
-                set(existingIndex, serializable)
+            val existingIndex = state.collectionVariables.indexOfFirst { it.collectionId == collectionId }
+            if (existingIndex >= 0) {
+                val updatedList = state.collectionVariables.toMutableList().apply {
+                    set(existingIndex, serializable)
+                }
+                state = state.copy(collectionVariables = updatedList)
+                logger.info("Removed collection variable $key from collection $collectionId")
+                notifyListeners()
             }
-            state = state.copy(collectionVariables = updatedList)
-            logger.info("Removed collection variable $key from collection $collectionId")
-            notifyListeners()
         }
     }
 

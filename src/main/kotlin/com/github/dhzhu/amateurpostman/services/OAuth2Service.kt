@@ -42,7 +42,15 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
     private val logger = thisLogger()
     @Volatile
     private var state = OAuth2State()
+    private val stateLock = Any()
     private val listeners = java.util.concurrent.CopyOnWriteArrayList<OAuth2ConfigChangeListener>()
+
+    /**
+     * Stores the expected CSRF state parameter for each pending Authorization Code flow.
+     * Key: configId, Value: the state UUID that was sent in the authorization request.
+     * Cleared after the callback is validated.
+     */
+    private val pendingAuthStates = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     private var _httpClient: OkHttpClient? = null
     private val httpClient: OkHttpClient
@@ -72,7 +80,9 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
     fun createConfig(name: String, config: OAuth2Config): OAuth2ConfigEntry {
         val id = java.util.UUID.randomUUID().toString()
         val entry = OAuth2ConfigEntry(id = id, name = name, config = config)
-        state = state.copy(configs = state.configs + entry)
+        synchronized(stateLock) {
+            state = state.copy(configs = state.configs + entry)
+        }
         logger.info("Created OAuth2 config: $name ($id)")
         notifyListeners()
         return entry
@@ -92,47 +102,53 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
      * Updates an existing OAuth2 configuration.
      */
     fun updateConfig(id: String, config: OAuth2Config): Boolean {
-        val index = state.configs.indexOfFirst { it.id == id }
-        if (index >= 0) {
-            val updatedList = state.configs.toMutableList()
-            updatedList[index] = updatedList[index].copy(config = config)
-            state = state.copy(configs = updatedList)
-            logger.info("Updated OAuth2 config: $id")
-            notifyListeners()
-            return true
+        synchronized(stateLock) {
+            val index = state.configs.indexOfFirst { it.id == id }
+            if (index >= 0) {
+                val updatedList = state.configs.toMutableList()
+                updatedList[index] = updatedList[index].copy(config = config)
+                state = state.copy(configs = updatedList)
+                logger.info("Updated OAuth2 config: $id")
+                notifyListeners()
+                return true
+            }
+            return false
         }
-        return false
     }
 
     /**
      * Renames an OAuth2 configuration.
      */
     fun renameConfig(id: String, newName: String): Boolean {
-        val index = state.configs.indexOfFirst { it.id == id }
-        if (index >= 0) {
-            val updatedList = state.configs.toMutableList()
-            updatedList[index] = updatedList[index].copy(name = newName)
-            state = state.copy(configs = updatedList)
-            logger.info("Renamed OAuth2 config to: $newName")
-            notifyListeners()
-            return true
+        synchronized(stateLock) {
+            val index = state.configs.indexOfFirst { it.id == id }
+            if (index >= 0) {
+                val updatedList = state.configs.toMutableList()
+                updatedList[index] = updatedList[index].copy(name = newName)
+                state = state.copy(configs = updatedList)
+                logger.info("Renamed OAuth2 config to: $newName")
+                notifyListeners()
+                return true
+            }
+            return false
         }
-        return false
     }
 
     /**
      * Deletes an OAuth2 configuration.
      */
     fun deleteConfig(id: String): Boolean {
-        val initialSize = state.configs.size
-        state = state.copy(configs = state.configs.filter { it.id != id })
-        if (state.configs.size < initialSize) {
-            state = state.copy(requestAuthMappings = state.requestAuthMappings.filter { it.configId != id })
-            logger.info("Deleted OAuth2 config: $id")
-            notifyListeners()
-            return true
+        synchronized(stateLock) {
+            val initialSize = state.configs.size
+            state = state.copy(configs = state.configs.filter { it.id != id })
+            if (state.configs.size < initialSize) {
+                state = state.copy(requestAuthMappings = state.requestAuthMappings.filter { it.configId != id })
+                logger.info("Deleted OAuth2 config: $id")
+                notifyListeners()
+                return true
+            }
+            return false
         }
-        return false
     }
 
     // ========== Token Management ==========
@@ -141,18 +157,20 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
      * Stores a token for a configuration.
      */
     fun setToken(configId: String, token: OAuth2Token): Boolean {
-        val index = state.configs.indexOfFirst { it.id == configId }
-        if (index >= 0) {
-            val updatedList = state.configs.toMutableList()
-            updatedList[index] = updatedList[index].copy(
-                config = updatedList[index].config.copy(accessToken = token)
-            )
-            state = state.copy(configs = updatedList)
-            logger.info("Stored token for config: $configId")
-            notifyListeners()
-            return true
+        synchronized(stateLock) {
+            val index = state.configs.indexOfFirst { it.id == configId }
+            if (index >= 0) {
+                val updatedList = state.configs.toMutableList()
+                updatedList[index] = updatedList[index].copy(
+                    config = updatedList[index].config.copy(accessToken = token)
+                )
+                state = state.copy(configs = updatedList)
+                logger.info("Stored token for config: $configId")
+                notifyListeners()
+                return true
+            }
+            return false
         }
-        return false
     }
 
     /**
@@ -164,21 +182,23 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
      * Clears the token for a configuration.
      */
     fun clearToken(configId: String): Boolean {
-        val index = state.configs.indexOfFirst { it.id == configId }
-        if (index >= 0) {
-            val currentEntry = state.configs[index]
-            if (currentEntry.config.accessToken != null) {
-                val updatedList = state.configs.toMutableList()
-                updatedList[index] = currentEntry.copy(
-                    config = currentEntry.config.copy(accessToken = null)
-                )
-                state = state.copy(configs = updatedList)
-                logger.info("Cleared token for config: $configId")
-                notifyListeners()
+        synchronized(stateLock) {
+            val index = state.configs.indexOfFirst { it.id == configId }
+            if (index >= 0) {
+                val currentEntry = state.configs[index]
+                if (currentEntry.config.accessToken != null) {
+                    val updatedList = state.configs.toMutableList()
+                    updatedList[index] = currentEntry.copy(
+                        config = currentEntry.config.copy(accessToken = null)
+                    )
+                    state = state.copy(configs = updatedList)
+                    logger.info("Cleared token for config: $configId")
+                    notifyListeners()
+                }
+                return true
             }
-            return true
+            return false
         }
-        return false
     }
 
     /**
@@ -208,7 +228,8 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
             return@withContext TokenExchangeResult.Error("Invalid grant type: expected CLIENT_CREDENTIALS")
         }
 
-        if (config.clientSecret.isNullOrBlank()) {
+        val clientSecret = config.clientSecret
+        if (clientSecret.isNullOrBlank()) {
             return@withContext TokenExchangeResult.Error("Client secret is required for Client Credentials flow")
         }
 
@@ -224,7 +245,7 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
 
             val request = Request.Builder()
                 .url(config.tokenUrl)
-                .header("Authorization", buildBasicAuth(config.clientId, config.clientSecret!!))
+                .header("Authorization", buildBasicAuth(config.clientId, clientSecret))
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .post(formBody)
                 .build()
@@ -267,7 +288,9 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
             return@withContext TokenExchangeResult.Error("Invalid grant type: expected PASSWORD")
         }
 
-        if (config.username.isNullOrBlank() || config.password.isNullOrBlank()) {
+        val username = config.username
+        val password = config.password
+        if (username.isNullOrBlank() || password.isNullOrBlank()) {
             return@withContext TokenExchangeResult.Error("Username and password are required for Password flow")
         }
 
@@ -276,8 +299,8 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
 
             val formBodyBuilder = FormBody.Builder()
                 .add("grant_type", "password")
-                .add("username", config.username)
-                .add("password", config.password)
+                .add("username", username)
+                .add("password", password)
 
             config.scope?.let { formBodyBuilder.add("scope", it) }
 
@@ -287,8 +310,9 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
                 .post(formBodyBuilder.build())
 
             // Add Basic Auth if client credentials are provided
-            if (!config.clientId.isNullOrBlank() && !config.clientSecret.isNullOrBlank()) {
-                requestBuilder.header("Authorization", buildBasicAuth(config.clientId, config.clientSecret))
+            val cs = config.clientSecret
+            if (!config.clientId.isNullOrBlank() && !cs.isNullOrBlank()) {
+                requestBuilder.header("Authorization", buildBasicAuth(config.clientId, cs))
             }
 
             httpClient.newCall(requestBuilder.build()).execute().use { response ->
@@ -345,8 +369,9 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
                 .post(formBody)
 
             // Add Basic Auth if client credentials are provided
-            if (!config.clientId.isNullOrBlank() && !config.clientSecret.isNullOrBlank()) {
-                requestBuilder.header("Authorization", buildBasicAuth(config.clientId, config.clientSecret))
+            val cs2 = config.clientSecret
+            if (!config.clientId.isNullOrBlank() && !cs2.isNullOrBlank()) {
+                requestBuilder.header("Authorization", buildBasicAuth(config.clientId, cs2))
             }
 
             httpClient.newCall(requestBuilder.build()).execute().use { response ->
@@ -486,13 +511,15 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
             return null
         }
 
-        if (config.authUrl.isNullOrBlank() || config.redirectUri.isNullOrBlank()) {
+        val authUrl = config.authUrl
+        val redirectUri = config.redirectUri
+        if (authUrl.isNullOrBlank() || redirectUri.isNullOrBlank()) {
             logger.warn("Authorization URL and Redirect URI are required for Authorization Code flow")
             return null
         }
 
         // Parse redirect URI to determine if we need to start a local server
-        val redirectUriParsed = URI(config.redirectUri)
+        val redirectUriParsed = URI(redirectUri)
         val callbackServer = if (redirectUriParsed.host == "localhost" || redirectUriParsed.host == "127.0.0.1") {
             // Start local callback server
             val port = redirectUriParsed.port.let { if (it > 0) it else 0 }
@@ -507,16 +534,21 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
             OAuth2CallbackServer(port = 0, timeoutSeconds = 300)
         }
 
-        // Generate authorization URL
-        val authUrl = OAuth2AuthorizationUrl.generateAuthCodeUrl(
-            authUrl = config.authUrl,
+        // Generate and store CSRF state for this flow
+        val csrfState = java.util.UUID.randomUUID().toString()
+        pendingAuthStates[configId] = csrfState
+
+        // Generate authorization URL with the stored state
+        val generatedAuthUrl = OAuth2AuthorizationUrl.generateAuthCodeUrl(
+            authUrl = authUrl,
             clientId = config.clientId,
             redirectUri = callbackServer.redirectUri,
-            scope = config.scope
+            scope = config.scope,
+            state = csrfState
         )
 
-        logger.info("Generated authorization URL: $authUrl")
-        return authUrl to callbackServer
+        logger.info("Generated authorization URL: $generatedAuthUrl")
+        return generatedAuthUrl to callbackServer
     }
 
     /**
@@ -531,10 +563,19 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
 
             val result = when (callbackResult) {
                 is AuthCallbackResult.Success -> {
-                    logger.info("Received authorization code, exchanging for token")
-                    exchangeAuthorizationCode(configId, callbackResult.code)
+                    // Validate CSRF state parameter
+                    val expectedState = pendingAuthStates.remove(configId)
+                    if (expectedState == null || callbackResult.state != expectedState) {
+                        logger.warn("OAuth2 callback state mismatch: expected=$expectedState, got=${callbackResult.state}")
+                        TokenExchangeResult.Error("Authorization failed: CSRF state validation failed")
+                    } else {
+                        logger.info("Received authorization code, exchanging for token")
+                        exchangeAuthorizationCode(configId, callbackResult.code)
+                    }
                 }
                 is AuthCallbackResult.Error -> {
+                    // Clean up pending state on error
+                    pendingAuthStates.remove(configId)
                     logger.warn("Authorization error: ${callbackResult.error}")
                     TokenExchangeResult.Error(
                         "Authorization failed: ${callbackResult.error}" +
@@ -568,7 +609,8 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
         }
 
         val config = entry.config
-        if (config.redirectUri.isNullOrBlank()) {
+        val redirectUri = config.redirectUri
+        if (redirectUri.isNullOrBlank()) {
             return@withContext TokenExchangeResult.Error("Redirect URI is required")
         }
 
@@ -578,7 +620,7 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
             val formBodyBuilder = FormBody.Builder()
                 .add("grant_type", "authorization_code")
                 .add("code", code)
-                .add("redirect_uri", config.redirectUri)
+                .add("redirect_uri", redirectUri)
                 .add("client_id", config.clientId)
 
             val requestBuilder = Request.Builder()
@@ -587,8 +629,9 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
                 .post(formBodyBuilder.build())
 
             // Add client secret if available (confidential client)
-            if (!config.clientSecret.isNullOrBlank()) {
-                requestBuilder.header("Authorization", buildBasicAuth(config.clientId, config.clientSecret))
+            val cs3 = config.clientSecret
+            if (!cs3.isNullOrBlank()) {
+                requestBuilder.header("Authorization", buildBasicAuth(config.clientId, cs3))
             }
 
             httpClient.newCall(requestBuilder.build()).execute().use { response ->
@@ -628,20 +671,22 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
             return null
         }
 
-        if (config.authUrl.isNullOrBlank() || config.redirectUri.isNullOrBlank()) {
+        val implicitAuthUrl = config.authUrl
+        val implicitRedirectUri = config.redirectUri
+        if (implicitAuthUrl.isNullOrBlank() || implicitRedirectUri.isNullOrBlank()) {
             logger.warn("Authorization URL and Redirect URI are required for Implicit flow")
             return null
         }
 
-        val authUrl = OAuth2AuthorizationUrl.generateImplicitUrl(
-            authUrl = config.authUrl,
+        val generatedImplicitUrl = OAuth2AuthorizationUrl.generateImplicitUrl(
+            authUrl = implicitAuthUrl,
             clientId = config.clientId,
-            redirectUri = config.redirectUri,
+            redirectUri = implicitRedirectUri,
             scope = config.scope
         )
 
-        logger.info("Generated implicit authorization URL: $authUrl")
-        return authUrl
+        logger.info("Generated implicit authorization URL: $generatedImplicitUrl")
+        return generatedImplicitUrl
     }
 
     /**
@@ -729,24 +774,26 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
      * Associates an OAuth2 configuration with a request.
      */
     fun setRequestAuthConfig(requestId: String, configId: String?) {
-        val existingIndex = state.requestAuthMappings.indexOfFirst { it.requestId == requestId }
+        synchronized(stateLock) {
+            val existingIndex = state.requestAuthMappings.indexOfFirst { it.requestId == requestId }
 
-        if (configId == null) {
-            if (existingIndex >= 0) {
-                state = state.copy(
-                    requestAuthMappings = state.requestAuthMappings.filter { it.requestId != requestId }
-                )
-                logger.debug("Removed auth mapping for request: $requestId")
-            }
-        } else {
-            val mapping = RequestAuthMapping(requestId, configId)
-            val updatedMappings = if (existingIndex >= 0) {
-                state.requestAuthMappings.toMutableList().apply { set(existingIndex, mapping) }
+            if (configId == null) {
+                if (existingIndex >= 0) {
+                    state = state.copy(
+                        requestAuthMappings = state.requestAuthMappings.filter { it.requestId != requestId }
+                    )
+                    logger.debug("Removed auth mapping for request: $requestId")
+                }
             } else {
-                state.requestAuthMappings + mapping
+                val mapping = RequestAuthMapping(requestId, configId)
+                val updatedMappings = if (existingIndex >= 0) {
+                    state.requestAuthMappings.toMutableList().apply { set(existingIndex, mapping) }
+                } else {
+                    state.requestAuthMappings + mapping
+                }
+                state = state.copy(requestAuthMappings = updatedMappings)
+                logger.debug("Set auth config $configId for request: $requestId")
             }
-            state = state.copy(requestAuthMappings = updatedMappings)
-            logger.debug("Set auth config $configId for request: $requestId")
         }
         notifyListeners()
     }
@@ -774,24 +821,26 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
      * Associates an OAuth2 configuration with a collection.
      */
     fun setCollectionAuthConfig(collectionId: String, configId: String?) {
-        val existingIndex = state.collectionAuthMappings.indexOfFirst { it.collectionId == collectionId }
+        synchronized(stateLock) {
+            val existingIndex = state.collectionAuthMappings.indexOfFirst { it.collectionId == collectionId }
 
-        if (configId == null) {
-            if (existingIndex >= 0) {
-                state = state.copy(
-                    collectionAuthMappings = state.collectionAuthMappings.filter { it.collectionId != collectionId }
-                )
-                logger.debug("Removed auth mapping for collection: $collectionId")
-            }
-        } else {
-            val mapping = CollectionAuthMapping(collectionId, configId)
-            val updatedMappings = if (existingIndex >= 0) {
-                state.collectionAuthMappings.toMutableList().apply { set(existingIndex, mapping) }
+            if (configId == null) {
+                if (existingIndex >= 0) {
+                    state = state.copy(
+                        collectionAuthMappings = state.collectionAuthMappings.filter { it.collectionId != collectionId }
+                    )
+                    logger.debug("Removed auth mapping for collection: $collectionId")
+                }
             } else {
-                state.collectionAuthMappings + mapping
+                val mapping = CollectionAuthMapping(collectionId, configId)
+                val updatedMappings = if (existingIndex >= 0) {
+                    state.collectionAuthMappings.toMutableList().apply { set(existingIndex, mapping) }
+                } else {
+                    state.collectionAuthMappings + mapping
+                }
+                state = state.copy(collectionAuthMappings = updatedMappings)
+                logger.debug("Set auth config $configId for collection: $collectionId")
             }
-            state = state.copy(collectionAuthMappings = updatedMappings)
-            logger.debug("Set auth config $configId for collection: $collectionId")
         }
         notifyListeners()
     }
@@ -816,26 +865,26 @@ class OAuth2Service(private val project: Project) : PersistentStateComponent<OAu
 // ========== State and Data Classes ==========
 
 data class OAuth2State(
-    val version: Int = 1,
-    val configs: List<OAuth2ConfigEntry> = emptyList(),
-    val requestAuthMappings: List<RequestAuthMapping> = emptyList(),
-    val collectionAuthMappings: List<CollectionAuthMapping> = emptyList()
+    var version: Int = 1,
+    var configs: List<OAuth2ConfigEntry> = emptyList(),
+    var requestAuthMappings: List<RequestAuthMapping> = emptyList(),
+    var collectionAuthMappings: List<CollectionAuthMapping> = emptyList()
 )
 
 data class OAuth2ConfigEntry(
-    val id: String = "",
-    val name: String = "",
-    val config: OAuth2Config = OAuth2Config()
+    var id: String = "",
+    var name: String = "",
+    var config: OAuth2Config = OAuth2Config()
 )
 
 data class RequestAuthMapping(
-    val requestId: String = "",
-    val configId: String = ""
+    var requestId: String = "",
+    var configId: String = ""
 )
 
 data class CollectionAuthMapping(
-    val collectionId: String = "",
-    val configId: String = ""
+    var collectionId: String = "",
+    var configId: String = ""
 )
 
 interface OAuth2ConfigChangeListener {

@@ -12,6 +12,7 @@
 ## 3. Governance & Workflow
 - **Lifecycle**: Agent **MUST** follow `workflow.md` for all tasks. All progress and state tracking **MUST** be maintained in physical files (`tracks.md`, `plan.md`, `metadata.json`).
 - **Prep**: Perform "pre-flight" check (read_file/grep_search) before any modifications.
+- **Compliance**: Newly created files MUST strictly adhere to the requirements in this specification. Historical archives may contain errors; imitating them is prohibited.
 - **Commits**: Code changes **MUST** use `activate_skill("git-commit")`. Format **MUST** be: `<type>(<scope>): <Chinese description>`. Body text, `Co-Authored-By`, or feature lists are **STRICTLY FORBIDDEN**.
 
 ## 4. Quality Gates (DoD)

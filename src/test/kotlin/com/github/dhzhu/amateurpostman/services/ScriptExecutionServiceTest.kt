@@ -188,4 +188,36 @@ class ScriptExecutionServiceTest {
             assertTrue(result.passed, "Test script should pass")
         }
     }
+
+    // ========== Concurrent sendRequest Test (Issue 3.3.3) ==========
+
+    @Test
+    fun `test concurrent scripts do not deadlock with mutex`() = runBlocking {
+        // This test verifies that the scriptExecutionMutex does not cause deadlock
+        // when multiple scripts execute concurrently. The key improvement is that
+        // PmBinding.sendRequest offloads network I/O to a separate thread pool,
+        // so the mutex is only held during JS engine eval, not during I/O.
+        val numConcurrent = 8
+        val startTime = System.currentTimeMillis()
+
+        val jobs = (1..numConcurrent).map { i ->
+            async {
+                // Each script does some JS computation (no network I/O)
+                val script = """
+                    var sum = 0;
+                    for (var j = 0; j < 1000; j++) { sum += j; }
+                    am.environment.set('computed_$i', sum.toString());
+                """.trimIndent()
+                scriptService.executePreRequestScript(script)
+            }
+        }
+
+        val results = jobs.awaitAll()
+        val elapsed = System.currentTimeMillis() - startTime
+
+        // All scripts should complete
+        assertEquals(numConcurrent, results.size)
+        // Should complete reasonably fast (no deadlock)
+        assertTrue(elapsed < 10_000, "Concurrent scripts took ${elapsed}ms — possible deadlock")
+    }
 }

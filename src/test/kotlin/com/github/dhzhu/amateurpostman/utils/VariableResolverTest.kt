@@ -409,6 +409,46 @@ class VariableResolverTest {
         assertEquals("{{outer_{{inner}}}}", result)
     }
 
+    // ── Integer overflow safety ──────────────────────────────────────────────
+
+    @Test
+    fun testRandomIntMaxValueNoOverflow() {
+        // $randomInt:0,2147483647 should NOT throw ArithmeticException
+        val text = "Random: {{\$randomInt:0,2147483647}}"
+        val result = VariableResolver.substituteVariables(text, emptyMap())
+        val value = result.substringAfter(": ").toInt()
+        assertTrue(value in 0..Int.MAX_VALUE)
+    }
+
+    @Test
+    fun testRandomIntLengthOverflowCap() {
+        // $randomInt:20 — length >= 10 would overflow 10^length; should be capped to 9 digits
+        val text = "Random: {{\$randomInt:20}}"
+        val result = VariableResolver.substituteVariables(text, emptyMap())
+        val value = result.substringAfter(": ")
+        assertTrue(value.length <= 9, "Length should be capped at 9, got ${value.length}")
+        assertTrue(value.all { it.isDigit() })
+    }
+
+    @Test
+    fun testRandomIntLength9Works() {
+        // $randomInt:9 — 9-digit number, should work normally
+        val text = "Random: {{\$randomInt:9}}"
+        val result = VariableResolver.substituteVariables(text, emptyMap())
+        val value = result.substringAfter(": ")
+        assertEquals(9, value.length)
+        assertTrue(value.all { it.isDigit() })
+    }
+
+    @Test
+    fun testRandomIntDefaultNoOverflow() {
+        // $randomInt without params defaults to Int.MAX_VALUE, should not crash
+        val text = "Random: {{\$randomInt}}"
+        val result = VariableResolver.substituteVariables(text, emptyMap())
+        val value = result.substringAfter(": ").toInt()
+        assertTrue(value in Int.MIN_VALUE..Int.MAX_VALUE)
+    }
+
     // ── Performance benchmark ────────────────────────────────────────────────
 
     @Test

@@ -214,15 +214,15 @@ object SyntaxHighlighter {
                     }
                     tokens.add(StyledToken(json.substring(start, i), TokenType.NUMBER))
                 }
-                json.substring(i).startsWith("true") -> {
+                json.startsWith("true", i) -> {
                     tokens.add(StyledToken("true", TokenType.BOOLEAN))
                     i += 4
                 }
-                json.substring(i).startsWith("false") -> {
+                json.startsWith("false", i) -> {
                     tokens.add(StyledToken("false", TokenType.BOOLEAN))
                     i += 5
                 }
-                json.substring(i).startsWith("null") -> {
+                json.startsWith("null", i) -> {
                     tokens.add(StyledToken("null", TokenType.NULL))
                     i += 4
                 }

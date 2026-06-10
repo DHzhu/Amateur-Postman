@@ -4,13 +4,19 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## Active Tracks
 
-(无)
+(To be planned)
 
 ## Next Up
 
 (To be planned)
 
 ## Archive
+
+- [x] **Track: 代码审查问题修复（第三轮）** [DONE]
+  *Link: [./tracks/code_review_issues_fix_20260610/](./tracks/code_review_issues_fix_20260610/)*
+  *Description: 修复第三轮代码审查中发现的 5 项严重问题，包括随机数溢出、Mock 延迟同步阻塞、JS 全局锁网络 IO 瓶颈、OAuth2 CSRF 隐患与配置更新竞态条件。*
+  *Started: 2026-06-10*
+  *Completed: 2026-06-10*
 
 - [x] **Track: Postman 风格 UI 重新设计** [DONE]
   *Link: [./archive/ui_redesign_postman_style_20260519/](./archive/ui_redesign_postman_style_20260519/)*

@@ -111,6 +111,10 @@ class PreRequestContext(
 
     /** Returns a random integer between min and max (inclusive). */
     fun randomInt(min: Int = 0, max: Int = Int.MAX_VALUE - 1): Int {
+        if (max == Int.MAX_VALUE) {
+            val range = Int.MAX_VALUE.toLong() - min.toLong() + 1L
+            return (kotlin.random.Random.nextLong().toULong().toLong() % range + min.toLong()).toInt()
+        }
         return kotlin.random.Random.nextInt(min, max + 1)
     }
 }
@@ -288,6 +292,12 @@ class PmBinding(
         request: HttpRequest? = null,
         private val httpRequestService: HttpRequestService? = null
 ) {
+    companion object {
+        /** Thread pool for offloading network requests from the JS engine thread. */
+        private val requestExecutor = java.util.concurrent.Executors.newCachedThreadPool { r ->
+            Thread(r, "PmBinding-sendRequest").apply { isDaemon = true }
+        }
+    }
     // Initially set to the basic expect binding, but can be overridden by chai.expect
     @JvmField var expect: Any = PmExpectBinding(context)
     @JvmField val response = PmResponseBinding(httpResponse)
@@ -329,7 +339,19 @@ class PmBinding(
                         )
         return try {
             val req = parseSendRequest(requestJson)
-            val resp = runBlocking { svc.executeRequest(req) }
+            // Offload network I/O to a separate thread pool to avoid blocking the JS engine
+            // (which holds scriptExecutionMutex). Using runBlocking here would cause the
+            // engine thread to block while holding the mutex, preventing concurrent scripts.
+            val future = java.util.concurrent.CompletableFuture<HttpResponse>()
+            requestExecutor.execute {
+                try {
+                    val result = kotlinx.coroutines.runBlocking { svc.executeRequest(req) }
+                    future.complete(result)
+                } catch (e: Exception) {
+                    future.completeExceptionally(e)
+                }
+            }
+            val resp = future.get()
             JsonService.compactMapper.writeValueAsString(
                     mapOf(
                             "code" to resp.statusCode,

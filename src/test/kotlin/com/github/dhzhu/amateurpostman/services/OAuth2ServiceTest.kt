@@ -365,6 +365,68 @@ class OAuth2ServiceTest {
         assertEquals("testpass", entry.config.password)
     }
 
+    // ========== CSRF State Validation Tests (Issue 4.4.3) ==========
+
+    @Test
+    fun testAuthorizationCodeFlowStoresCSRFState() {
+        val config = OAuth2Config(
+            grantType = OAuth2GrantType.AUTHORIZATION_CODE,
+            authUrl = "https://auth.example.com/authorize",
+            tokenUrl = "https://auth.example.com/token",
+            clientId = "test-client",
+            redirectUri = "http://localhost:8080/callback"
+        )
+        val entry = service.createConfig("AuthCode", config)
+
+        val result = service.startAuthorizationCodeFlow(entry.id)
+
+        assertNotNull(result)
+        val (authUrl, callbackServer) = result!!
+
+        // The authorization URL should contain a state parameter
+        assertTrue(authUrl.contains("state="), "Auth URL should contain state parameter")
+
+        // The state should be stored in pendingAuthStates (verify via reflection)
+        val pendingStates = OAuth2Service::class.java.getDeclaredField("pendingAuthStates")
+        pendingStates.isAccessible = true
+        @Suppress("UNCHECKED_CAST")
+        val states = pendingStates.get(service) as java.util.concurrent.ConcurrentHashMap<String, String>
+        assertNotNull(states[entry.id], "CSRF state should be stored for the config")
+        assertTrue(states[entry.id]!!.isNotEmpty(), "CSRF state should not be empty")
+
+        // Clean up
+        callbackServer.stop()
+    }
+
+    @Test
+    fun testCSRFStateIsUUID() {
+        val config = OAuth2Config(
+            grantType = OAuth2GrantType.AUTHORIZATION_CODE,
+            authUrl = "https://auth.example.com/authorize",
+            tokenUrl = "https://auth.example.com/token",
+            clientId = "test-client",
+            redirectUri = "http://localhost:8080/callback"
+        )
+        val entry = service.createConfig("AuthCode", config)
+
+        val result = service.startAuthorizationCodeFlow(entry.id)!!
+        val (authUrl, callbackServer) = result
+
+        // Extract state from URL
+        val stateParam = authUrl.split("&")
+            .find { it.startsWith("state=") || it.contains("?state=") }
+            ?.substringAfter("state=")
+
+        assertNotNull(stateParam, "URL should contain state parameter")
+        // Verify it's a valid UUID format
+        assertTrue(
+            stateParam!!.matches(Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")),
+            "State should be a valid UUID, got: $stateParam"
+        )
+
+        callbackServer.stop()
+    }
+
     // ========== Helper Methods ==========
 
     private fun createTestConfig() = OAuth2Config(

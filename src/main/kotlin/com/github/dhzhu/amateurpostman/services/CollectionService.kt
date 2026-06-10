@@ -25,6 +25,7 @@ class CollectionService(private val project: Project) :
 
     @Volatile
     private var state = CollectionState()
+    private val stateLock = Any()
     private val listeners = java.util.concurrent.CopyOnWriteArrayList<CollectionChangeListener>()
 
     override fun getState(): CollectionState = state
@@ -45,8 +46,10 @@ class CollectionService(private val project: Project) :
      */
     fun createCollection(name: String, description: String = ""): RequestCollection {
         val collection = RequestCollection.create(name, description)
-        val serializable = SerializableCollection.from(collection)
-        state = state.copy(collections = state.collections + serializable)
+        synchronized(stateLock) {
+            val serializable = SerializableCollection.from(collection)
+            state = state.copy(collections = state.collections + serializable)
+        }
         logger.info("Created collection: ${collection.name} (${collection.id})")
         notifyListeners()
         return collection
@@ -78,17 +81,19 @@ class CollectionService(private val project: Project) :
      * @return true if updated, false if not found
      */
     fun updateCollection(collection: RequestCollection): Boolean {
-        val index = state.collections.indexOfFirst { it.id == collection.id }
-        if (index >= 0) {
-            val serializable = SerializableCollection.from(collection.withUpdatedTimestamp())
-            val updatedList = state.collections.toMutableList()
-            updatedList[index] = serializable
-            state = state.copy(collections = updatedList)
-            logger.info("Updated collection: ${collection.name}")
-            notifyListeners()
-            return true
+        synchronized(stateLock) {
+            val index = state.collections.indexOfFirst { it.id == collection.id }
+            if (index >= 0) {
+                val serializable = SerializableCollection.from(collection.withUpdatedTimestamp())
+                val updatedList = state.collections.toMutableList()
+                updatedList[index] = serializable
+                state = state.copy(collections = updatedList)
+                logger.info("Updated collection: ${collection.name}")
+                notifyListeners()
+                return true
+            }
+            return false
         }
-        return false
     }
 
     /**
@@ -98,14 +103,16 @@ class CollectionService(private val project: Project) :
      * @return true if deleted, false if not found
      */
     fun deleteCollection(id: String): Boolean {
-        val collection = getCollection(id)
-        if (collection != null) {
-            state = state.copy(collections = state.collections.filter { it.id != id })
-            logger.info("Deleted collection: ${collection.name}")
-            notifyListeners()
-            return true
+        synchronized(stateLock) {
+            val collection = state.collections.find { it.id == id }?.toCollection()
+            if (collection != null) {
+                state = state.copy(collections = state.collections.filter { it.id != id })
+                logger.info("Deleted collection: ${collection.name}")
+                notifyListeners()
+                return true
+            }
+            return false
         }
-        return false
     }
 
     /**

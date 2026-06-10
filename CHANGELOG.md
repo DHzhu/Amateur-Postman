@@ -8,6 +8,15 @@
 
 ## [0.0.7] - 2026-06-09
 ### Fixed
+- **数值溢出崩溃**: `VariableResolver.resolveRandomInt` 和 `ScriptExecutionService.randomInt` 修复 `max + 1` 在 `max == Int.MAX_VALUE` 时的整数溢出；`$randomInt:length` 格式的 `length` 参数上限 cap 到 9，防止 `10^length` 溢出。
+- **Mock 延迟阻塞**: `MockServerManager.handleMockResponse` 移除 `CountDownLatch.await()` 同步阻塞，改用 `deferResponse` + socket 交接机制，延迟响应由 `delayExecutor` 异步写入，HTTP 处理线程不再被阻塞。
+- **JS 全局锁 I/O 瓶颈**: `PmBinding.sendRequest` 将网络请求从 `runBlocking`（阻塞 JS 引擎线程）卸载到独立 `requestExecutor` 线程池（`CompletableFuture`），`scriptExecutionMutex` 锁内不再执行阻塞 I/O。
+- **OAuth2 CSRF 漏洞**: `OAuth2Service` 在 Authorization Code 流程中生成并存储 CSRF `state` 参数（`pendingAuthStates`），回调时校验 state 匹配，不匹配则拒绝 Token 交换。
+- **PersistentStateComponent 竞态写入**: `EnvironmentService` 和 `OAuth2Service` 的所有 `state = state.copy(...)` 操作引入 `synchronized(stateLock)` 互斥同步，防止并发修改导致数据丢失。
+- **Collections/Environments 持久化反序列化失败**: 所有 `Serializable*` 数据类（`CollectionState`、`SerializableCollection`、`SerializableCollectionItem`、`SerializableHttpRequest`、`SerializableAuthentication`、`EnvironmentState`、`SerializableEnvironment`、`SerializableVariable`、`SerializableCollectionVariables`、`OAuth2State`、`OAuth2ConfigEntry`、`OAuth2Config`、`OAuth2Token` 等）的 `val` 属性改为 `var`，修复 IntelliJ `PersistentStateComponent` 反射反序列化时因缺少 setter 导致重启后数据丢失。
+- **Authorization 配置不持久化**: `SerializableHttpRequest` 新增 `authentication` 字段，`from()` 和 `toHttpRequest()` 正确序列化/反序列化认证信息；`loadRequest()` 加载时恢复 Auth tab 状态。
+- **Multipart Body 数据丢失**: `SerializableHttpRequest` 新增 `multipartData` 字段（JSON 序列化），保存时正确持久化 multipart 表单数据，加载时还原到 Multipart 表。
+- **Params 表加载时不还原**: `loadRequest()` 从 URL 查询字符串解析参数并还原到 Params 表。
 - **Collections 重复展示**: 移除 tabbedPane 中的 Collections tab，仅保留工具栏 toggle 按钮，修复 Collections 同时出现在两个位置的问题。
 - **Collections 持久化失效**: `SerializableCollection`、`SerializableCollectionItem`、`SerializableHttpRequest`、`SerializableAuthentication` 等序列化模型补全无参构造器默认值，修复 IntelliJ `XmlSerializer` 反序列化静默失败导致重启后数据丢失。
 - **Environments 持久化失效**: `SerializableEnvironment`、`SerializableVariable`、`SerializableCollectionVariables` 补全默认值，修复环境变量重启后丢失。
@@ -18,6 +27,9 @@
 - **WebSocket 线程安全**: `WebSocketServiceImpl.webSocket` 字段补充 `@Volatile` 注解，移除未使用的 `stateMutex`。
 - **gRPC 线程安全**: `GrpcStreamingService.requestObserver` 和 `currentChannel` 字段补充 `@Volatile` 注解。
 - **并发安全**: `MockServerManager.getState()` 改用 copy-on-write 模式，`RequestHistoryService` 的 `addEntry`/`deleteEntry`/`clearHistory`/`renameEntry` 改用不可变列表。
+
+### Changed
+- **SimpleHttpServer**: `SimpleHttpExchange` 新增 `deferResponse` 和 `socket` 属性，支持延迟响应的异步 socket 写入；`handleConnection` 改为显式 socket 管理（不再使用 `socket.use`）。
 
 ## [0.0.6] - 2026-06-08
 ### Added

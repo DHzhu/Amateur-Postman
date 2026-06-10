@@ -112,37 +112,49 @@ class SimpleHttpServer {
     private fun handleConnection(socket: Socket) {
         activeSockets.add(socket)
         try {
-            socket.use { sock ->
-                sock.soTimeout = 30_000 // 30s read timeout
-                val input = BufferedInputStream(sock.getInputStream())
-                val output = BufferedOutputStream(sock.getOutputStream())
+            socket.soTimeout = 30_000 // 30s read timeout
+            val input = BufferedInputStream(socket.getInputStream())
+            val output = BufferedOutputStream(socket.getOutputStream())
 
-                val exchange = parseRequest(input)
-                if (exchange == null) {
-                    val errorBody = "Bad Request".toByteArray(Charsets.UTF_8)
-                    output.write("HTTP/1.1 400 Bad Request\r\nContent-Length: ${errorBody.size}\r\nConnection: close\r\n\r\n".toByteArray())
-                    output.write(errorBody)
-                    output.flush()
-                    return
-                }
-                val handler = findHandler(exchange.requestUri.path)
-                    ?: findHandler("/") // fallback to root handler
-
-                if (handler != null) {
-                    handler(exchange)
-                } else {
-                    exchange.sendResponse(
-                        404,
-                        mapOf("Content-Type" to "text/plain"),
-                        "Not Found".toByteArray(Charsets.UTF_8)
-                    )
-                }
-
-                output.write(exchange.responseBytes)
+            val exchange = parseRequest(input)
+            if (exchange == null) {
+                val errorBody = "Bad Request".toByteArray(Charsets.UTF_8)
+                output.write("HTTP/1.1 400 Bad Request\r\nContent-Length: ${errorBody.size}\r\nConnection: close\r\n\r\n".toByteArray())
+                output.write(errorBody)
                 output.flush()
+                socket.close()
+                return
             }
+
+            val handler = findHandler(exchange.requestUri.path)
+                ?: findHandler("/") // fallback to root handler
+
+            // Attach socket reference for deferred response handlers
+            exchange.socket = socket
+
+            if (handler != null) {
+                handler(exchange)
+            } else {
+                exchange.sendResponse(
+                    404,
+                    mapOf("Content-Type" to "text/plain"),
+                    "Not Found".toByteArray(Charsets.UTF_8)
+                )
+            }
+
+            // If the handler deferred the response (e.g., delayed mock),
+            // skip writing — an async task owns the socket from here.
+            if (exchange.deferResponse) {
+                activeSockets.remove(socket)
+                return
+            }
+
+            output.write(exchange.responseBytes)
+            output.flush()
+            socket.close()
         } catch (e: Exception) {
             logger.debug("Connection handling error", e)
+            try { socket.close() } catch (_: Exception) {}
         } finally {
             activeSockets.remove(socket)
         }
@@ -237,6 +249,20 @@ class SimpleHttpExchange(
     @Volatile
     var responseBytes: ByteArray = ByteArray(0)
         private set
+
+    /**
+     * When true, the response will be written by an external async task
+     * instead of by handleConnection. Used for delayed mock responses.
+     */
+    @Volatile
+    var deferResponse: Boolean = false
+
+    /**
+     * Reference to the underlying socket, set by handleConnection.
+     * Used by deferred response handlers to write directly to the socket.
+     */
+    @Volatile
+    var socket: Socket? = null
 
     /**
      * Sends an HTTP response.

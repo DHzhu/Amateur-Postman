@@ -183,24 +183,33 @@ object VariableResolver {
             if (parts.size == 2) {
                 val min = parts[0].toIntOrNull() ?: 0
                 val max = parts[1].toIntOrNull() ?: Int.MAX_VALUE
-                Random.nextInt(min, max + 1).toString()
+                safeRandomInt(min, max).toString()
             } else {
                 Random.nextInt().toString()
             }
         } else {
-            // Length format: length
-            val length = params.toIntOrNull() ?: 1
-            if (length <= 0) {
-                return "0"
-            }
-            val max = 10.0.pow(length.toDouble()).toInt() - 1
-            val min = 10.0.pow((length - 1).toDouble()).toInt()
+            // Length format: length — cap at 9 to prevent 10^length overflow
+            val length = (params.toIntOrNull() ?: 1).coerceIn(1, 9)
             if (length == 1) {
                 Random.nextInt(0, 10).toString()
             } else {
-                Random.nextInt(min, max + 1).toString()
+                val max = 10.0.pow(length.toDouble()).toInt() - 1
+                val min = 10.0.pow((length - 1).toDouble()).toInt()
+                safeRandomInt(min, max).toString()
             }
         }
+    }
+
+    /**
+     * Generates a random Int in [min, max] (inclusive) without overflow when max == Int.MAX_VALUE.
+     */
+    private fun safeRandomInt(min: Int, max: Int): Int {
+        if (max == Int.MAX_VALUE) {
+            // Avoid max + 1 overflow: use Long arithmetic to cover [min, Int.MAX_VALUE]
+            val range = Int.MAX_VALUE.toLong() - min.toLong() + 1L
+            return (Random.nextLong().toULong().toLong() % range + min.toLong()).toInt()
+        }
+        return Random.nextInt(min, max + 1)
     }
 
     /**

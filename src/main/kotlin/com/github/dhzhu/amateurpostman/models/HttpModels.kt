@@ -32,17 +32,17 @@ enum class OAuth2GrantType(val displayName: String) {
 
 /** Represents an OAuth 2.0 token with metadata */
 data class OAuth2Token(
-    val accessToken: String = "",
-    val tokenType: String = "Bearer",
-    val expiresIn: Long? = null,
-    val refreshToken: String? = null,
-    val scope: String? = null,
-    val createdAt: Long = System.currentTimeMillis() / 1000
+    var accessToken: String = "",
+    var tokenType: String = "Bearer",
+    var expiresIn: Long? = null,
+    var refreshToken: String? = null,
+    var scope: String? = null,
+    var createdAt: Long = System.currentTimeMillis() / 1000
 ) {
     /** Check if the token is expired (with 60 second buffer) */
     fun isExpired(): Boolean {
-        if (expiresIn == null) return false
-        val expiresAt = createdAt + expiresIn
+        val exp = expiresIn ?: return false
+        val expiresAt = createdAt + exp
         val now = System.currentTimeMillis() / 1000
         return now >= expiresAt - 60
     }
@@ -53,16 +53,16 @@ data class OAuth2Token(
 
 /** Configuration for OAuth 2.0 authentication */
 data class OAuth2Config(
-    val grantType: OAuth2GrantType = OAuth2GrantType.AUTHORIZATION_CODE,
-    val authUrl: String? = null,          // Required for Authorization Code and Implicit
-    val tokenUrl: String = "",             // Token endpoint URL
-    val clientId: String = "",
-    val clientSecret: String? = null,      // Required for Client Credentials, optional for others
-    val scope: String? = null,
-    val username: String? = null,          // Required for Password grant
-    val password: String? = null,          // Required for Password grant
-    val redirectUri: String? = null,       // Required for Authorization Code
-    val accessToken: OAuth2Token? = null   // Current token
+    var grantType: OAuth2GrantType = OAuth2GrantType.AUTHORIZATION_CODE,
+    var authUrl: String? = null,          // Required for Authorization Code and Implicit
+    var tokenUrl: String = "",             // Token endpoint URL
+    var clientId: String = "",
+    var clientSecret: String? = null,      // Required for Client Credentials, optional for others
+    var scope: String? = null,
+    var username: String? = null,          // Required for Password grant
+    var password: String? = null,          // Required for Password grant
+    var redirectUri: String? = null,       // Required for Authorization Code
+    var accessToken: OAuth2Token? = null   // Current token
 )
 
 /**

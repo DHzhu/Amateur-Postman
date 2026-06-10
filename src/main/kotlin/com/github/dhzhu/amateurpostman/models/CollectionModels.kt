@@ -5,14 +5,14 @@ package com.github.dhzhu.amateurpostman.models
  * Supports all authentication types via a type discriminator.
  */
 data class SerializableAuthentication(
-    val type: String = "NONE",  // "NONE", "BASIC", "BEARER", "API_KEY", "OAUTH2_CONFIG"
-    val username: String? = null,      // For Basic Auth
-    val password: String? = null,      // For Basic Auth
-    val token: String? = null,         // For Bearer Token
-    val apiKey: String? = null,        // For API Key
-    val apiValue: String? = null,      // For API Key
-    val apiKeyLocation: String? = null, // For API Key: "HEADER" or "QUERY"
-    val oauth2ConfigId: String? = null // For OAuth2 (reference to OAuth2Service config)
+    var type: String = "NONE",  // "NONE", "BASIC", "BEARER", "API_KEY", "OAUTH2_CONFIG"
+    var username: String? = null,      // For Basic Auth
+    var password: String? = null,      // For Basic Auth
+    var token: String? = null,         // For Bearer Token
+    var apiKey: String? = null,        // For API Key
+    var apiValue: String? = null,      // For API Key
+    var apiKeyLocation: String? = null, // For API Key: "HEADER" or "QUERY"
+    var oauth2ConfigId: String? = null // For OAuth2 (reference to OAuth2Service config)
 ) {
     /**
      * Converts this serializable authentication to a domain Authentication object.
@@ -22,22 +22,27 @@ data class SerializableAuthentication(
         return when (type) {
             "NONE" -> NoAuth
             "BASIC" -> {
-                if (username != null && password != null) {
-                    BasicAuth(username, password)
+                val u = username
+                val p = password
+                if (u != null && p != null) {
+                    BasicAuth(u, p)
                 } else null
             }
             "BEARER" -> {
-                if (token != null) {
-                    BearerToken(token)
+                val t = token
+                if (t != null) {
+                    BearerToken(t)
                 } else null
             }
             "API_KEY" -> {
-                if (apiKey != null && apiValue != null) {
+                val k = apiKey
+                val v = apiValue
+                if (k != null && v != null) {
                     val location = when (apiKeyLocation) {
                         "QUERY" -> ApiKeyAuth.ApiKeyLocation.QUERY
                         else -> ApiKeyAuth.ApiKeyLocation.HEADER
                     }
-                    ApiKeyAuth(apiKey, apiValue, location)
+                    ApiKeyAuth(k, v, location)
                 } else null
             }
             "OAUTH2_CONFIG" -> {
@@ -280,8 +285,8 @@ sealed class CollectionItem {
  * @property collections List of all collections
  */
 data class CollectionState(
-    val version: Int = 1,
-    val collections: List<SerializableCollection> = emptyList()
+    var version: Int = 1,
+    var collections: List<SerializableCollection> = emptyList()
 )
 
 /**
@@ -298,15 +303,15 @@ data class CollectionState(
  * @property auth Collection-level authentication configuration
  */
 data class SerializableCollection(
-    val id: String = "",
-    val name: String = "",
-    val description: String = "",
-    val items: List<SerializableCollectionItem> = emptyList(),
-    val createdAt: Long = System.currentTimeMillis(),
-    val modifiedAt: Long = System.currentTimeMillis(),
-    val variables: List<SerializableVariable> = emptyList(),
-    val openApiSource: String? = null,
-    val auth: SerializableAuthentication? = null
+    var id: String = "",
+    var name: String = "",
+    var description: String = "",
+    var items: List<SerializableCollectionItem> = emptyList(),
+    var createdAt: Long = System.currentTimeMillis(),
+    var modifiedAt: Long = System.currentTimeMillis(),
+    var variables: List<SerializableVariable> = emptyList(),
+    var openApiSource: String? = null,
+    var auth: SerializableAuthentication? = null
 ) {
     /**
      * Converts this serializable collection to a domain RequestCollection.
@@ -360,16 +365,16 @@ data class SerializableCollection(
  * @property auth Folder-level authentication configuration (folders only)
  */
 data class SerializableCollectionItem(
-    val id: String = "",
-    val type: String = "",
-    val name: String = "",
-    val description: String = "",
-    val request: SerializableHttpRequest? = null,
-    val preRequestScript: String = "",
-    val testScript: String = "",
-    val children: List<SerializableCollectionItem> = emptyList(),
-    val parentId: String? = null,
-    val auth: SerializableAuthentication? = null
+    var id: String = "",
+    var type: String = "",
+    var name: String = "",
+    var description: String = "",
+    var request: SerializableHttpRequest? = null,
+    var preRequestScript: String = "",
+    var testScript: String = "",
+    var children: List<SerializableCollectionItem> = emptyList(),
+    var parentId: String? = null,
+    var auth: SerializableAuthentication? = null
 ) {
     /**
      * Converts this serializable item to a domain CollectionItem.
@@ -436,34 +441,103 @@ data class SerializableCollectionItem(
  * This wraps the existing HttpRequest with additional metadata if needed.
  */
 data class SerializableHttpRequest(
-    val method: String = "GET",
-    val url: String = "",
-    val headers: Map<String, String> = emptyMap(),
-    val body: String? = null,
-    val bodyType: String? = null  // "JSON", "XML", "TEXT", "HTML", "JAVASCRIPT"
+    var method: String = "GET",
+    var url: String = "",
+    var headers: Map<String, String> = emptyMap(),
+    var body: String? = null,
+    var bodyType: String? = null,  // "JSON", "XML", "TEXT", "HTML", "JAVASCRIPT"
+    var authentication: SerializableAuthentication? = null,
+    var multipartData: String? = null  // JSON-serialized List<SerializableMultipartPart>
 ) {
     fun toHttpRequest(): HttpRequest {
         val type = bodyType?.let { typeName ->
             BodyType.entries.find { it.name == typeName } ?: BodyType.JSON
         } ?: BodyType.JSON
 
+        val multipartParts = if (type == BodyType.MULTIPART && !multipartData.isNullOrBlank()) {
+            deserializeMultipartParts(multipartData!!)
+        } else null
+
         return HttpRequest(
             method = try { HttpMethod.valueOf(method) } catch (_: IllegalArgumentException) { HttpMethod.GET },
             url = url,
             headers = headers,
-            body = body?.let { HttpBody(it, type) }
+            body = if (type == BodyType.MULTIPART && multipartParts != null) {
+                HttpBody(content = "", type = BodyType.MULTIPART, multipartData = multipartParts)
+            } else {
+                body?.let { HttpBody(it, type) }
+            },
+            authentication = authentication?.toAuthentication()
         )
     }
 
     companion object {
         fun from(request: HttpRequest): SerializableHttpRequest {
+            val multipartJson = if (request.body?.type == BodyType.MULTIPART && request.body.multipartData != null) {
+                serializeMultipartParts(request.body.multipartData!!)
+            } else null
+
             return SerializableHttpRequest(
                 method = request.method.name,
                 url = request.url,
                 headers = request.headers,
                 body = request.body?.content,
-                bodyType = request.body?.type?.name
+                bodyType = request.body?.type?.name,
+                authentication = SerializableAuthentication.from(request.authentication),
+                multipartData = multipartJson
             )
+        }
+
+        private fun serializeMultipartParts(parts: List<MultipartPart>): String {
+            val mapper = com.github.dhzhu.amateurpostman.services.JsonService.compactMapper
+            val list = parts.map { part ->
+                when (part) {
+                    is MultipartPart.TextField -> mapOf(
+                        "type" to "text",
+                        "key" to part.key,
+                        "value" to part.value,
+                        "contentType" to (part.contentType ?: ""),
+                        "description" to part.description
+                    )
+                    is MultipartPart.FileField -> mapOf(
+                        "type" to "file",
+                        "key" to part.key,
+                        "filePath" to part.filePath,
+                        "fileName" to part.fileName,
+                        "contentType" to (part.contentType ?: ""),
+                        "description" to part.description
+                    )
+                }
+            }
+            return mapper.writeValueAsString(list)
+        }
+
+        private fun deserializeMultipartParts(json: String): List<MultipartPart>? {
+            return try {
+                val mapper = com.github.dhzhu.amateurpostman.services.JsonService.mapper
+                val node = mapper.readTree(json)
+                if (!node.isArray) return null
+                node.mapNotNull { element ->
+                    when (element.get("type")?.asText()) {
+                        "text" -> MultipartPart.TextField(
+                            key = element.get("key")?.asText() ?: "",
+                            value = element.get("value")?.asText() ?: "",
+                            contentType = element.get("contentType")?.asText()?.ifBlank { null },
+                            description = element.get("description")?.asText() ?: ""
+                        )
+                        "file" -> MultipartPart.FileField(
+                            key = element.get("key")?.asText() ?: "",
+                            filePath = element.get("filePath")?.asText() ?: "",
+                            fileName = element.get("fileName")?.asText() ?: "",
+                            contentType = element.get("contentType")?.asText()?.ifBlank { null },
+                            description = element.get("description")?.asText() ?: ""
+                        )
+                        else -> null
+                    }
+                }
+            } catch (e: Exception) {
+                null
+            }
         }
     }
 }

@@ -811,7 +811,31 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
     private fun loadRequest(requestItem: com.github.dhzhu.amateurpostman.models.CollectionItem.Request) {
         currentEditingRequestItem = requestItem
 
-        urlField.text = requestItem.request.url
+        // Parse URL and extract query params for the Params table
+        val urlStr = requestItem.request.url
+        val queryStart = urlStr.indexOf('?')
+        if (queryStart >= 0 && queryStart < urlStr.length - 1) {
+            urlField.text = urlStr.substring(0, queryStart)
+            val queryString = urlStr.substring(queryStart + 1)
+            while (paramsTableModel.rowCount > 0) {
+                paramsTableModel.removeRow(0)
+            }
+            queryString.split("&").forEach { param ->
+                val eqIdx = param.indexOf('=')
+                if (eqIdx >= 0) {
+                    val key = java.net.URLDecoder.decode(param.substring(0, eqIdx), StandardCharsets.UTF_8)
+                    val value = java.net.URLDecoder.decode(param.substring(eqIdx + 1), StandardCharsets.UTF_8)
+                    paramsTableModel.addRow(arrayOf(key, value, ""))
+                } else {
+                    val key = java.net.URLDecoder.decode(param, StandardCharsets.UTF_8)
+                    paramsTableModel.addRow(arrayOf(key, "", ""))
+                }
+            }
+            InlineTableActionsHelper.ensureTrailingEmptyRow(paramsTable, paramsTableModel, 3)
+        } else {
+            urlField.text = urlStr
+        }
+
         methodComboBox.selectedItem = requestItem.request.method
         selectedMethod = requestItem.request.method
 
@@ -823,6 +847,13 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
             headersTableModel.addRow(arrayOf(key, value, ""))
         }
         InlineTableActionsHelper.ensureTrailingEmptyRow(headersTable, headersTableModel, 2)
+
+        // Restore authentication
+        requestItem.request.authentication?.let { auth ->
+            authPanelWrapper.setAuthentication(auth)
+        } ?: run {
+            authPanelWrapper.setAuthentication(null)
+        }
 
         // Set body and body type
         requestItem.request.body?.let { body ->
@@ -839,6 +870,23 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
                         // If parsing fails, set the content as query
                         graphqlPanel.setQuery(body.content)
                     }
+                }
+                BodyType.MULTIPART -> {
+                    // Restore multipart parts to the table
+                    while (multipartTableModel.rowCount > 0) {
+                        multipartTableModel.removeRow(0)
+                    }
+                    body.multipartData?.forEach { part ->
+                        when (part) {
+                            is MultipartPart.TextField -> multipartTableModel.addRow(
+                                arrayOf(part.key, "Text", part.value, part.contentType ?: "", part.description)
+                            )
+                            is MultipartPart.FileField -> multipartTableModel.addRow(
+                                arrayOf(part.key, "File", part.filePath, part.contentType ?: "", part.description)
+                            )
+                        }
+                    }
+                    InlineTableActionsHelper.ensureTrailingEmptyRow(multipartTable, multipartTableModel, 5)
                 }
                 else -> {
                     requestBodyArea.text = body.content
@@ -873,6 +921,13 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
         }
         InlineTableActionsHelper.ensureTrailingEmptyRow(headersTable, headersTableModel, 2)
 
+        // Restore authentication
+        request.authentication?.let { auth ->
+            authPanelWrapper.setAuthentication(auth)
+        } ?: run {
+            authPanelWrapper.setAuthentication(null)
+        }
+
         // Set body and body type
         request.body?.let { body ->
             selectedBodyType = body.type
@@ -880,14 +935,28 @@ class PostmanToolWindowPanel(private val project: Project) : Disposable {
 
             when (body.type) {
                 BodyType.GRAPHQL -> {
-                    // Try to parse JSON and load into GraphQL panel
                     val graphQLRequest = GraphQLRequest.fromJson(body.content)
                     if (graphQLRequest != null) {
                         graphqlPanel.loadGraphQLRequest(graphQLRequest)
                     } else {
-                        // If parsing fails, set the content as query
                         graphqlPanel.setQuery(body.content)
                     }
+                }
+                BodyType.MULTIPART -> {
+                    while (multipartTableModel.rowCount > 0) {
+                        multipartTableModel.removeRow(0)
+                    }
+                    body.multipartData?.forEach { part ->
+                        when (part) {
+                            is MultipartPart.TextField -> multipartTableModel.addRow(
+                                arrayOf(part.key, "Text", part.value, part.contentType ?: "", part.description)
+                            )
+                            is MultipartPart.FileField -> multipartTableModel.addRow(
+                                arrayOf(part.key, "File", part.filePath, part.contentType ?: "", part.description)
+                            )
+                        }
+                    }
+                    InlineTableActionsHelper.ensureTrailingEmptyRow(multipartTable, multipartTableModel, 5)
                 }
                 else -> {
                     requestBodyArea.text = body.content

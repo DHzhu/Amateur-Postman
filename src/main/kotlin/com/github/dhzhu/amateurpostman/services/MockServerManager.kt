@@ -301,28 +301,38 @@ class MockServerManager : PersistentStateComponent<MockServerState>, com.intelli
     }
 
     private fun handleMockResponse(exchange: SimpleHttpExchange, rule: MockRule) {
-        // Apply delay if configured — use scheduled executor to avoid blocking HTTP thread pool
-        if (rule.delayMs > 0) {
-            val latch = java.util.concurrent.CountDownLatch(1)
-            delayExecutor.schedule({ latch.countDown() }, rule.delayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-            latch.await()
-        }
-
         // Build response headers
         val headers = mutableMapOf<String, String>()
         rule.headers.forEach { (key, value) ->
             headers[key] = value
         }
-
-        // Set content-type if not specified
         if (!headers.keys.any { it.equals("Content-Type", ignoreCase = true) }) {
             headers["Content-Type"] = "application/json"
         }
 
-        val responseBody = rule.body.toByteArray(Charsets.UTF_8)
-        exchange.sendResponse(rule.statusCode, headers, responseBody)
-
-        logger.debug("Sent mock response: ${rule.statusCode} for ${rule.method} ${rule.path}")
+        if (rule.delayMs > 0) {
+            // Defer response writing to the delay executor so the HTTP thread is not blocked.
+            // The socket is handed off — handleConnection will skip its own write.
+            exchange.deferResponse = true
+            delayExecutor.schedule({
+                try {
+                    val responseBody = rule.body.toByteArray(Charsets.UTF_8)
+                    exchange.sendResponse(rule.statusCode, headers, responseBody)
+                    val socket = exchange.socket ?: return@schedule
+                    val output = java.io.BufferedOutputStream(socket.getOutputStream())
+                    output.write(exchange.responseBytes)
+                    output.flush()
+                    socket.close()
+                    logger.debug("Sent delayed mock response: ${rule.statusCode} for ${rule.method} ${rule.path}")
+                } catch (e: Exception) {
+                    logger.debug("Delayed mock response failed", e)
+                }
+            }, rule.delayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+        } else {
+            val responseBody = rule.body.toByteArray(Charsets.UTF_8)
+            exchange.sendResponse(rule.statusCode, headers, responseBody)
+            logger.debug("Sent mock response: ${rule.statusCode} for ${rule.method} ${rule.path}")
+        }
     }
 
     private fun handleNoMatch(exchange: SimpleHttpExchange, path: String, method: HttpMethod) {
