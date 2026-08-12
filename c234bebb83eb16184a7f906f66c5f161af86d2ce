@@ -1,0 +1,7 @@
+📋 变更概述
+docs(agent): 修正自动提交拦截配置并清理无效历史提交
+
+---
+Commit SHA: c234beb
+Type: docs
+Files: 4 个文件已修改
