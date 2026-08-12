@@ -4,7 +4,10 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## Active Tracks
 
-(To be planned)
+- [ ] **Track: 升级 IDEA 版本支持至 2026.2** [ACTIVE]
+  *Link: [./tracks/idea_2026_2_support_20260812/](./tracks/idea_2026_2_support_20260812/)*
+  *Description: 更新插件配置以支持 IntelliJ IDEA 2026.2 版本及相关兼容性修复。*
+  *Started: 2026-08-12*
 
 ## Next Up
 
