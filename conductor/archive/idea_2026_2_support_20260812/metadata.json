@@ -2,7 +2,7 @@
   "id": "idea_2026_2_support_20260812",
   "title": "升级 IDEA 版本支持至 2026.2",
   "description": "更新插件配置以支持 IntelliJ IDEA 2026.2 版本及相关兼容性修复。",
-  "status": "active",
+  "status": "done",
   "created_at": "2026-08-12",
   "priority": "high",
   "tags": ["feature", "update", "compatibility"]

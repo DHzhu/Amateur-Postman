@@ -32,7 +32,7 @@
 
 7. **Code Commit (Skill-based):**
    - **Trigger**: Agent **MUST** trigger this step when a **logical milestone** is reached (e.g., a Service layer verified) OR a maximum of **3 sub-tasks** are completed but not yet committed.
-   - **Action**: Invoke `activate_skill("git-commit")`.
+   - **Action**: Execute `git commit` to trigger the `git-commit` skill.
 
 8. **Finalize Task in Plan:**
    - **Action**: Ensure `plan.md` reflects the completion of the task with the correct SHA. No graph synchronization is required.
