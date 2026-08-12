@@ -6,6 +6,9 @@
 
 ## [Unreleased]
 
+### Added
+- **IDEA 2026.2 支持**: 升级插件平台版本支持至 IntelliJ IDEA 2026.2，更新插件版本号至 0.1.0。
+
 ## [0.0.7] - 2026-06-09
 ### Fixed
 - **数值溢出崩溃**: `VariableResolver.resolveRandomInt` 和 `ScriptExecutionService.randomInt` 修复 `max + 1` 在 `max == Int.MAX_VALUE` 时的整数溢出；`$randomInt:length` 格式的 `length` 参数上限 cap 到 9，防止 `10^length` 溢出。
