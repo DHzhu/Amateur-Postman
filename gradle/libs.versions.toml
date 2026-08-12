@@ -14,7 +14,7 @@ swagger-parser = "2.1.32"
 # plugins
 changelog = "2.5.0"
 intelliJPlatform = "2.16.0"
-kotlin = "2.2.20"
+kotlin = "2.4.0"
 kover = "0.9.7"
 qodana = "2025.3.1"
 

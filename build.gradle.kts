@@ -17,7 +17,7 @@ version = providers.gradleProperty("pluginVersion").get()
 
 // Set the JVM language level used to build the project.
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(25)
 }
 
 // Configure project's dependencies
@@ -76,7 +76,7 @@ dependencies {
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
-        intellijIdea(providers.gradleProperty("platformVersion").get())
+        local(file("/opt/idea/idea-2026.2"))
 
         // Plugin Dependencies. Uses `platformBundledPlugins` property from the gradle.properties file for bundled IntelliJ Platform plugins.
         bundledPlugins(providers.gradleProperty("platformBundledPlugins").map { it.split(',') })
