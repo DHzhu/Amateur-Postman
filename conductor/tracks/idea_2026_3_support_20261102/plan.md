@@ -10,4 +10,4 @@
 - [x] **task-4** 更新 `pluginVerification`，覆盖 2025.3 / 2026.2 / 2026.3。 (01d9044)
 - [x] **task-5** 运行 `./gradlew build` 与 `./gradlew test`，修复编译错误与测试失败。 (01d9044)
 - [x] **task-6** 运行 `./gradlew verifyPlugin`，修复废弃/内部/不兼容 API 问题。 (01d9044)
-- [ ] **task-7** 更新 `CHANGELOG.md`，完成代码审查与轨道归档。
+- [x] **task-7** 更新 `CHANGELOG.md`，完成代码审查与轨道归档。 (cb86ab9)
