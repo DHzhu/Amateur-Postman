@@ -4,16 +4,19 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## Active Tracks
 
-- [ ] **Track: 升级 IDEA 版本支持至 2026.3** [TODO]
-  *Link: [./tracks/idea_2026_3_support_20261102/](./tracks/idea_2026_3_support_20261102/)*
-  *Description: 更新插件构建配置与兼容范围以支持 IntelliJ IDEA 2026.3 (263)，并修复相关兼容性问题。*
-  *Started: 2026-11-02*
+(To be planned)
 
 ## Next Up
 
 (To be planned)
 
 ## Archive
+
+- [x] **Track: 升级 IDEA 版本支持至 2026.3** [DONE]
+  *Link: [./archive/idea_2026_3_support_20261102/](./archive/idea_2026_3_support_20261102/)*
+  *Description: 更新插件构建配置与兼容范围以支持 IntelliJ IDEA 2026.3 (263)，并修复相关兼容性问题。*
+  *Started: 2026-11-02*
+  *Completed: 2026-11-02*
 
 - [x] **Track: 升级 IDEA 版本支持至 2026.2** [DONE]
   *Link: [./archive/idea_2026_2_support_20260812/](./archive/idea_2026_2_support_20260812/)*
