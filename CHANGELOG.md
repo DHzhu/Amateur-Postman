@@ -15,7 +15,7 @@
 - **废弃 API 替换**: `MyBundle` 改用 `DynamicBundle(Class, String)` 构造函数，消除 2026.3 下的废弃 API 告警。
 
 ### Fixed
-- **`$randomInt:min,2147483647` 返回负数**: `VariableResolver.safeRandomInt` 原实现 `nextLong().toULong().toLong()` 不改变符号，负数取模导致结果为负；改为 `Random.nextLong(min, max + 1)`。
+- **`$randomInt:min,2147483647` / `am.randomInt(min, 2147483647)` 返回负数**: `VariableResolver.safeRandomInt` 与 `PreRequestContext.randomInt` 原实现 `nextLong().toULong().toLong()` 不改变符号，负数取模导致结果为负；改为 `Random.nextLong(min, max + 1)`。
 
 ## [0.0.7] - 2026-06-09
 ### Fixed

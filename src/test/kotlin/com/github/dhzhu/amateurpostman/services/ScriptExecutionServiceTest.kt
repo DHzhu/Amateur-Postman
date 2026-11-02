@@ -220,4 +220,22 @@ class ScriptExecutionServiceTest {
         // Should complete reasonably fast (no deadlock)
         assertTrue(elapsed < 10_000, "Concurrent scripts took ${elapsed}ms — possible deadlock")
     }
+
+    @Test
+    fun `randomInt with max Int MAX_VALUE never returns negative`() {
+        val context = PreRequestContext(environmentService)
+        repeat(1000) {
+            val value = context.randomInt(0, Int.MAX_VALUE)
+            assertTrue(value >= 0, "Value should be non-negative, got $value")
+        }
+    }
+
+    @Test
+    fun `randomInt stays within inclusive bounds`() {
+        val context = PreRequestContext(environmentService)
+        repeat(1000) {
+            assertTrue(context.randomInt(5, 7) in 5..7)
+        }
+        assertEquals(Int.MAX_VALUE, context.randomInt(Int.MAX_VALUE, Int.MAX_VALUE))
+    }
 }

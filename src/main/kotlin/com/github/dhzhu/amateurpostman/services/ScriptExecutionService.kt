@@ -110,13 +110,9 @@ class PreRequestContext(
     fun uuid(): String = java.util.UUID.randomUUID().toString()
 
     /** Returns a random integer between min and max (inclusive). */
-    fun randomInt(min: Int = 0, max: Int = Int.MAX_VALUE - 1): Int {
-        if (max == Int.MAX_VALUE) {
-            val range = Int.MAX_VALUE.toLong() - min.toLong() + 1L
-            return (kotlin.random.Random.nextLong().toULong().toLong() % range + min.toLong()).toInt()
-        }
-        return kotlin.random.Random.nextInt(min, max + 1)
-    }
+    fun randomInt(min: Int = 0, max: Int = Int.MAX_VALUE - 1): Int =
+        // Long arithmetic avoids max + 1 overflow when max == Int.MAX_VALUE
+        kotlin.random.Random.nextLong(min.toLong(), max.toLong() + 1L).toInt()
 }
 
 /**
