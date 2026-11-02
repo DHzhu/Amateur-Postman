@@ -8,6 +8,14 @@
 
 ### Added
 - **IDEA 2026.2 支持**: 升级插件平台版本支持至 IntelliJ IDEA 2026.2，更新插件版本号至 0.1.0。
+- **IDEA 2026.3 支持**: 兼容范围扩展至 `263.*`，构建平台切换为 IntelliJ IDEA 2026.3；插件验证覆盖 2025.3 / 2026.2 / 2026.3。
+
+### Changed
+- **构建与测试依赖升级**: IntelliJ Platform Gradle Plugin 2.16.0 → 2.19.0；JUnit 5.10.2 → 6.1.3（适配 2026.3 测试框架内置的 JUnit Platform 6）；Mockito 5.11.0 → 5.24.0、mockito-kotlin 5.3.1 → 6.4.0（修复无法 mock 实现 263 平台接口的类）。
+- **废弃 API 替换**: `MyBundle` 改用 `DynamicBundle(Class, String)` 构造函数，消除 2026.3 下的废弃 API 告警。
+
+### Fixed
+- **`$randomInt:min,2147483647` 返回负数**: `VariableResolver.safeRandomInt` 原实现 `nextLong().toULong().toLong()` 不改变符号，负数取模导致结果为负；改为 `Random.nextLong(min, max + 1)`。
 
 ## [0.0.7] - 2026-06-09
 ### Fixed

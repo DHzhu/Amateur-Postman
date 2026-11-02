@@ -82,8 +82,8 @@ class WebSocketServiceTest {
 
     @Test
     fun `connect does not change state when URL is invalid`() {
-        // Connect to an invalid URL - should fail gracefully
-        service.connect("ws://nonexistent.local")
+        // Connect to a closed local port - fails fast without relying on DNS behavior
+        service.connect("ws://127.0.0.1:1")
 
         // State should eventually go back to DISCONNECTED after failure
         runBlocking {

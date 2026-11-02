@@ -415,9 +415,11 @@ class VariableResolverTest {
     fun testRandomIntMaxValueNoOverflow() {
         // $randomInt:0,2147483647 should NOT throw ArithmeticException
         val text = "Random: {{\$randomInt:0,2147483647}}"
-        val result = VariableResolver.substituteVariables(text, emptyMap())
-        val value = result.substringAfter(": ").toInt()
-        assertTrue(value in 0..Int.MAX_VALUE)
+        repeat(1000) {
+            val result = VariableResolver.substituteVariables(text, emptyMap())
+            val value = result.substringAfter(": ").toInt()
+            assertTrue(value >= 0, "Value should be non-negative, got $value")
+        }
     }
 
     @Test

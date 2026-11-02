@@ -203,14 +203,9 @@ object VariableResolver {
     /**
      * Generates a random Int in [min, max] (inclusive) without overflow when max == Int.MAX_VALUE.
      */
-    private fun safeRandomInt(min: Int, max: Int): Int {
-        if (max == Int.MAX_VALUE) {
-            // Avoid max + 1 overflow: use Long arithmetic to cover [min, Int.MAX_VALUE]
-            val range = Int.MAX_VALUE.toLong() - min.toLong() + 1L
-            return (Random.nextLong().toULong().toLong() % range + min.toLong()).toInt()
-        }
-        return Random.nextInt(min, max + 1)
-    }
+    private fun safeRandomInt(min: Int, max: Int): Int =
+        // Long arithmetic avoids max + 1 overflow when max == Int.MAX_VALUE
+        Random.nextLong(min.toLong(), max.toLong() + 1L).toInt()
 
     /**
      * Generates a random alphanumeric string.
