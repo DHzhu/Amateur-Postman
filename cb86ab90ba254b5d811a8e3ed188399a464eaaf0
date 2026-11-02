@@ -1,0 +1,12 @@
+【轨道任务审计记录】
+
+📋 变更概述
+fix(script): 修复 randomInt 上限为 Int.MAX_VALUE 时返回负数并更新变更日志 [task-7]
+
+🎯 关联任务
+• task-7
+
+---
+Commit SHA: cb86ab9
+Type: fix
+Files: 3 个文件已修改
