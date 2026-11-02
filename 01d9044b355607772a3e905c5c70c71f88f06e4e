@@ -1,0 +1,17 @@
+【轨道任务审计记录】
+
+📋 变更概述
+build(gradle): 升级插件兼容范围至 IDEA 2026.3 并适配测试依赖 [task-1, task-2, task-3, task-4, task-5, task-6]
+
+🎯 关联任务
+• task-1
+• task-2
+• task-3
+• task-4
+• task-5
+• task-6
+
+---
+Commit SHA: 01d9044
+Type: build
+Files: 12 个文件已修改
